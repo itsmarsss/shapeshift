@@ -22,9 +22,8 @@ MarkupSafe==3.0.2
 matplotlib==3.10.6
 mediapipe==0.10.21
 ml_dtypes==0.5.3
-numpy==2.3.3
+numpy==1.26.4
 opencv-contrib-python==4.11.0.86
-opencv-python==4.12.0.88
 opt_einsum==3.4.0
 orjson==3.11.3
 packaging==25.0
