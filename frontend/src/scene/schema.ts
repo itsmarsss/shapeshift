@@ -73,11 +73,46 @@ export const Light = z.object({
 });
 export type Light = z.infer<typeof Light>;
 
+export const ANIM_PROPERTIES = ["position", "rotation", "scale", "color", "intensity"] as const;
+export const AnimProperty = z.enum(ANIM_PROPERTIES);
+export type AnimProperty = z.infer<typeof AnimProperty>;
+
+export const EASINGS = ["linear", "ease", "step"] as const;
+export const Easing = z.enum(EASINGS);
+export type Easing = z.infer<typeof Easing>;
+
+export const AnimValue = z.union([Vec3, z.number(), Material.shape.color]);
+export type AnimValue = z.infer<typeof AnimValue>;
+
+export const Keyframe = z.object({
+    time: z.number().min(0).max(600).describe("Seconds"),
+    value: AnimValue.describe("[x, y, z] for position, rotation (radians) and scale; #rrggbb for color; a number for intensity"),
+    easing: Easing.optional().describe("How it moves toward the next keyframe. Defaults to ease"),
+});
+export type Keyframe = z.infer<typeof Keyframe>;
+
+export const Track = z.object({
+    target: z.string().describe("Object or light id"),
+    property: AnimProperty,
+    keys: z.array(Keyframe).max(500),
+});
+export type Track = z.infer<typeof Track>;
+
+export const Animation = z.object({
+    duration: z.number().positive().max(600),
+    loop: z.boolean(),
+    tracks: z.array(Track).max(1000),
+});
+export type Animation = z.infer<typeof Animation>;
+
+export const emptyAnimation = (): Animation => ({ duration: 4, loop: true, tracks: [] });
+
 export const SceneDoc = z.object({
     version: z.literal(2),
     objects: z.array(SceneObject),
     lights: z.array(Light).default([]),
     environment: Environment.default("none"),
+    animation: Animation.default(emptyAnimation),
 });
 export type SceneDoc = z.infer<typeof SceneDoc>;
 
@@ -115,6 +150,36 @@ export const Command = z.discriminatedUnion("type", [
         emissive: Material.shape.emissive,
         emissiveIntensity: Material.shape.emissiveIntensity,
         transmission: Material.shape.transmission,
+    }),
+    z.object({
+        type: z.literal("keyframe"),
+        target: Target,
+        time: Keyframe.shape.time,
+        properties: z.array(AnimProperty).min(1).optional().describe("Which properties to key. Defaults to position, rotation and scale, or position, color and intensity for a light"),
+        values: z
+            .object({ position: Vec3.optional(), rotation: Vec3.optional(), scale: Vec3.optional(), color: Material.shape.color.optional(), intensity: z.number().min(0).optional() })
+            .optional()
+            .describe("Values to record. Missing ones use the target's current values"),
+        easing: Easing.optional(),
+    }),
+    z.object({
+        type: z.literal("animate"),
+        target: Target,
+        property: AnimProperty,
+        keys: z.array(Keyframe).min(1).max(200),
+        replace: z.boolean().optional().describe("Replace the property's existing keyframes. Defaults to true"),
+    }),
+    z.object({
+        type: z.literal("removeKeyframe"),
+        target: Target,
+        time: Keyframe.shape.time,
+        property: AnimProperty.optional().describe("Omit to remove the keyframe for every property at that time"),
+    }),
+    z.object({ type: z.literal("clearAnimation"), only: Target.optional().describe("An object, light or group to clear. Omit to remove all animation") }),
+    z.object({
+        type: z.literal("timeline"),
+        duration: Animation.shape.duration.optional().describe("Length in seconds"),
+        loop: z.boolean().optional(),
     }),
     z.object({ type: z.literal("environment"), preset: Environment.describe("Image-based lighting around the scene. none uses plain lights only") }),
     z.object({ type: z.literal("rename"), target: Target, name: z.string().min(1) }),
@@ -156,5 +221,5 @@ export const Command = z.discriminatedUnion("type", [
     z.object({ type: z.literal("clear") }),
 ]);
 
-export const AI_COMMANDS = ["add", "remove", "duplicate", "transform", "material", "rename", "boolean", "addLight", "updateLight", "group", "ungroup", "environment"] as const;
+export const AI_COMMANDS = ["add", "remove", "duplicate", "transform", "material", "rename", "boolean", "addLight", "updateLight", "group", "ungroup", "environment", "animate", "keyframe", "removeKeyframe", "clearAnimation", "timeline"] as const;
 export type Command = z.infer<typeof Command>;

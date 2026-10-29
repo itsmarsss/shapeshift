@@ -8,6 +8,7 @@ describe("export", () => {
             version: 2,
             objects: [],
             environment: "none",
+            animation: { duration: 4, loop: true, tracks: [] },
             lights: [{ id: "l", name: "Key", type: "spot", position: [0, 5, 0], aim: [0, 0, 0], color: "#ffffff", intensity: 40, distance: 0, angle: 0.5 }],
         });
         const light = scene.getObjectByName("Key") as THREE.SpotLight;

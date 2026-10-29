@@ -3,6 +3,7 @@ import { nanoid } from "nanoid";
 import { diffDocs, isEmptyDiff } from "../scene/diff";
 import { useScene } from "../scene/store";
 import { parseSceneFile } from "../scene/io";
+import { emptyAnimation } from "../scene/schema";
 import { diffToOps, opsToDiff, syncDiff } from "./ops";
 import { ROOM_ID, ROOM_LIMITS, type ClientMessage, type Ops, type Peer, type ServerMessage, type SharedTurn, type VersionMeta } from "./protocol";
 
@@ -158,14 +159,14 @@ export const useCollab = create<CollabState>()((set, get) => {
             case "welcome": {
                 attempt = 0;
                 const scene = useScene.getState();
-                const roomEmpty = msg.objects.length === 0 && msg.lights.length === 0 && (msg.environment ?? "none") === "none";
+                const roomEmpty = msg.objects.length === 0 && msg.lights.length === 0 && (msg.environment ?? "none") === "none" && !msg.animation?.tracks.length;
                 if (seedOnWelcome && roomEmpty) {
                     // A new room starts with the sharer's scene.
-                    const diff = diffDocs({ ...scene.doc, objects: [], lights: [], environment: "none" }, scene.doc);
+                    const diff = diffDocs({ ...scene.doc, objects: [], lights: [], environment: "none", animation: emptyAnimation() }, scene.doc);
                     if (!isEmptyDiff(diff)) sendOps(diffToOps(diff));
                 } else {
                     applyRemote(() => {
-                        scene.applyRemote(syncDiff(scene.doc, msg.objects, msg.lights, msg.environment ?? "none"));
+                        scene.applyRemote(syncDiff(scene.doc, msg.objects, msg.lights, msg.environment ?? "none", msg.animation ?? emptyAnimation()));
                         // Edits made while offline aren't in the room's copy yet; keep them.
                         for (const ops of pending.values()) useScene.getState().applyRemote(opsToDiff(ops));
                     });

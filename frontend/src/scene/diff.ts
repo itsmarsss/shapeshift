@@ -1,4 +1,4 @@
-import type { Environment, Light, SceneDoc, SceneObject } from "./schema";
+import type { Animation, Environment, Light, SceneDoc, SceneObject } from "./schema";
 
 // A change to one object or light, by id. `before` is missing for something
 // that was added and `after` for something that was removed. Working per
@@ -9,12 +9,13 @@ export type DocDiff = {
     objects: EntityChange<SceneObject>[];
     lights: EntityChange<Light>[];
     environment?: { before: Environment; after: Environment };
+    animation?: { before: Animation; after: Animation };
 };
 
 export const emptyDiff = (): DocDiff => ({ objects: [], lights: [] });
 
 export function isEmptyDiff(d: DocDiff) {
-    return d.objects.length === 0 && d.lights.length === 0 && !d.environment;
+    return d.objects.length === 0 && d.lights.length === 0 && !d.environment && !d.animation;
 }
 
 function diffList<T extends { id: string }>(prev: T[], next: T[]): EntityChange<T>[] {
@@ -37,6 +38,7 @@ export function diffDocs(prev: SceneDoc, next: SceneDoc): DocDiff {
         objects: diffList(prev.objects, next.objects),
         lights: diffList(prev.lights, next.lights),
         ...(prev.environment !== next.environment ? { environment: { before: prev.environment, after: next.environment } } : {}),
+        ...(prev.animation !== next.animation ? { animation: { before: prev.animation, after: next.animation } } : {}),
     };
 }
 
@@ -69,6 +71,7 @@ export function applyDiff(doc: SceneDoc, diff: DocDiff, side: "before" | "after"
         objects: applyList(doc.objects, diff.objects, side),
         lights: applyList(doc.lights, diff.lights, side),
         ...(diff.environment ? { environment: diff.environment[side] } : {}),
+        ...(diff.animation ? { animation: diff.animation[side] } : {}),
     };
 }
 
@@ -87,9 +90,11 @@ function mergeList<T>(a: EntityChange<T>[], b: EntityChange<T>[]): EntityChange<
 export function mergeDiffs(a: DocDiff, b: DocDiff): DocDiff {
     const environment =
         a.environment && b.environment ? { before: a.environment.before, after: b.environment.after } : (a.environment ?? b.environment);
+    const animation = a.animation && b.animation ? { before: a.animation.before, after: b.animation.after } : (a.animation ?? b.animation);
     return {
         objects: mergeList(a.objects, b.objects),
         lights: mergeList(a.lights, b.lights),
         ...(environment && environment.before !== environment.after ? { environment } : {}),
+        ...(animation && animation.before !== animation.after ? { animation } : {}),
     };
 }
