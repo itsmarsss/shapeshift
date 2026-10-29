@@ -1,13 +1,14 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import styled from "styled-components";
 import { Intersect, Subtract, Unite } from "@phosphor-icons/react";
-import { useEditor } from "../store/editor";
+import { useScene } from "../scene/store";
 import { IconButton, Select } from "./ui";
 
 const Bar = styled.div`
     position: absolute;
     bottom: var(--gap);
-    left: calc(var(--gap) * 2 + 220px);
+    left: 50%;
+    transform: translateX(calc(-50% - var(--chat-width) / 2));
     display: flex;
     gap: 6px;
     align-items: center;
@@ -22,61 +23,57 @@ const Picker = styled(Select)`
     width: 130px;
 `;
 
+const OPS = [
+    { op: "union", label: "Union", Icon: Unite },
+    { op: "subtract", label: "Subtract second from first", Icon: Subtract },
+    { op: "intersect", label: "Intersect", Icon: Intersect },
+] as const;
+
 export function BooleanPanel() {
-    const objects = useEditor((s) => s.objects);
-    const booleanOp = useEditor((s) => s.booleanOp);
-    const editorMode = useEditor((s) => s.editorMode);
-    const [aId, setA] = useState<string>("");
-    const [bId, setB] = useState<string>("");
+    const objects = useScene((s) => s.doc.objects);
+    const mode = useScene((s) => s.mode);
+    const run = useScene((s) => s.run);
+    const [a, setA] = useState("");
+    const [b, setB] = useState("");
 
-    const options = useMemo(
-        () => objects.map((o) => ({ id: o.id, name: o.name })),
-        [objects]
-    );
+    if (mode !== "object" || objects.length < 2) return null;
 
-    if (editorMode === "render" || objects.length < 2) return null;
-
-    const ready = Boolean(aId && bId && aId !== bId);
+    const ids = new Set(objects.map((o) => o.id));
+    const first = ids.has(a) ? a : "";
+    const second = ids.has(b) ? b : "";
+    const ready = Boolean(first && second && first !== second);
 
     return (
         <Bar>
-            <Picker value={aId} onChange={(e) => setA(e.target.value)}>
+            <Picker value={first} onChange={(e) => setA(e.target.value)}>
                 <option value="">First object</option>
-                {options.map((o) => (
+                {objects.map((o) => (
                     <option key={o.id} value={o.id}>
                         {o.name}
                     </option>
                 ))}
             </Picker>
-            <Picker value={bId} onChange={(e) => setB(e.target.value)}>
+            <Picker value={second} onChange={(e) => setB(e.target.value)}>
                 <option value="">Second object</option>
-                {options.map((o) => (
+                {objects.map((o) => (
                     <option key={o.id} value={o.id}>
                         {o.name}
                     </option>
                 ))}
             </Picker>
-            <IconButton
-                title="Union"
-                disabled={!ready}
-                onClick={() => booleanOp("union", aId, bId)}
-            >
-                <Unite size={18} />
-            </IconButton>
-            <IconButton
-                title="Subtract second from first"
-                disabled={!ready}
-                onClick={() => booleanOp("subtract", aId, bId)}
-            >
-                <Subtract size={18} />
-            </IconButton>
-            <IconButton
-                title="Intersect"
-                disabled={!ready}
-                onClick={() => booleanOp("intersect", aId, bId)}
-            >
-                <Intersect size={18} />
-            </IconButton>
+            {OPS.map(({ op, label, Icon }) => (
+                <IconButton
+                    key={op}
+                    title={label}
+                    disabled={!ready}
+                    onClick={() => {
+                        const [result] = run({ type: "boolean", operation: op, target: first, tool: second });
+                        if (result && !result.ok) alert(result.error);
+                    }}
+                >
+                    <Icon size={18} />
+                </IconButton>
+            ))}
         </Bar>
     );
 }

@@ -1,4 +1,5 @@
 import type { Command, Geometry, Material, Primitive, SceneDoc, SceneObject, Vec3 } from "./schema";
+import { booleanGeometry } from "./geometry";
 
 export const DEFAULT_GEOMETRY: Record<Primitive, Geometry> = {
     box: { type: "box", width: 1, height: 1, depth: 1 },
@@ -25,6 +26,29 @@ const LABELS: Record<Primitive, string> = {
     plane: "Plane",
 };
 
+function restingPose(primitive: Primitive): { position: Vec3; rotation: Vec3 } {
+    switch (primitive) {
+        case "plane":
+            return { position: [0, 0.001, 0], rotation: [-Math.PI / 2, 0, 0] };
+        case "torus":
+            return { position: [0, 0.2, 0], rotation: [-Math.PI / 2, 0, 0] };
+        default:
+            return { position: [0, 0.5, 0], rotation: [0, 0, 0] };
+    }
+}
+
+const SPOT_STEP = 1.5;
+const SPOTS: [number, number][] = [];
+for (let x = -6; x <= 6; x++) for (let z = -6; z <= 6; z++) SPOTS.push([x * SPOT_STEP + 0, z * SPOT_STEP + 0]);
+SPOTS.sort((a, b) => Math.hypot(...a) - Math.hypot(...b) || b[0] - a[0] || b[1] - a[1]);
+
+function freeSpot(doc: SceneDoc): [number, number] {
+    const spot = SPOTS.find(([px, pz]) =>
+        doc.objects.every((o) => Math.hypot(o.position[0] - px, o.position[2] - pz) >= SPOT_STEP * 0.8)
+    );
+    return spot ?? [0, 0];
+}
+
 export type CommandResult = { ok: true; created: string[] } | { ok: false; error: string };
 
 export function findObject(doc: SceneDoc, target: string): SceneObject | undefined {
@@ -50,12 +74,17 @@ const mul = (a: Vec3, b: Vec3): Vec3 => [a[0] * b[0], a[1] * b[1], a[2] * b[2]];
 export function applyCommand(doc: SceneDoc, cmd: Command, newId: () => string): CommandResult {
     if (cmd.type === "add") {
         const id = newId();
+        const pose = restingPose(cmd.primitive);
+        if (!cmd.position) {
+            const [x, z] = freeSpot(doc);
+            pose.position = [x, pose.position[1], z];
+        }
         doc.objects.push({
             id,
             name: uniqueName(doc, cmd.name ?? LABELS[cmd.primitive]),
             geometry: structuredClone(DEFAULT_GEOMETRY[cmd.primitive]),
-            position: cmd.position ?? [0, 0, 0],
-            rotation: cmd.rotation ?? [0, 0, 0],
+            position: cmd.position ?? pose.position,
+            rotation: cmd.rotation ?? pose.rotation,
             scale: cmd.scale ?? [1, 1, 1],
             material: { ...DEFAULT_MATERIAL, ...(cmd.color ? { color: cmd.color } : {}) },
         });
@@ -64,6 +93,32 @@ export function applyCommand(doc: SceneDoc, cmd: Command, newId: () => string): 
 
     if (cmd.type === "clear") {
         doc.objects = [];
+        return { ok: true, created: [] };
+    }
+
+    if (cmd.type === "insert") {
+        const created: string[] = [];
+        for (const o of cmd.objects) {
+            const id = newId();
+            doc.objects.push({ ...structuredClone(o), id, name: uniqueName(doc, o.name) });
+            created.push(id);
+        }
+        return { ok: true, created };
+    }
+
+    if (cmd.type === "boolean") {
+        const a = findObject(doc, cmd.target);
+        const b = findObject(doc, cmd.tool);
+        if (!a) return { ok: false, error: `No object named "${cmd.target}"` };
+        if (!b) return { ok: false, error: `No object named "${cmd.tool}"` };
+        if (a.id === b.id) return { ok: false, error: "Pick two different objects" };
+        const result = booleanGeometry(cmd.operation, a, b);
+        if (!result) return { ok: false, error: "The result is empty" };
+        a.geometry = result.geometry;
+        a.position = result.position;
+        a.rotation = [0, 0, 0];
+        a.scale = [1, 1, 1];
+        doc.objects = doc.objects.filter((o) => o.id !== b.id);
         return { ok: true, created: [] };
     }
 
