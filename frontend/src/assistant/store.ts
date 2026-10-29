@@ -5,6 +5,7 @@ import { runTurn } from "./agent";
 import { newTurnContext, type Activity, type TurnContext } from "./executor";
 import type { AgentInfo, WireMessage } from "./protocol";
 import { AgentError, fetchAgentInfo, httpTransport, type Transport } from "./transport";
+import { loadChat, saveChat } from "./persist";
 
 type HistoryEntry = SceneState["past"][number];
 
@@ -38,10 +39,14 @@ type AssistantState = {
     loadInfo: () => void;
 };
 
+const saved = typeof localStorage === "undefined" ? null : loadChat();
+
 // The model-facing transcript. Not reactive: the UI renders `turns` instead.
-let conversation: WireMessage[] = [];
+let conversation: WireMessage[] = saved?.conversation ?? [];
 let controller: AbortController | null = null;
-let context: TurnContext | null = null;
+const lastSaved = saved?.turns[saved.turns.length - 1];
+// Lets Retry pick up a turn that failed before the page was reloaded.
+let context: TurnContext | null = lastSaved?.status === "error" ? newTurnContext(`assistant:${lastSaved.id}`) : null;
 let transport: Transport = httpTransport;
 
 export function setTransportForTests(t: Transport) {
@@ -122,11 +127,12 @@ export const useAssistant = create<AssistantState>()((set, get) => {
             patchTurn(turnId, (t) => ({ writing: null, finishedAt: Date.now(), entry: entry ?? t.entry }));
             controller = null;
             set({ running: false });
+            saveChat({ conversation, turns: get().turns });
         }
     }
 
     return {
-        turns: [],
+        turns: saved?.turns ?? [],
         running: false,
         info: null,
 
@@ -155,6 +161,7 @@ export const useAssistant = create<AssistantState>()((set, get) => {
             conversation = [];
             context = null;
             set({ turns: [], running: false });
+            saveChat({ conversation, turns: [] });
         },
 
         undoTurn: (id) => {
