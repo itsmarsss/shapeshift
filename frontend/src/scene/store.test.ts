@@ -29,6 +29,14 @@ describe("commands", () => {
         expect(o.scale).toEqual([2, 2, 2]);
     });
 
+    it("duplicates an object that was already edited", () => {
+        s().run({ type: "add", primitive: "box" });
+        s().run({ type: "transform", target: "Box", position: [1, 0, 0] });
+        const [r] = s().run({ type: "duplicate", target: "Box", offset: [1, 0, 0] });
+        expect(r.ok).toBe(true);
+        expect(s().doc.objects.map((o) => o.position[0])).toEqual([1, 2]);
+    });
+
     it("reports missing targets without changing the scene", () => {
         const [r] = s().run({ type: "remove", target: "nope" });
         expect(r.ok).toBe(false);
