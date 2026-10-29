@@ -7,13 +7,20 @@ export const PRIMITIVES = ["box", "sphere", "cylinder", "cone", "torus", "plane"
 export const Primitive = z.enum(PRIMITIVES);
 export type Primitive = z.infer<typeof Primitive>;
 
-export const Geometry = z.discriminatedUnion("type", [
+const PRIMITIVE_GEOMETRIES = [
     z.object({ type: z.literal("box"), width: z.number().positive(), height: z.number().positive(), depth: z.number().positive() }),
     z.object({ type: z.literal("sphere"), radius: z.number().positive() }),
     z.object({ type: z.literal("cylinder"), radiusTop: z.number().nonnegative(), radiusBottom: z.number().nonnegative(), height: z.number().positive() }),
     z.object({ type: z.literal("cone"), radius: z.number().positive(), height: z.number().positive() }),
     z.object({ type: z.literal("torus"), radius: z.number().positive(), tube: z.number().positive() }),
     z.object({ type: z.literal("plane"), width: z.number().positive(), height: z.number().positive() }),
+] as const;
+
+export const PrimitiveGeometry = z.discriminatedUnion("type", PRIMITIVE_GEOMETRIES);
+export type PrimitiveGeometry = z.infer<typeof PrimitiveGeometry>;
+
+export const Geometry = z.discriminatedUnion("type", [
+    ...PRIMITIVE_GEOMETRIES,
     z.object({ type: z.literal("mesh"), positions: z.array(z.number()), indices: z.array(z.number().int().nonnegative()) }),
 ]);
 export type Geometry = z.infer<typeof Geometry>;
@@ -50,6 +57,7 @@ export const Command = z.discriminatedUnion("type", [
         type: z.literal("add"),
         primitive: Primitive,
         name: z.string().optional(),
+        geometry: PrimitiveGeometry.optional().describe("Dimensions. Its type must match the primitive"),
         position: Vec3.optional(),
         rotation: Vec3.optional().describe("Radians"),
         scale: Vec3.optional(),

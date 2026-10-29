@@ -2,7 +2,7 @@ import { z } from "zod";
 import { AI_COMMANDS, Command } from "./schema";
 
 const DESCRIPTIONS: Record<(typeof AI_COMMANDS)[number], string> = {
-    add: "Add a primitive. Without a position it rests on the ground in the nearest free spot.",
+    add: "Add a primitive. Set geometry for exact dimensions (its type must match the primitive), or scale to stretch it. Without a position it rests on the ground in the nearest free spot.",
     remove: "Delete an object.",
     duplicate: "Copy an object, offset by `offset` (default [0.5, 0, 0.5]).",
     transform: "Set position, rotation (radians) and scale. With relative: true, position and rotation are added and scale is multiplied.",
