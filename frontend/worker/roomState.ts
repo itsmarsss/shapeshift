@@ -1,5 +1,5 @@
 import { ROOM_LIMITS, type Ops, type SharedTurn, type VersionMeta } from "../src/collab/protocol";
-import type { Environment, Light, SceneObject } from "../src/scene/schema";
+import { emptyAnimation, type Animation, type Environment, type Light, type SceneObject } from "../src/scene/schema";
 
 type Entity = { id: string };
 
@@ -59,6 +59,7 @@ export class RoomState {
     version: number;
     chat: SharedTurn[];
     environment: Environment = "none";
+    animation: Animation = emptyAnimation();
 
     constructor(objects: SceneObject[] = [], lights: Light[] = [], version = 0, chat: SharedTurn[] = []) {
         this.objects = objects;
@@ -91,6 +92,7 @@ export class RoomState {
         this.objects = objects;
         this.lights = lights;
         if (ops.environment) this.environment = ops.environment;
+        if (ops.animation) this.animation = ops.animation;
         this.version++;
         return { ok: true, version: this.version };
     }

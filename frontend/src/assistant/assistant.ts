@@ -124,6 +124,13 @@ export function describeScene(doc: SceneDoc, selectedId: string | null, selected
         ? doc.lights.map((l) => describeLight(l, selectedId))
         : ["No lights yet, so the editor's default studio lighting is on."];
     if (doc.environment !== "none") lights.push(`Environment lighting: ${doc.environment}.`);
+    if (doc.animation.tracks.length) {
+        const names = new Map([...doc.objects, ...doc.lights].map((e) => [e.id, e.name]));
+        const tracks = doc.animation.tracks
+            .slice(0, 60)
+            .map((t) => `"${names.get(t.target) ?? t.target}" ${t.property} keys at ${t.keys.map((k) => `${round(k.time)}s`).join(", ")}`);
+        lights.push(`Animation (${round(doc.animation.duration)}s, ${doc.animation.loop ? "loops" : "plays once"}): ${tracks.join("; ")}.`);
+    }
     if (!doc.objects.length) return ["The scene has no objects.", ...lights].join("\n");
     const listed = doc.objects.slice(0, SCENE_OBJECT_LIMIT);
     const selected = doc.objects.find((o) => o.id === selectedId);
@@ -185,6 +192,16 @@ export function describeCommand(cmd: Command, doc: SceneDoc): string {
             return `Grouped ${cmd.targets.length === 1 ? cmd.targets[0] : `${cmd.targets.length} objects`} as ${cmd.name}`;
         case "ungroup":
             return `Ungrouped ${name}`;
+        case "animate":
+            return `Animated ${name}'s ${cmd.property}`;
+        case "keyframe":
+            return `Keyed ${name} at ${round(cmd.time)}s`;
+        case "removeKeyframe":
+            return `Removed ${name}'s keyframe at ${round(cmd.time)}s`;
+        case "clearAnimation":
+            return cmd.only ? `Cleared ${findObject(doc, cmd.only)?.name ?? cmd.only}'s animation` : "Cleared all animation";
+        case "timeline":
+            return `Set the timeline to ${cmd.duration ? `${round(cmd.duration)}s` : ""}${cmd.duration && cmd.loop !== undefined ? ", " : ""}${cmd.loop === undefined ? "" : cmd.loop ? "looping" : "playing once"}`;
         case "environment":
             return cmd.preset === "none" ? "Turned off the environment lighting" : `Set the ${cmd.preset} environment`;
         case "addLight":

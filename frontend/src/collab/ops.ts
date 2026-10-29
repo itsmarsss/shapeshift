@@ -11,7 +11,12 @@ function toOps<T extends { id: string }>(changes: EntityChange<T>[]) {
 }
 
 export function diffToOps(diff: DocDiff): Ops {
-    return { objects: toOps(diff.objects), lights: toOps(diff.lights), ...(diff.environment ? { environment: diff.environment.after } : {}) };
+    return {
+        objects: toOps(diff.objects),
+        lights: toOps(diff.lights),
+        ...(diff.environment ? { environment: diff.environment.after } : {}),
+        ...(diff.animation ? { animation: diff.animation.after } : {}),
+    };
 }
 
 function toChanges<T extends { id: string }>(part: { upsert: { entity: T; index?: number }[]; remove: string[] }): EntityChange<T>[] {
@@ -27,16 +32,23 @@ export function opsToDiff(ops: Ops): DocDiff {
         objects: toChanges<SceneObject>(ops.objects),
         lights: toChanges<Light>(ops.lights),
         ...(ops.environment ? { environment: { before: ops.environment, after: ops.environment } } : {}),
+        ...(ops.animation ? { animation: { before: ops.animation, after: ops.animation } } : {}),
     };
 }
 
 export function isEmptyOps(ops: Ops) {
-    return !ops.objects.upsert.length && !ops.objects.remove.length && !ops.lights.upsert.length && !ops.lights.remove.length && !ops.environment;
+    return !ops.objects.upsert.length && !ops.objects.remove.length && !ops.lights.upsert.length && !ops.lights.remove.length && !ops.environment && !ops.animation;
 }
 
 // Everything needed to turn `local` into the room's copy of the scene.
-export function syncDiff(local: SceneDoc, objects: SceneObject[], lights: Light[], environment: SceneDoc["environment"] = local.environment): DocDiff {
-    return diffDocs(local, { ...local, objects, lights, environment });
+export function syncDiff(
+    local: SceneDoc,
+    objects: SceneObject[],
+    lights: Light[],
+    environment: SceneDoc["environment"] = local.environment,
+    animation: SceneDoc["animation"] = local.animation
+): DocDiff {
+    return diffDocs(local, { ...local, objects, lights, environment, animation });
 }
 
 export { emptyOps };

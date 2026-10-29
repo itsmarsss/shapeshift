@@ -3,7 +3,7 @@ import { produce } from "immer";
 import { nanoid } from "nanoid";
 import { applyCommand, type CommandResult } from "./commands";
 import { applyDiff, diffDocs, isEmptyDiff, mergeDiffs, type DocDiff } from "./diff";
-import type { Command, SceneDoc } from "./schema";
+import { emptyAnimation, type Command, type SceneDoc } from "./schema";
 
 export type EditorMode = "object" | "edit" | "render";
 export type TransformMode = "translate" | "rotate" | "scale";
@@ -52,7 +52,7 @@ export type SceneState = {
     setSnap: (snap: Partial<Snap>) => void;
 };
 
-export const emptyDoc = (): SceneDoc => ({ version: 2, objects: [], lights: [], environment: "none" });
+export const emptyDoc = (): SceneDoc => ({ version: 2, objects: [], lights: [], environment: "none", animation: emptyAnimation() });
 
 const HISTORY_LIMIT = 200;
 

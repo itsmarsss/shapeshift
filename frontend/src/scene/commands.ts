@@ -2,6 +2,7 @@ import type { Command, Geometry, Light, LightType, Material, Primitive, SceneDoc
 import { current, isDraft } from "immer";
 import * as THREE from "three";
 import { booleanGeometry } from "./geometry";
+import { LIGHT_PROPERTIES, OBJECT_PROPERTIES, currentValue, removeKeysAt, removeTracksFor, resolveAnimationTargets, setKey, valueFits } from "./animation";
 
 export const DEFAULT_GEOMETRY: Record<Primitive, Geometry> = {
     box: { type: "box", width: 1, height: 1, depth: 1 },
@@ -98,6 +99,7 @@ function applyToLight(doc: SceneDoc, light: Light, cmd: Command, newId: () => st
     switch (cmd.type) {
         case "remove":
             doc.lights = doc.lights.filter((l) => l.id !== light.id);
+            removeTracksFor(doc.animation, new Set([light.id]));
             return { ok: true, created: [] };
         case "rename":
             light.name = cmd.name;
@@ -170,6 +172,7 @@ function applyToGroup(doc: SceneDoc, group: string, members: SceneObject[], cmd:
     switch (cmd.type) {
         case "remove":
             doc.objects = doc.objects.filter((o) => !ids.has(o.id));
+            removeTracksFor(doc.animation, ids);
             return { ok: true, created: [] };
         case "transform":
             return transformGroup(members, cmd);
@@ -221,7 +224,64 @@ const copy = <T>(value: T): T => structuredClone(isDraft(value) ? current(value)
 const add = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const mul = (a: Vec3, b: Vec3): Vec3 => [a[0] * b[0], a[1] * b[1], a[2] * b[2]];
 
+function applyAnimation(doc: SceneDoc, cmd: Extract<Command, { type: "keyframe" | "animate" | "removeKeyframe" | "clearAnimation" | "timeline" }>): CommandResult {
+    const anim = doc.animation;
+    const find = (t: string) => findObject(doc, t) ?? findLight(doc, t);
+    switch (cmd.type) {
+        case "timeline":
+            if (cmd.duration !== undefined) anim.duration = cmd.duration;
+            if (cmd.loop !== undefined) anim.loop = cmd.loop;
+            return { ok: true, created: [] };
+        case "clearAnimation": {
+            if (!cmd.only) {
+                anim.tracks = [];
+                return { ok: true, created: [] };
+            }
+            const targets = resolveAnimationTargets(doc, cmd.only, find);
+            if (!targets.length) return { ok: false, error: `No object, light or group named "${cmd.only}"` };
+            removeTracksFor(anim, new Set(targets.map((t) => t.id)));
+            return { ok: true, created: [] };
+        }
+        default:
+            break;
+    }
+    const targets = resolveAnimationTargets(doc, cmd.target, find);
+    if (!targets.length) return { ok: false, error: `No object, light or group named "${cmd.target}"` };
+
+    if (cmd.type === "removeKeyframe") {
+        const removed = targets.reduce((n, t) => n + removeKeysAt(anim, t.id, cmd.time, cmd.property), 0);
+        return removed ? { ok: true, created: [] } : { ok: false, error: `No keyframe at ${cmd.time}s` };
+    }
+
+    if (cmd.type === "animate") {
+        if (!cmd.keys.every((k) => valueFits(cmd.property, k.value))) {
+            return { ok: false, error: `Values for ${cmd.property} must be ${cmd.property === "color" ? "#rrggbb colors" : cmd.property === "intensity" ? "numbers" : "[x, y, z] arrays"}` };
+        }
+        for (const t of targets) {
+            if (currentValue(t, cmd.property) === undefined) return { ok: false, error: `"${t.name}" has no ${cmd.property} to animate` };
+            const existing = anim.tracks.find((tr) => tr.target === t.id && tr.property === cmd.property);
+            if (existing && cmd.replace !== false) existing.keys = [];
+            for (const key of cmd.keys) setKey(anim, t.id, cmd.property, key);
+        }
+        return { ok: true, created: [] };
+    }
+
+    // keyframe: record current (or given) values at a time.
+    for (const t of targets) {
+        const props = cmd.properties ?? ("geometry" in t ? OBJECT_PROPERTIES : LIGHT_PROPERTIES);
+        for (const property of props) {
+            const value = (cmd.values as Record<string, unknown> | undefined)?.[property] ?? currentValue(t, property);
+            if (value === undefined) continue;
+            setKey(anim, t.id, property, { time: cmd.time, value: value as never, ...(cmd.easing ? { easing: cmd.easing } : {}) });
+        }
+    }
+    return { ok: true, created: [] };
+}
+
 export function applyCommand(doc: SceneDoc, cmd: Command, newId: () => string): CommandResult {
+    if (cmd.type === "keyframe" || cmd.type === "animate" || cmd.type === "removeKeyframe" || cmd.type === "clearAnimation" || cmd.type === "timeline") {
+        return applyAnimation(doc, cmd);
+    }
     if (cmd.type === "add") {
         if (cmd.geometry && cmd.geometry.type !== cmd.primitive) {
             return { ok: false, error: `Geometry type "${cmd.geometry.type}" does not match primitive "${cmd.primitive}"` };
@@ -272,6 +332,7 @@ export function applyCommand(doc: SceneDoc, cmd: Command, newId: () => string): 
 
     if (cmd.type === "clear") {
         doc.objects = [];
+        doc.animation.tracks = [];
         doc.lights = [];
         return { ok: true, created: [] };
     }
@@ -314,6 +375,7 @@ export function applyCommand(doc: SceneDoc, cmd: Command, newId: () => string): 
     switch (cmd.type) {
         case "remove":
             doc.objects = doc.objects.filter((o) => o.id !== obj.id);
+            removeTracksFor(doc.animation, new Set([obj.id]));
             return { ok: true, created: [] };
         case "duplicate": {
             const id = newId();
