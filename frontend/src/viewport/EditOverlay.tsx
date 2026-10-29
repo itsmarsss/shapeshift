@@ -5,9 +5,11 @@ import * as THREE from "three";
 import { editableMesh } from "../scene/geometry";
 import type { SceneObject } from "../scene/schema";
 import { useScene } from "../scene/store";
+import { useEditSelection } from "./editSelection";
 
 const HANDLE = new THREE.Color("#c8ccd4");
 const HANDLE_SELECTED = new THREE.Color("#4f7cff");
+const HANDLE_HOVER = new THREE.Color("#9db4ff");
 
 type DragStart = {
     pivot: THREE.Vector3;
@@ -21,22 +23,25 @@ export function EditOverlay({ object, gizmoBusy }: { object: SceneObject; gizmoB
     const snap = useScene((s) => s.snap);
     const mesh = editableMesh(object.geometry);
     const count = mesh.positions.length / 3;
-    const [selected, setSelected] = useState<number[]>([]);
+    const selected = useEditSelection((s) => s.vertices);
+    const setSelected = useEditSelection((s) => s.setVertices);
+    const hoverVertex = useEditSelection((s) => s.hoverVertex);
     const [pivot] = useState(() => new THREE.Object3D());
     const groupRef = useRef<THREE.Group>(null);
     const drag = useRef<DragStart | null>(null);
 
-    useEffect(() => setSelected([]), [object.id]);
+    useEffect(() => setSelected([]), [object.id, setSelected]);
     const active = useMemo(() => selected.filter((i) => i < count), [selected, count]);
 
     const pointsGeometry = useMemo(() => {
         const g = new THREE.BufferGeometry();
         g.setAttribute("position", new THREE.Float32BufferAttribute(mesh.positions, 3));
         const colors = new Float32Array(count * 3);
-        for (let i = 0; i < count; i++) (active.includes(i) ? HANDLE_SELECTED : HANDLE).toArray(colors, i * 3);
+        for (let i = 0; i < count; i++)
+            (active.includes(i) ? HANDLE_SELECTED : i === hoverVertex ? HANDLE_HOVER : HANDLE).toArray(colors, i * 3);
         g.setAttribute("color", new THREE.BufferAttribute(colors, 3));
         return g;
-    }, [mesh.positions, count, active]);
+    }, [mesh.positions, count, active, hoverVertex]);
     useEffect(() => () => pointsGeometry.dispose(), [pointsGeometry]);
 
     const wireGeometry = useMemo(() => {
@@ -66,7 +71,8 @@ export function EditOverlay({ object, gizmoBusy }: { object: SceneObject; gizmoB
         e.stopPropagation();
         if (e.index === undefined) return;
         const i = e.index;
-        setSelected((prev) => (e.shiftKey ? (prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]) : [i]));
+        const prev = useEditSelection.getState().vertices;
+        setSelected(e.shiftKey ? (prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]) : [i]);
     }
 
     return (
