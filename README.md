@@ -20,7 +20,7 @@ Try it at [shapeshift.hanzpo.com](https://shapeshift.hanzpo.com).
 
 ## How to deploy
 
-From `frontend`, run `pnpm run deploy`. This builds the app and deploys the Worker to `shapeshift.hanzpo.com`.
+Every push to `main` deploys to `shapeshift.hanzpo.com` through GitHub Actions. To deploy by hand, run `pnpm run deploy` from `frontend`.
 
 ## Inspiration
 

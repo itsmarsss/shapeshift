@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "shapeshift",
+  "account_id": "34a5605a116bc977a13eccc0c7feeb3a",
   "main": "worker/index.ts",
   "compatibility_date": "2026-10-15",
   "assets": {
