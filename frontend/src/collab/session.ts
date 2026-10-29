@@ -4,7 +4,7 @@ import { diffDocs, isEmptyDiff } from "../scene/diff";
 import { useScene } from "../scene/store";
 import { parseSceneFile } from "../scene/io";
 import { diffToOps, opsToDiff, syncDiff } from "./ops";
-import { ROOM_ID, ROOM_LIMITS, type ClientMessage, type Ops, type Peer, type ServerMessage } from "./protocol";
+import { ROOM_ID, ROOM_LIMITS, type ClientMessage, type Ops, type Peer, type ServerMessage, type SharedTurn } from "./protocol";
 
 export type CollabStatus = "off" | "connecting" | "live" | "reconnecting" | "error";
 
@@ -72,6 +72,35 @@ let applyingRemote = false;
 // them in order and the last write wins, so resending is safe.
 const pending = new Map<string, Ops>();
 let unsubscribers: (() => void)[] = [];
+
+// The room's assistant transcript. Buffered here because the chat panel loads
+// lazily and may subscribe after the room has already sent it.
+type ChatListener = (turns: SharedTurn[], replace: boolean) => void;
+let roomChat: SharedTurn[] = [];
+const chatListeners = new Set<ChatListener>();
+
+function publishChat(turns: SharedTurn[], replace: boolean) {
+    if (replace) roomChat = turns.slice();
+    else
+        for (const t of turns) {
+            const at = roomChat.findIndex((x) => x.id === t.id);
+            if (at >= 0) roomChat[at] = t;
+            else roomChat.push(t);
+        }
+    for (const fn of chatListeners) fn(turns, replace);
+}
+
+export function onRoomChat(fn: ChatListener) {
+    chatListeners.add(fn);
+    if (roomChat.length) fn(roomChat.slice(), true);
+    return () => {
+        chatListeners.delete(fn);
+    };
+}
+
+export function sendChatTurn(turn: SharedTurn) {
+    if (useCollab.getState().status === "live") send({ type: "chat", turn });
+}
 let cursor: [number, number, number] | null = null;
 let cursorTimer: ReturnType<typeof setTimeout> | undefined;
 let lastCursorSent = 0;
@@ -140,8 +169,12 @@ export const useCollab = create<CollabState>()((set, get) => {
                 for (const [id, ops] of pending) send({ type: "ops", id, ops });
                 sendPresence();
                 set({ status: "live", you: msg.you, peers: Object.fromEntries(msg.peers.map((p) => [p.id, p])), error: null });
+                publishChat(msg.chat ?? [], true);
                 return;
             }
+            case "chat":
+                publishChat([msg.turn], false);
+                return;
             case "ops":
                 applyRemote(() => useScene.getState().applyRemote(opsToDiff(msg.ops)));
                 return;
@@ -245,6 +278,7 @@ export const useCollab = create<CollabState>()((set, get) => {
             ws?.close(1000, "Left");
             if (get().roomId) setRoomInUrl(null);
             set({ status: "off", roomId: null, you: null, peers: {}, error: null });
+            publishChat([], true);
             if (options.restore) {
                 try {
                     const solo = localStorage.getItem(BACKUP_KEY);

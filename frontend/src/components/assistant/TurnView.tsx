@@ -17,6 +17,36 @@ const Root = styled.section`
     gap: 10px;
 `;
 
+const Author = styled.div<{ $color: string; $remote?: boolean }>`
+    align-self: ${(p) => (p.$remote ? "flex-start" : "flex-end")};
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: -6px;
+    color: var(--text-muted);
+    font-size: 11px;
+
+    &::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: ${(p) => p.$color};
+    }
+`;
+
+const RemotePrompt = styled.div<{ $color: string }>`
+    align-self: flex-start;
+    max-width: 88%;
+    padding: 7px 11px;
+    border-radius: 14px 14px 14px 4px;
+    background: var(--surface-raised);
+    border-left: 3px solid ${(p) => p.$color};
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-height: 1.45;
+`;
+
 const Prompt = styled.div`
     align-self: flex-end;
     max-width: 88%;
@@ -170,7 +200,12 @@ export function TurnView({ turn, last }: { turn: Turn; last: boolean }) {
                     ))}
                 </Pictures>
             ) : null}
-            <Prompt>{turn.prompt}</Prompt>
+            {turn.author && (
+                <Author $color={turn.author.color} $remote={turn.remote}>
+                    {turn.remote ? `${turn.author.name} asked` : "You asked"}
+                </Author>
+            )}
+            {turn.remote ? <RemotePrompt $color={turn.author!.color}>{turn.prompt}</RemotePrompt> : <Prompt>{turn.prompt}</Prompt>}
             <Body>
                 {turn.items.map((item, i) =>
                     item.kind === "text" ? <RichText key={i} text={item.text} /> : <ActivityList key={i} activities={item.activities} />
@@ -187,7 +222,7 @@ export function TurnView({ turn, last }: { turn: Turn; last: boolean }) {
                     <Note $tone="error" role="alert">
                         <WarningCircle size={14} weight="fill" />
                         <div style={{ flex: 1 }}>{turn.error.message}</div>
-                        {last && turn.error.retryable && (
+                        {last && !turn.remote && turn.error.retryable && (
                             <Action onClick={retry} disabled={running}>
                                 Retry
                             </Action>
@@ -200,7 +235,7 @@ export function TurnView({ turn, last }: { turn: Turn; last: boolean }) {
                         {changes > 0 && <span>·</span>}
                         <span>{seconds(turn)}</span>
                         <span style={{ flex: 1 }} />
-                        <TurnHistoryButton turn={turn} />
+                        {!turn.remote && <TurnHistoryButton turn={turn} />}
                     </Meta>
                 )}
             </Body>
