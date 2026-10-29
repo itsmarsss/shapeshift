@@ -10,7 +10,7 @@ type Props = {
     selected: boolean;
     hovered: boolean;
     showSelection: boolean;
-    onSelect: (id: string) => void;
+    onSelect: (id: string, event: MouseEvent) => void;
     meshRef?: (mesh: THREE.Mesh | null) => void;
 };
 
@@ -31,7 +31,7 @@ export const SceneMesh = memo(function SceneMesh({ object, selected, hovered, sh
             receiveShadow
             onClick={(e: ThreeEvent<MouseEvent>) => {
                 e.stopPropagation();
-                onSelect(object.id);
+                onSelect(object.id, e.nativeEvent);
             }}
         >
             <meshStandardMaterial
