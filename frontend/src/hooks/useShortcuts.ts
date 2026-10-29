@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useScene } from "../scene/store";
+import { duplicateSelection, groupSelection, removeSelection, selectAll, ungroupSelection } from "../scene/selection";
 
 const TRANSFORM_KEYS = { w: "translate", e: "rotate", r: "scale" } as const;
 
@@ -25,10 +26,17 @@ export function useShortcuts() {
                 s.redo();
             } else if (mod && key === "d" && s.selectedId) {
                 e.preventDefault();
-                s.run({ type: "duplicate", target: s.selectedId });
+                duplicateSelection();
+            } else if (mod && key === "g") {
+                e.preventDefault();
+                if (e.shiftKey) ungroupSelection();
+                else groupSelection();
+            } else if (mod && key === "a") {
+                e.preventDefault();
+                selectAll();
             } else if ((key === "delete" || key === "backspace") && s.selectedId) {
                 e.preventDefault();
-                s.run({ type: "remove", target: s.selectedId });
+                removeSelection();
             } else if (key === "escape") {
                 s.select(null);
             } else if (!mod && key in TRANSFORM_KEYS) {
