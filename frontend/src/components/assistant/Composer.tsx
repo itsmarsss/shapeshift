@@ -1,12 +1,13 @@
 import { forwardRef, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import styled from "styled-components";
-import { ArrowUp, Crosshair, Microphone, Square, X } from "@phosphor-icons/react";
+import { ArrowUp, Crosshair, ImageSquare, Microphone, Square, X } from "@phosphor-icons/react";
 import { selectSelected, useScene } from "../../scene/store";
-import { useAssistant } from "../../assistant/store";
+import { useAssistant, type Attachment } from "../../assistant/store";
+import { MAX_ATTACHMENTS, readAttachment } from "./images";
 import { LIMITS } from "../../assistant/protocol";
 import { useSpeechInput } from "./useSpeechInput";
 
-const Root = styled.form`
+const Root = styled.form<{ $dropping?: boolean }>`
     margin: 0 10px 10px;
     border: 1px solid var(--border-strong);
     border-radius: 12px;
@@ -17,6 +18,7 @@ const Root = styled.form`
     &:focus-within {
         border-color: color-mix(in srgb, var(--accent) 70%, transparent);
     }
+    ${(p) => (p.$dropping ? "border-color: var(--accent); border-style: dashed;" : "")}
 `;
 
 const Field = styled.textarea`
@@ -74,7 +76,47 @@ const Chip = styled.span`
     }
 `;
 
-const VoiceNote = styled.div`
+const Attachments = styled.div`
+    display: flex;
+    gap: 6px;
+    padding: 8px 10px 0;
+`;
+
+const Thumb = styled.div`
+    position: relative;
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-strong);
+
+    img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+    button {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        display: grid;
+        place-items: center;
+        width: 16px;
+        height: 16px;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.7);
+        color: #fff;
+    }
+`;
+
+const HiddenInput = styled.input`
+    display: none;
+`;
+
+const Notice = styled.div`
     padding: 0 12px 2px;
     color: var(--danger);
     font-size: 11px;
@@ -117,10 +159,27 @@ export const Composer = forwardRef<ComposerHandle, { extra?: React.ReactNode; pl
     const stop = useAssistant((s) => s.stop);
     const lastPrompt = useAssistant((s) => s.turns[s.turns.length - 1]?.prompt);
 
-    const [voiceError, setVoiceError] = useState<string | null>(null);
+    const [notice, setNotice] = useState<string | null>(null);
+    const [attachments, setAttachments] = useState<Attachment[]>([]);
+    const [dropping, setDropping] = useState(false);
+    const fileRef = useRef<HTMLInputElement>(null);
+
+    async function attach(files: Iterable<File>) {
+        const images = [...files].filter((f) => f.type.startsWith("image/"));
+        if (!images.length) return;
+        const room = MAX_ATTACHMENTS - attachments.length;
+        if (room <= 0) return setNotice(`You can attach up to ${MAX_ATTACHMENTS} images.`);
+        try {
+            const read = await Promise.all(images.slice(0, room).map(readAttachment));
+            setNotice(null);
+            setAttachments((prev) => [...prev, ...read].slice(0, MAX_ATTACHMENTS));
+        } catch (err) {
+            setNotice(err instanceof Error ? err.message : "Couldn't attach that image.");
+        }
+    }
     const voice = useSpeechInput({
         onInterim: (t) => {
-            setVoiceError(null);
+            setNotice(null);
             setText(t);
         },
         onFinal: (t) => {
@@ -130,7 +189,7 @@ export const Composer = forwardRef<ComposerHandle, { extra?: React.ReactNode; pl
         },
         onError: (message) => {
             setText("");
-            setVoiceError(message);
+            setNotice(message);
         },
     });
 
@@ -144,18 +203,44 @@ export const Composer = forwardRef<ComposerHandle, { extra?: React.ReactNode; pl
     }, [text]);
 
     function submit() {
-        if (running || !text.trim()) return;
-        send(text);
+        if (running || (!text.trim() && !attachments.length)) return;
+        send(text, attachments);
         setText("");
+        setAttachments([]);
     }
 
     return (
         <Root
+            $dropping={dropping}
+            onDragOver={(e) => {
+                if (![...e.dataTransfer.items].some((i) => i.type.startsWith("image/"))) return;
+                e.preventDefault();
+                setDropping(true);
+            }}
+            onDragLeave={() => setDropping(false)}
+            onDrop={(e) => {
+                setDropping(false);
+                if (!e.dataTransfer.files.length) return;
+                e.preventDefault();
+                void attach(e.dataTransfer.files);
+            }}
             onSubmit={(e) => {
                 e.preventDefault();
                 submit();
             }}
         >
+            {attachments.length > 0 && (
+                <Attachments>
+                    {attachments.map((a, i) => (
+                        <Thumb key={i}>
+                            <img src={a.thumbnail} alt={`Attachment ${i + 1}`} />
+                            <button type="button" title="Remove" onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}>
+                                <X size={9} weight="bold" />
+                            </button>
+                        </Thumb>
+                    ))}
+                </Attachments>
+            )}
             <Field
                 ref={fieldRef}
                 rows={1}
@@ -164,6 +249,12 @@ export const Composer = forwardRef<ComposerHandle, { extra?: React.ReactNode; pl
                 aria-label="Message the assistant"
                 placeholder={voice.listening ? "Listening…" : placeholderOverride ?? (selected ? `Change ${selected.name}…` : "Describe a change or something to build…")}
                 onChange={(e) => setText(e.target.value)}
+                onPaste={(e) => {
+                    const files = [...e.clipboardData.files];
+                    if (!files.some((f) => f.type.startsWith("image/"))) return;
+                    e.preventDefault();
+                    void attach(files);
+                }}
                 onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                         e.preventDefault();
@@ -177,7 +268,7 @@ export const Composer = forwardRef<ComposerHandle, { extra?: React.ReactNode; pl
                     }
                 }}
             />
-            {voiceError && <VoiceNote role="alert">{voiceError}</VoiceNote>}
+            {notice && <Notice role="alert">{notice}</Notice>}
             <Bar>
                 {selected ? (
                     <Chip title="The assistant treats the selection as “it”">
@@ -190,6 +281,19 @@ export const Composer = forwardRef<ComposerHandle, { extra?: React.ReactNode; pl
                 ) : null}
                 <span style={{ flex: 1 }} />
                 {extra}
+                <RoundButton type="button" $tone="plain" title="Attach a reference image" onClick={() => fileRef.current?.click()} disabled={attachments.length >= MAX_ATTACHMENTS}>
+                    <ImageSquare size={15} />
+                </RoundButton>
+                <HiddenInput
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => {
+                        if (e.target.files) void attach(e.target.files);
+                        e.target.value = "";
+                    }}
+                />
                 {voice.supported && (
                     <RoundButton
                         type="button"
@@ -207,7 +311,7 @@ export const Composer = forwardRef<ComposerHandle, { extra?: React.ReactNode; pl
                         <Square size={11} weight="fill" />
                     </RoundButton>
                 ) : (
-                    <RoundButton type="submit" $tone="accent" title="Send (Enter)" disabled={!text.trim()}>
+                    <RoundButton type="submit" $tone="accent" title="Send (Enter)" disabled={!text.trim() && !attachments.length}>
                         <ArrowUp size={15} weight="bold" />
                     </RoundButton>
                 )}

@@ -29,6 +29,22 @@ const Prompt = styled.div`
     line-height: 1.45;
 `;
 
+const Pictures = styled.div`
+    align-self: flex-end;
+    display: flex;
+    gap: 6px;
+    margin-bottom: -4px;
+
+    img {
+        width: 72px;
+        height: 72px;
+        object-fit: cover;
+        border-radius: 10px;
+        border: 1px solid var(--border-strong);
+        display: block;
+    }
+`;
+
 const Body = styled.div`
     display: flex;
     flex-direction: column;
@@ -147,6 +163,13 @@ export function TurnView({ turn, last }: { turn: Turn; last: boolean }) {
 
     return (
         <Root>
+            {turn.attachments?.length ? (
+                <Pictures>
+                    {turn.attachments.map((src, i) => (
+                        <img key={i} src={src} alt={`Attachment ${i + 1}`} />
+                    ))}
+                </Pictures>
+            ) : null}
             <Prompt>{turn.prompt}</Prompt>
             <Body>
                 {turn.items.map((item, i) =>
