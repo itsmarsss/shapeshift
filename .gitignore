@@ -7,3 +7,4 @@ old/
 dist/
 .wrangler/
 .dev.vars
+frontend/vite.local.config.ts
