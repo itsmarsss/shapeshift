@@ -21,7 +21,7 @@ beforeEach(() => s().load(emptyDoc()));
 describe("tools", () => {
     it("declares every command and agent tool with an object schema", () => {
         const names = TOOLS.map((t) => t.name);
-        expect(names).toEqual(["add", "remove", "duplicate", "transform", "material", "rename", "boolean", "addLight", "updateLight", "inspect", "select", "look", "undo"]);
+        expect(names).toEqual(["add", "remove", "duplicate", "transform", "material", "rename", "boolean", "addLight", "updateLight", "group", "ungroup", "inspect", "select", "look", "undo"]);
         for (const t of TOOLS) expect(t.parameters.type).toBe("object");
         const add = TOOLS.find((t) => t.name === "add")!.parameters as { properties: Record<string, unknown> };
         expect(add.properties.geometry).toBeDefined();

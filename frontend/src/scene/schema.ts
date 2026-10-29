@@ -41,6 +41,7 @@ export const SceneObject = z.object({
     rotation: Vec3,
     scale: Vec3,
     material: Material,
+    group: z.string().min(1).optional(),
 });
 export type SceneObject = z.infer<typeof SceneObject>;
 
@@ -79,6 +80,7 @@ export const Command = z.discriminatedUnion("type", [
         type: z.literal("add"),
         primitive: Primitive,
         name: z.string().optional(),
+        group: z.string().min(1).optional().describe("Put the new object in this group"),
         geometry: PrimitiveGeometry.optional().describe("Dimensions. Its type must match the primitive"),
         position: Vec3.optional(),
         rotation: Vec3.optional().describe("Radians"),
@@ -132,9 +134,15 @@ export const Command = z.discriminatedUnion("type", [
         distance: LightProps.distance.optional(),
         angle: LightProps.angle.optional(),
     }),
+    z.object({
+        type: z.literal("group"),
+        name: z.string().min(1).describe("Group name. Commands can then target the whole group by it"),
+        targets: z.array(Target).min(1),
+    }),
+    z.object({ type: z.literal("ungroup"), target: Target.describe("Group name") }),
     z.object({ type: z.literal("insert"), objects: z.array(SceneObject) }),
     z.object({ type: z.literal("clear") }),
 ]);
 
-export const AI_COMMANDS = ["add", "remove", "duplicate", "transform", "material", "rename", "boolean", "addLight", "updateLight"] as const;
+export const AI_COMMANDS = ["add", "remove", "duplicate", "transform", "material", "rename", "boolean", "addLight", "updateLight", "group", "ungroup"] as const;
 export type Command = z.infer<typeof Command>;

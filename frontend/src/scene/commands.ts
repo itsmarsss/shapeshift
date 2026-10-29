@@ -1,5 +1,6 @@
 import type { Command, Geometry, Light, LightType, Material, Primitive, SceneDoc, SceneObject, Vec3 } from "./schema";
 import { current, isDraft } from "immer";
+import * as THREE from "three";
 import { booleanGeometry } from "./geometry";
 
 export const DEFAULT_GEOMETRY: Record<Primitive, Geometry> = {
@@ -118,6 +119,90 @@ function applyToLight(doc: SceneDoc, light: Light, cmd: Command, newId: () => st
     }
 }
 
+export function groupMembers(doc: SceneDoc, group: string): SceneObject[] {
+    const exact = doc.objects.filter((o) => o.group === group);
+    return exact.length ? exact : doc.objects.filter((o) => o.group?.toLowerCase() === group.toLowerCase());
+}
+
+export function groupNames(doc: SceneDoc): string[] {
+    return [...new Set(doc.objects.flatMap((o) => (o.group ? [o.group] : [])))];
+}
+
+function uniqueGroupName(doc: SceneDoc, base: string): string {
+    const taken = new Set([...groupNames(doc), ...doc.objects.map((o) => o.name), ...doc.lights.map((l) => l.name)]);
+    if (!taken.has(base)) return base;
+    for (let i = 2; ; i++) if (!taken.has(`${base} ${i}`)) return `${base} ${i}`;
+}
+
+export function groupPivot(members: SceneObject[]): Vec3 {
+    const sum = members.reduce<Vec3>((acc, o) => add(acc, o.position), [0, 0, 0]);
+    return [sum[0] / members.length, sum[1] / members.length, sum[2] / members.length];
+}
+
+// Moves, turns and scales every member together around the group's center,
+// as if the group were one object.
+function transformGroup(members: SceneObject[], cmd: Extract<Command, { type: "transform" }>): CommandResult {
+    if (!cmd.relative && (cmd.rotation || cmd.scale)) {
+        return { ok: false, error: "Rotate or scale a group with relative: true" };
+    }
+    const pivot = new THREE.Vector3(...groupPivot(members));
+    const shift = cmd.position
+        ? cmd.relative
+            ? new THREE.Vector3(...cmd.position)
+            : new THREE.Vector3(...cmd.position).sub(pivot)
+        : new THREE.Vector3();
+    const turn = new THREE.Quaternion().setFromEuler(new THREE.Euler(...(cmd.rotation ?? [0, 0, 0])));
+    const stretch = new THREE.Vector3(...(cmd.scale ?? [1, 1, 1]));
+    for (const o of members) {
+        const offset = new THREE.Vector3(...o.position).sub(pivot).multiply(stretch).applyQuaternion(turn);
+        o.position = offset.add(pivot).add(shift).toArray() as Vec3;
+        if (cmd.rotation) {
+            const q = turn.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(...o.rotation)));
+            o.rotation = new THREE.Euler().setFromQuaternion(q).toArray().slice(0, 3) as Vec3;
+        }
+        if (cmd.scale) o.scale = mul(o.scale, cmd.scale);
+    }
+    return { ok: true, created: [] };
+}
+
+function applyToGroup(doc: SceneDoc, group: string, members: SceneObject[], cmd: Command, newId: () => string): CommandResult {
+    const ids = new Set(members.map((o) => o.id));
+    switch (cmd.type) {
+        case "remove":
+            doc.objects = doc.objects.filter((o) => !ids.has(o.id));
+            return { ok: true, created: [] };
+        case "transform":
+            return transformGroup(members, cmd);
+        case "material":
+            for (const o of members) {
+                if (cmd.color !== undefined) o.material.color = cmd.color;
+                if (cmd.metalness !== undefined) o.material.metalness = cmd.metalness;
+                if (cmd.roughness !== undefined) o.material.roughness = cmd.roughness;
+                if (cmd.opacity !== undefined) o.material.opacity = cmd.opacity;
+            }
+            return { ok: true, created: [] };
+        case "rename":
+            for (const o of members) o.group = cmd.name;
+            return { ok: true, created: [] };
+        case "ungroup":
+            for (const o of members) delete o.group;
+            return { ok: true, created: [] };
+        case "duplicate": {
+            const name = uniqueGroupName(doc, group);
+            const offset = cmd.offset ?? [1, 0, 1];
+            const created: string[] = [];
+            for (const o of members) {
+                const id = newId();
+                doc.objects.push({ ...copy(o), id, name: uniqueName(doc, o.name), group: name, position: add(o.position, offset) });
+                created.push(id);
+            }
+            return { ok: true, created };
+        }
+        default:
+            return { ok: false, error: `"${group}" is a group, so ${cmd.type} doesn't apply to it. Target one of its objects instead` };
+    }
+}
+
 export function uniqueName(doc: SceneDoc, base: string): string {
     const taken = new Set([...doc.objects.map((o) => o.name), ...doc.lights.map((l) => l.name)]);
     if (!taken.has(base)) return base;
@@ -153,6 +238,7 @@ export function applyCommand(doc: SceneDoc, cmd: Command, newId: () => string): 
             rotation: cmd.rotation ?? pose.rotation,
             scale: cmd.scale ?? [1, 1, 1],
             material: { ...DEFAULT_MATERIAL, ...(cmd.color ? { color: cmd.color } : {}) },
+            ...(cmd.group ? { group: cmd.group } : {}),
         });
         return { ok: true, created: [id] };
     }
@@ -163,6 +249,17 @@ export function applyCommand(doc: SceneDoc, cmd: Command, newId: () => string): 
         setLightFields(light, cmd);
         doc.lights.push(light);
         return { ok: true, created: [id] };
+    }
+
+    if (cmd.type === "group") {
+        const found = cmd.targets.map((t) => findObject(doc, t) ?? groupMembers(doc, t));
+        const missing = cmd.targets.filter((_, i) => Array.isArray(found[i]) && !(found[i] as SceneObject[]).length);
+        if (missing.length) return { ok: false, error: `No object or group named ${missing.map((m) => `"${m}"`).join(", ")}` };
+        if (doc.objects.some((o) => o.name === cmd.name) || doc.lights.some((l) => l.name === cmd.name)) {
+            return { ok: false, error: `"${cmd.name}" is already the name of an object or light` };
+        }
+        for (const o of found.flat()) o.group = cmd.name;
+        return { ok: true, created: [] };
     }
 
     if (cmd.type === "clear") {
@@ -201,7 +298,9 @@ export function applyCommand(doc: SceneDoc, cmd: Command, newId: () => string): 
     if (!obj) {
         const light = findLight(doc, cmd.target);
         if (light) return applyToLight(doc, light, cmd, newId);
-        return { ok: false, error: `No object or light named "${cmd.target}"` };
+        const members = groupMembers(doc, cmd.target);
+        if (members.length) return applyToGroup(doc, members[0].group!, members, cmd, newId);
+        return { ok: false, error: `No object, light or group named "${cmd.target}"` };
     }
 
     switch (cmd.type) {
@@ -237,5 +336,9 @@ export function applyCommand(doc: SceneDoc, cmd: Command, newId: () => string): 
             return { ok: true, created: [] };
         case "updateLight":
             return { ok: false, error: `"${obj.name}" is an object, not a light` };
+        case "ungroup":
+            if (!obj.group) return { ok: false, error: `"${obj.name}" isn't in a group` };
+            delete obj.group;
+            return { ok: true, created: [] };
     }
 }

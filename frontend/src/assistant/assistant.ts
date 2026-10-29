@@ -80,6 +80,7 @@ export function describeObject(o: SceneObject, selectedId: string | null = null)
     const m = o.material;
     return [
         `"${o.name}" id=${o.id}`,
+        o.group ? `in group "${o.group}"` : null,
         `${o.geometry.type} ${size(o.geometry)}`,
         `at ${fmt(o.position)}`,
         o.rotation.some((r) => r !== 0) ? `rotation ${fmt(o.rotation)}` : null,
@@ -171,6 +172,10 @@ export function describeCommand(cmd: Command, doc: SceneDoc): string {
             const verb = { union: "Merged", subtract: "Cut", intersect: "Intersected" }[cmd.operation];
             return cmd.operation === "subtract" ? `Cut ${tool} out of ${name}` : `${verb} ${name} with ${tool}`;
         }
+        case "group":
+            return `Grouped ${cmd.targets.length === 1 ? cmd.targets[0] : `${cmd.targets.length} objects`} as ${cmd.name}`;
+        case "ungroup":
+            return `Ungrouped ${name}`;
         case "addLight":
             return `Added ${cmd.name ?? `a ${cmd.light} light`}`;
         case "updateLight":
