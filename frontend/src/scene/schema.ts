@@ -26,7 +26,7 @@ export const Geometry = z.discriminatedUnion("type", [
 export type Geometry = z.infer<typeof Geometry>;
 
 export const Material = z.object({
-    color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+    color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Use a hex color like #ff8800"),
     metalness: z.number().min(0).max(1),
     roughness: z.number().min(0).max(1),
     opacity: z.number().min(0).max(1),
