@@ -5,12 +5,15 @@ import {
     ArrowsOutCardinal,
     Cube,
     Cylinder,
+    Flashlight,
+    Lightbulb,
     Sphere,
     Square,
+    Sun,
 } from "@phosphor-icons/react";
 import { ConeIcon, TorusIcon } from "./icons";
 import { useScene, type TransformMode } from "../scene/store";
-import type { Primitive } from "../scene/schema";
+import type { LightType, Primitive } from "../scene/schema";
 import { IconButton } from "./ui";
 
 const Rail = styled.div`
@@ -42,6 +45,12 @@ const SHAPES: { primitive: Primitive; label: string; Icon: React.ComponentType<{
     { primitive: "plane", label: "Add plane", Icon: Square },
 ];
 
+const LIGHTS: { light: LightType; label: string; Icon: typeof Cube }[] = [
+    { light: "point", label: "Add point light", Icon: Lightbulb },
+    { light: "spot", label: "Add spot light", Icon: Flashlight },
+    { light: "directional", label: "Add sunlight", Icon: Sun },
+];
+
 const TOOLS: { mode: TransformMode; label: string; Icon: typeof Cube }[] = [
     { mode: "translate", label: "Move (W)", Icon: ArrowsOutCardinal },
     { mode: "rotate", label: "Rotate (E)", Icon: ArrowsClockwise },
@@ -61,6 +70,13 @@ export function Toolbar() {
             <Group>
                 {SHAPES.map(({ primitive, label, Icon }) => (
                     <IconButton key={primitive} $size={36} title={label} onClick={() => run({ type: "add", primitive })}>
+                        <Icon size={20} />
+                    </IconButton>
+                ))}
+            </Group>
+            <Group>
+                {LIGHTS.map(({ light, label, Icon }) => (
+                    <IconButton key={light} $size={36} title={label} onClick={() => run({ type: "addLight", light })}>
                         <Icon size={20} />
                     </IconButton>
                 ))}
