@@ -1,7 +1,7 @@
 // Messages between the editor and a shared room (worker/room.ts). Shared by
 // both sides so they can't drift apart.
 import { z } from "zod";
-import { Light, SceneObject } from "../scene/schema";
+import { Light, SceneObject, Vec3 } from "../scene/schema";
 
 export const ROOM_ID = /^[A-Za-z0-9_-]{8,40}$/;
 
@@ -27,6 +27,8 @@ export const emptyOps = (): Ops => ({ objects: { upsert: [], remove: [] }, light
 
 export const Presence = z.object({
     selection: z.array(z.string()).max(200),
+    // Where the pointer is in the scene, or null when it's off the viewport.
+    cursor: Vec3.nullable().optional(),
 });
 export type Presence = z.infer<typeof Presence>;
 

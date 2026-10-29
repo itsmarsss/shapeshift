@@ -8,6 +8,7 @@ import { useScene } from "../scene/store";
 import { SceneMesh } from "./SceneMesh";
 import { SceneLight } from "./SceneLight";
 import { MultiTransform } from "./MultiTransform";
+import { PeerCursors } from "./PeerCursors";
 import { EditOverlay } from "./EditOverlay";
 import { SnapshotBridge } from "./SnapshotBridge";
 import { useHands } from "../hands/tracker";
@@ -131,6 +132,7 @@ export function Viewport() {
             />
             <CameraSettings />
             <SnapshotBridge />
+            <PeerCursors />
             {handsOn && (
                 <Suspense fallback={null}>
                     <HandControls />
