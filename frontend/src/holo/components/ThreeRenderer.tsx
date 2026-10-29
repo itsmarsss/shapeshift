@@ -175,9 +175,8 @@ function Editable3DObject({
 
         setupScene(mountRef as unknown as React.RefObject<HTMLDivElement>);
 
-        // Set scene background to match the dark theme
         if (sceneRef.current) {
-            sceneRef.current.background = new THREE.Color(0x14161c);
+            sceneRef.current.background = new THREE.Color(0x0d0e10);
         }
 
         // IMPORTANT: After set up, update the target camera ref to match the actual camera position.
@@ -373,9 +372,9 @@ function Editable3DObject({
                     marker === closestMarker &&
                     minDistanceMarker < TOLERANCE
                 ) {
-                    material.color.set(0xffd700);
+                    material.color.set(0x9db4ff);
                 } else {
-                    material.color.set(0x4a9eff);
+                    material.color.set(0x4f7cff);
                 }
             });
             hoveredMarkerRef.current =
@@ -426,9 +425,9 @@ function Editable3DObject({
                         const material =
                             child.material as THREE.MeshBasicMaterial;
                         if (object === intersectedObject) {
-                            material.color.set(0xffd700);
+                            material.color.set(0x9db4ff);
                         } else {
-                            material.color.set(0x4a9eff);
+                            material.color.set(0x4f7cff);
                         }
                     }
                 });

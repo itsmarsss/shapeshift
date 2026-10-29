@@ -881,7 +881,7 @@ export function Viewport() {
                 if (!isTransforming && !isGizmoInteracting) select(null);
             }}
         >
-            <color attach="background" args={[0.08, 0.08, 0.1]} />
+            <color attach="background" args={["#0d0e10"]} />
             <PerspectiveCamera makeDefault position={[4, 3, 6]} fov={50} />
             <OrbitControls
                 ref={orbitRef as React.Ref<OrbitControlsImpl>}
@@ -919,8 +919,8 @@ export function Viewport() {
                 sectionSize={2}
                 cellThickness={0.3}
                 sectionThickness={1}
-                cellColor="#ffffff"
-                sectionColor="#ffffff"
+                cellColor="#26282d"
+                sectionColor="#3a3d44"
             />
             {/* Custom axis lines that extend in both directions - full grid span */}
             <group>
@@ -935,7 +935,7 @@ export function Viewport() {
                             ]}
                         />
                     </bufferGeometry>
-                    <lineBasicMaterial color="#ff2222" linewidth={4} />
+                    <lineBasicMaterial color="#e5484d" linewidth={4} />
                 </line>
                 {/* Y-axis (Bright Green) */}
                 <line>
@@ -948,7 +948,7 @@ export function Viewport() {
                             ]}
                         />
                     </bufferGeometry>
-                    <lineBasicMaterial color="#22ff22" linewidth={4} />
+                    <lineBasicMaterial color="#46a758" linewidth={4} />
                 </line>
                 {/* Z-axis (Bright Blue) */}
                 <line>
@@ -961,7 +961,7 @@ export function Viewport() {
                             ]}
                         />
                     </bufferGeometry>
-                    <lineBasicMaterial color="#2222ff" linewidth={4} />
+                    <lineBasicMaterial color="#4f7cff" linewidth={4} />
                 </line>
             </group>
             {/* Gizmo helper - only show in non-render modes */}

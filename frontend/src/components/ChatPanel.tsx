@@ -1,119 +1,175 @@
 import styled from "styled-components";
+import {
+    ArrowCounterClockwise,
+    ClockCounterClockwise,
+    PaperPlaneRight,
+    PushPin,
+    X,
+} from "@phosphor-icons/react";
+import { IconButton, Input, Panel, PanelHeader, PanelTitle } from "./ui";
 import { useMemo, useRef, useState } from "react";
 import { useEditor } from "../store/editor";
 import type { GeometryKind, GeometryParamsMap, SceneObject, TransformMode, Vector3 } from "../types";
 import { runAgent } from "../agent/agent";
 import { useAgentTimeline } from "../store/agentTimeline";
 
-const Panel = styled.div`
-    position: absolute;
-    top: 56px;
-    bottom: 12px;
-    right: 12px;
-    width: 280px;
-    background: rgba(18, 20, 26, 0.9);
-    color: #e6e9ef;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+const Root = styled(Panel)`
+    top: calc(var(--topbar) + var(--gap));
+    bottom: var(--gap);
+    right: var(--gap);
+    width: var(--chat-width);
     z-index: 50;
 `;
 
-const Header = styled.div`
-    padding: 8px 12px;
-    font-weight: 600;
-    opacity: 0.9;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+const HeaderActions = styled.div`
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    gap: 2px;
 `;
 
-const Toggle = styled.button`
-    background: #12141a;
-    color: #e6e9ef;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
-    padding: 4px 8px;
-    font-size: 12px;
-`;
-
-const History = styled.div`
-    max-height: 120px;
-    overflow: auto;
-    padding: 6px 10px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+const Section = styled.div`
+    padding: 8px;
+    border-bottom: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 2px;
+    max-height: 160px;
+    overflow: auto;
+    flex-shrink: 0;
+`;
+
+const SectionLabel = styled.div`
+    padding: 2px 6px 4px;
+    color: var(--text-muted);
+    font-size: 12px;
 `;
 
 const HistoryItem = styled.div`
     display: flex;
-    gap: 6px;
     align-items: center;
-    justify-content: space-between;
-    background: rgba(30, 34, 44, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
-    padding: 6px 8px;
+    gap: 4px;
+    padding: 2px 2px 2px 6px;
+    border-radius: var(--radius);
+
+    &:hover {
+        background: var(--surface-raised);
+    }
 `;
 
-const SmallBtn = styled.button`
-    background: #0f1116;
-    color: #e6e9ef;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 6px;
-    padding: 4px 6px;
+const HistoryText = styled.div`
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+`;
+
+const Time = styled.span`
+    color: var(--text-faint);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+`;
+
+const ContextRow = styled.div`
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+`;
+
+const Chip = styled.span`
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    height: 24px;
+    padding: 0 2px 0 8px;
+    border-radius: 999px;
+    background: var(--surface-raised);
     font-size: 12px;
 `;
 
 const Messages = styled.div`
     flex: 1;
-    padding: 8px 12px;
+    padding: 12px;
     overflow: auto;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
 `;
 
-const Message = styled.div<{ role: "user" | "system" }>`
-    align-self: ${(p) => (p.role === "user" ? "flex-end" : "flex-start")};
-    background: ${(p) =>
-        p.role === "user" ? "rgba(60, 65, 80, 0.6)" : "rgba(30, 34, 44, 0.8)"};
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: #e6e9ef;
-    padding: 6px 10px;
-    border-radius: 10px;
-    max-width: 70%;
+const Message = styled.div<{ $role: "user" | "system" }>`
+    align-self: ${(p) => (p.$role === "user" ? "flex-end" : "flex-start")};
+    background: ${(p) => (p.$role === "user" ? "var(--accent)" : "var(--surface-raised)")};
+    color: ${(p) => (p.$role === "user" ? "var(--accent-text)" : "var(--text)")};
+    padding: 7px 11px;
+    border-radius: 14px;
+    max-width: 85%;
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
+`;
+
+const Pending = styled.div`
+    color: var(--text-muted);
+    padding: 0 4px;
+`;
+
+const Examples = styled.div`
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+`;
+
+const Example = styled.button`
+    border: 1px solid var(--border);
+    background: transparent;
+    border-radius: 999px;
+    padding: 5px 11px;
+    color: var(--text-muted);
+
+    &:hover {
+        color: var(--text);
+        border-color: var(--border-strong);
+    }
+`;
+
+const Footer = styled.div`
+    border-top: 1px solid var(--border);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
 `;
 
 const InputRow = styled.form`
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 8px;
-    padding: 8px 8px 10px 8px;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    gap: 6px;
 `;
 
-const TextInput = styled.input`
-    background: #0f1116;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: #e6e9ef;
-    border-radius: 10px;
-    padding: 8px 10px;
+const Options = styled.div`
+    display: flex;
+    gap: 14px;
+    padding: 0 4px;
+    color: var(--text-muted);
+    font-size: 12px;
+
+    label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+    }
+    input {
+        margin: 0;
+        accent-color: var(--accent);
+    }
 `;
 
-const SendBtn = styled.button`
-    background: rgba(18, 20, 26, 0.9);
-    color: #e6e9ef;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
-    padding: 8px 12px;
-`;
+const EXAMPLES = ["Add a red sphere", "Make it twice as wide", "Add 3 cubes in a row"];
 
 type ChatMsg = { role: "user" | "system"; text: string };
 
@@ -157,13 +213,8 @@ type GeomDims = Partial<Record<"width" | "height" | "depth" | "radius" | "radius
 
 export function ChatPanel() {
     const [input, setInput] = useState("");
-    const [messages, setMessages] = useState<ChatMsg[]>([
-        {
-            role: "system",
-            text: 'Try: "add box", "move x 1 y 0 z -0.5", "rotate y 45", "scale 1.5", "color red", "delete", "duplicate", "select Sphere", "union A B", "undo"',
-        },
-    ]);
-    const [showHistory, setShowHistory] = useState(true);
+    const [messages, setMessages] = useState<ChatMsg[]>([]);
+    const [showHistory, setShowHistory] = useState(false);
     const [usingLLM, setUsingLLM] = useState(true);
     const [isLoading, setIsLoading] = useState(false);
     const [pinnedIds, setPinnedIds] = useState<string[]>([]);
@@ -276,7 +327,7 @@ export function ChatPanel() {
             const data = await r.json();
             // OpenAI-compatible: choices[0].message
             const msg = data?.choices?.[0]?.message;
-            if (!msg) return { executed: false, reply: "No response" };
+            if (!msg) return { executed: false, reply: "No reply from the assistant." };
 
             // If tool call present
             const tool = msg?.tool_calls?.[0];
@@ -531,7 +582,7 @@ export function ChatPanel() {
             const text = msg?.content ?? "Ok";
             return { executed: false, reply: text };
         } catch {
-            return { executed: false, reply: "LLM call failed" };
+            return { executed: false, reply: "The assistant is unavailable right now." };
         } finally {
             setIsLoading(false);
         }
@@ -555,20 +606,18 @@ export function ChatPanel() {
     }
 
     async function handleAgent(text: string) {
-        // Always call perceive first via runAgent
-        console.log("[Chat] handleAgent text=", text, "dryRun=", dryRun);
         const result = await runAgent(text, !dryRun);
-        console.log("[Chat] agent result:", result);
         setSteps(result.transcript);
         setSnapshotUi(result.snapshot);
-        const summary = `Agent ${dryRun ? "planned" : "executed"} ${result.transcript.length} step(s).`;
-        return summary;
+        const n = result.transcript.length;
+        if (n === 0) return "";
+        const steps = `${n} step${n === 1 ? "" : "s"}`;
+        return dryRun ? `Planned ${steps}. Turn off preview to apply.` : `Done in ${steps}.`;
     }
 
     function handleCommand(raw: string) {
         const text = raw.trim();
         if (!text) return;
-        console.log("[Chat] handleCommand raw=", raw);
         push("user", text);
 
         if (usingLLM) {
@@ -577,156 +626,153 @@ export function ChatPanel() {
                 if (executed) {
                     checkpoint(text, reply);
                 } else {
-                    // Fallback to deterministic agent if no tool call was executed
-                    handleAgent(text).then((agentReply) => push("system", agentReply));
+                    handleAgent(text).then((agentReply) => {
+                        if (agentReply) push("system", agentReply);
+                    });
                 }
             });
             return;
         }
 
         handleAgent(text).then((reply) => {
-            push("system", reply);
+            push("system", reply || "I couldn't turn that into an edit.");
         });
     }
 
     function onSubmit(e: React.FormEvent) {
         e.preventDefault();
         const t = input;
-        console.log("[Chat] onSubmit input=", t);
         setInput("");
         handleCommand(t);
     }
 
+    const pinned = pinnedIds
+        .map((id) => objects.find((o) => o.id === id))
+        .filter((o): o is SceneObject => Boolean(o));
+
     return (
-        <Panel data-chat-panel>
-            <Header>
-                <div>Chat</div>
-                <div style={{ display: "flex", gap: 6 }}>
-                    <Toggle onClick={() => setUsingLLM((v) => !v)}>
-                        {usingLLM ? "LLM: On" : "LLM: Off"}
-                    </Toggle>
-                    <Toggle onClick={() => setShowHistory((v) => !v)}>
-                        {showHistory ? "Hide" : "Show"} History
-                    </Toggle>
-                    <Toggle onClick={() => setDryRun(!dryRun)} title="Toggle dry-run / apply">
-                        {dryRun ? "Dry-run" : "Apply"}
-                    </Toggle>
-                    <Toggle onClick={() => setShowChatPanel(false)}>✕</Toggle>
-                </div>
-            </Header>
-            <div style={{ padding: "6px 10px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <div style={{ fontSize: 12, opacity: 0.85 }}>Context: {pinnedIds.length} pinned</div>
-                <SmallBtn onClick={pinSelected} disabled={!selectedId} title="Pin selected to chat context">Pin Selected</SmallBtn>
-                <SmallBtn onClick={clearPins} title="Clear pinned context">Clear</SmallBtn>
-                {pinnedIds.slice(0, 3).map((id) => {
-                    const o = objects.find((x) => x.id === id);
-                    if (!o) return null;
-                    return (
-                        <span key={id} style={{ fontSize: 11, background: "rgba(30,34,44,0.7)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "2px 6px" }}>
-                            {o.name}
-                            <button onClick={() => unpin(id)} style={{ marginLeft: 6, background: "transparent", color: "#aaa" }}>×</button>
-                        </span>
-                    );
-                })}
-            </div>
+        <Root data-chat-panel>
+            <PanelHeader>
+                <PanelTitle>Assistant</PanelTitle>
+                <HeaderActions>
+                    <IconButton
+                        title="Checkpoints"
+                        $active={showHistory}
+                        onClick={() => setShowHistory((v) => !v)}
+                    >
+                        <ClockCounterClockwise size={16} />
+                    </IconButton>
+                    <IconButton title="Close" onClick={() => setShowChatPanel(false)}>
+                        <X size={16} />
+                    </IconButton>
+                </HeaderActions>
+            </PanelHeader>
             {showHistory && (
-                <History>
+                <Section>
+                    <SectionLabel>Checkpoints</SectionLabel>
                     {checkpoints.length === 0 ? (
-                        <div style={{ opacity: 0.6, fontSize: 12 }}>
-                            No checkpoints yet
-                        </div>
+                        <SectionLabel>Each change the assistant makes is saved here.</SectionLabel>
                     ) : (
                         checkpoints.slice(0, 10).map((cp) => (
-                            <HistoryItem key={cp.id}>
-                                <div
-                                    style={{ flex: 1, minWidth: 0 }}
-                                    title={cp.prompt ?? cp.label}
-                                >
-                                    <div
-                                        style={{
-                                            fontSize: 12,
-                                            whiteSpace: "nowrap",
-                                            overflow: "hidden",
-                                            textOverflow: "ellipsis",
-                                        }}
-                                    >
-                                        {cp.label}
-                                    </div>
-                                    <div style={{ opacity: 0.6, fontSize: 11 }}>
-                                        {new Date(
-                                            cp.timestamp
-                                        ).toLocaleTimeString()}
-                                    </div>
-                                </div>
-                                <SmallBtn
+                            <HistoryItem key={cp.id} title={cp.prompt ?? cp.label}>
+                                <HistoryText>{cp.label}</HistoryText>
+                                <Time>
+                                    {new Date(cp.timestamp).toLocaleTimeString([], {
+                                        hour: "numeric",
+                                        minute: "2-digit",
+                                    })}
+                                </Time>
+                                <IconButton
+                                    $size={26}
+                                    title="Restore"
                                     onClick={() => restoreCheckpoint(cp.id)}
                                 >
-                                    Restore
-                                </SmallBtn>
-                                <SmallBtn
+                                    <ArrowCounterClockwise size={14} />
+                                </IconButton>
+                                <IconButton
+                                    $size={26}
+                                    title="Remove"
                                     onClick={() => deleteCheckpoint(cp.id)}
                                 >
-                                    ✕
-                                </SmallBtn>
+                                    <X size={14} />
+                                </IconButton>
                             </HistoryItem>
                         ))
                     )}
-                </History>
+                </Section>
+            )}
+            {(pinned.length > 0 || selectedId) && (
+                <ContextRow>
+                    {pinned.map((o) => (
+                        <Chip key={o.id}>
+                            {o.name}
+                            <IconButton $size={20} title="Unpin" onClick={() => unpin(o.id)}>
+                                <X size={12} />
+                            </IconButton>
+                        </Chip>
+                    ))}
+                    {selectedId && !pinnedIds.includes(selectedId) && (
+                        <IconButton $size={24} title="Pin selection as context" onClick={pinSelected}>
+                            <PushPin size={14} />
+                        </IconButton>
+                    )}
+                    {pinned.length > 1 && (
+                        <IconButton $size={24} title="Clear pins" onClick={clearPins}>
+                            <X size={14} />
+                        </IconButton>
+                    )}
+                </ContextRow>
             )}
             <Messages ref={scrollRef}>
+                {messages.length === 0 && (
+                    <Examples>
+                        {EXAMPLES.map((ex) => (
+                            <Example key={ex} onClick={() => handleCommand(ex)}>
+                                {ex}
+                            </Example>
+                        ))}
+                    </Examples>
+                )}
                 {messages.map((m, i) => (
-                    <Message key={i} role={m.role}>
+                    <Message key={i} $role={m.role}>
                         {m.text}
-                        {isLoading && i === messages.length - 1 && usingLLM
-                            ? " …"
-                            : ""}
                     </Message>
                 ))}
+                {isLoading && <Pending>Thinking…</Pending>}
             </Messages>
-            <div style={{ padding: "6px 10px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <SnapshotCounts />
-                <ExportButton />
-            </div>
-            <InputRow onSubmit={onSubmit}>
-                <TextInput
-                    placeholder={
-                        selected ? `Command for ${selected.name}…` : "Command…"
-                    }
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                            // handled by form submit
-                        }
-                    }}
-                />
-                <SendBtn type="submit">Send</SendBtn>
-            </InputRow>
-        </Panel>
-    );
-}
-
-function SnapshotCounts() {
-    const snap = useAgentTimeline((s) => s.snapshot);
-    const meshes = snap?.counts.meshes ?? 0;
-    const lights = snap?.counts.lights ?? 0;
-    const cameras = snap?.counts.cameras ?? 0;
-    return (
-        <div style={{ fontSize: 12, opacity: 0.85 }}>
-            {`Meshes: ${meshes} · Lights: ${lights} · Cameras: ${cameras}`}
-        </div>
-    );
-}
-
-function ExportButton() {
-    const setSteps = useAgentTimeline((s) => s.setSteps);
-    const setSnapshot = useAgentTimeline((s) => s.setSnapshot);
-    return (
-        <SmallBtn onClick={async () => {
-            const res = await runAgent("Export the scene to GLB.", true);
-            setSteps(res.transcript);
-            setSnapshot(res.snapshot);
-        }}>Download GLB</SmallBtn>
+            <Footer>
+                <InputRow onSubmit={onSubmit}>
+                    <Input
+                        placeholder={selected ? `Change ${selected.name}…` : "Describe a change…"}
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                    />
+                    <IconButton type="submit" title="Send" disabled={!input.trim()}>
+                        <PaperPlaneRight size={18} />
+                    </IconButton>
+                </InputRow>
+                <Options>
+                    <label>
+                        <input
+                            type="checkbox"
+                            checked={usingLLM}
+                            onChange={(e) => setUsingLLM(e.target.checked)}
+                        />
+                        Use AI model
+                    </label>
+                    {!usingLLM && (
+                        <label>
+                            <input
+                                type="checkbox"
+                                checked={dryRun}
+                                onChange={(e) => setDryRun(e.target.checked)}
+                            />
+                            Preview only
+                        </label>
+                    )}
+                </Options>
+            </Footer>
+        </Root>
     );
 }
 

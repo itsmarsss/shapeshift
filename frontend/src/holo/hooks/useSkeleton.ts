@@ -181,10 +181,10 @@ export default function useSkeleton({
                 if (overlayCanvasRef.current) {
                     ctx.save();
                     ctx.fillStyle = isHolding
-                        ? "#ffaa00"
+                        ? "#46a758"
                         : isPinching
-                        ? "#4caf50"
-                        : "#f44336";
+                        ? "#4f7cff"
+                        : "#ececee";
                     ctx.beginPath();
                     ctx.arc(
                         smoothed.x * scaleX,
@@ -195,7 +195,7 @@ export default function useSkeleton({
                     );
                     ctx.fill();
                     if (hand.connections) {
-                        ctx.strokeStyle = "#88aaff";
+                        ctx.strokeStyle = "rgba(236, 236, 238, 0.45)";
                         ctx.lineWidth = 2;
                         for (const [a, b] of hand.connections) {
                             const p = hand.landmarks[a];

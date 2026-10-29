@@ -1,265 +1,165 @@
 import React, { useState, useRef, useCallback } from "react";
 import styled from "styled-components";
+import { Copy, Trash, X } from "@phosphor-icons/react";
 import { useEditor } from "../store/editor";
-import { DuplicateIcon, DeleteIcon } from "./ShapeIcons";
-// import type { SceneObject, SceneLight } from "../types";
+import type { Vector3 } from "../types";
+import { Button, Divider, FieldLabel, IconButton, Input, Select } from "./ui";
 
-const Header = styled.div<{ $isDragging?: boolean }>`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    cursor: ${(props) => (props.$isDragging ? "grabbing" : "grab")};
-    user-select: none;
-`;
-
-const Title = styled.div`
-    font-weight: 600;
-    opacity: 0.9;
-`;
-
-const CloseButton = styled.button`
-    background: #12141a;
-    color: #e6e9ef;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 6px;
-    padding: 4px 8px;
-    font-size: 12px;
-    cursor: pointer;
-`;
-
-const InspectorContainer = styled.div<{
-    $visible: boolean;
+const Container = styled.div<{
     $top: number;
     $left: number;
     $height: number;
-    $isDragging?: boolean;
+    $isDragging: boolean;
 }>`
     position: absolute;
-    top: ${(props) => props.$top}px;
-    left: ${(props) => props.$left}px;
-    width: 280px;
-    height: ${(props) => props.$height}px;
-    background: rgba(18, 20, 26, 0.9);
-    color: #e6e9ef;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
-    padding: 12px;
-    overflow: auto;
-    opacity: ${(props) => (props.$visible ? 1 : 0)};
-    visibility: ${(props) => (props.$visible ? "visible" : "hidden")};
-    transform: ${(props) =>
-        props.$visible ? "translateX(0)" : "translateX(20px)"};
-    transition: ${(props) => (props.$isDragging ? "none" : "all 0.2s ease")};
-    cursor: ${(props) => (props.$isDragging ? "grabbing" : "default")};
+    top: ${(p) => p.$top}px;
+    left: ${(p) => p.$left}px;
+    width: 272px;
+    max-height: ${(p) => p.$height}px;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
     user-select: none;
-    z-index: 1000;
+    z-index: 30;
+    cursor: ${(p) => (p.$isDragging ? "grabbing" : "default")};
+`;
 
-    /* Hide scrollbar for all browsers */
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* Internet Explorer 10+ */
+const Header = styled.div<{ $isDragging: boolean }>`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 44px;
+    padding: 0 8px 0 14px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    flex-shrink: 0;
+    cursor: ${(p) => (p.$isDragging ? "grabbing" : "grab")};
+`;
 
-    &::-webkit-scrollbar {
-        display: none; /* WebKit */
+const Body = styled.div`
+    overflow: auto;
+    padding: 12px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    scrollbar-width: thin;
+`;
+
+const Triple = styled.div`
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+`;
+
+const Axis = styled.label<{ $axis: "x" | "y" | "z" }>`
+    position: relative;
+    display: block;
+
+    &::before {
+        content: "${(p) => p.$axis.toUpperCase()}";
+        position: absolute;
+        left: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--axis-${(p) => p.$axis});
+        pointer-events: none;
+    }
+
+    input {
+        padding-left: 22px;
     }
 `;
 
-const Row = styled.div`
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 6px;
-    margin-bottom: 10px;
-`;
-
-const InputGroup = styled.div`
+const Sub = styled.label`
     display: flex;
     flex-direction: column;
     gap: 4px;
+    color: var(--text-muted);
+    font-size: 11px;
 `;
 
-const InputLabel = styled.div<{ axis: "x" | "y" | "z" }>`
-    font-size: 10px;
-    opacity: 0.8;
-    text-align: center;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: ${(props) => {
-        switch (props.axis) {
-            case "x":
-                return "#ff2222"; // Bright Red
-            case "y":
-                return "#22ff22"; // Bright Green
-            case "z":
-                return "#2222ff"; // Bright Blue
-            default:
-                return "#e6e9ef";
-        }
-    }};
-`;
-
-const Label = styled.div`
-    opacity: 0.7;
-    margin: 8px 0 6px;
-`;
-
-const Input = styled.input`
-    background: #0f1116;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: #e6e9ef;
-    border-radius: 8px;
-    padding: 6px 8px;
-    width: 100%;
-`;
-
-const NameInput = styled.input`
-    background: #0f1116;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: #e6e9ef;
-    border-radius: 8px;
-    padding: 8px 12px;
-    width: 100%;
-    font-size: 14px;
-    font-weight: 500;
-    margin-bottom: 16px;
-
-    &:focus {
-        outline: none;
-        border-color: rgba(255, 255, 255, 0.2);
-        background: #0f1116;
-    }
-`;
-
-const ObjectSelector = styled.select`
-    background: #0f1116;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: #e6e9ef;
-    border-radius: 8px;
-    padding: 8px 12px;
-    width: 100%;
-    font-size: 14px;
-    font-weight: 500;
-    margin-bottom: 16px;
-    cursor: pointer;
-
-    &:focus {
-        outline: none;
-        border-color: rgba(255, 255, 255, 0.2);
-        background: #0f1116;
-    }
-
-    option {
-        background: #0f1116;
-        color: #e6e9ef;
-        padding: 8px;
-    }
-`;
-
-const SnapRow = styled.div`
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 8px;
-    margin-bottom: 10px;
-`;
-
-const SnapInput = styled.input`
-    background: #0f1116;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: #e6e9ef;
-    border-radius: 6px;
-    padding: 4px 6px;
-    width: 100%;
-    font-size: 12px;
-`;
-
-const SnapLabel = styled.div`
-    font-size: 10px;
-    opacity: 0.6;
-    text-align: center;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 4px;
-`;
-
-const SnapCheckbox = styled.label`
+const Check = styled.label`
     display: flex;
     align-items: center;
     gap: 8px;
     cursor: pointer;
-    font-size: 12px;
-    opacity: 0.8;
-    margin-bottom: 12px;
 
-    input[type="checkbox"] {
-        width: 16px;
-        height: 16px;
-        accent-color: #9aa7ff;
+    input {
+        width: 14px;
+        height: 14px;
+        margin: 0;
+        accent-color: var(--accent);
     }
 `;
 
-const ActionButton = styled.button`
-    background: rgba(18, 20, 26, 0.9);
-    color: #e6e9ef;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
-    padding: 8px 12px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 12px;
-
-    &:hover {
-        background: rgba(18, 20, 26, 1);
-        border-color: rgba(255, 255, 255, 0.15);
-        transform: translateY(-1px);
-    }
-
-    &:active {
-        transform: translateY(0);
-    }
+const Muted = styled.div`
+    color: var(--text-muted);
 `;
 
-const ActionsRow = styled.div`
+const Actions = styled.div`
     display: flex;
-    gap: 8px;
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    gap: 4px;
 `;
 
 const ResizeHandle = styled.div`
-    position: sticky;
-    bottom: -10px;
-    left: 0;
-    right: 0;
-    margin-top: 10px;
-    margin-bottom: -10px;
-    height: 8px;
+    height: 10px;
+    flex-shrink: 0;
     cursor: ns-resize;
-    background: transparent;
-    z-index: 1001;
-
-    &:hover {
-        background: rgba(255, 255, 255, 0.1);
-    }
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
     &::after {
         content: "";
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 20px;
-        height: 2px;
-        background: rgba(255, 255, 255, 0.3);
-        border-radius: 1px;
+        width: 28px;
+        height: 3px;
+        border-radius: 2px;
+        background: var(--border-strong);
     }
 `;
+
+const RAD_TO_DEG = 180 / Math.PI;
+const AXES = ["x", "y", "z"] as const;
+
+function num(value: string) {
+    const n = parseFloat(value);
+    return Number.isFinite(n) ? n : 0;
+}
+
+function round(n: number) {
+    return Math.round(n * 1000) / 1000;
+}
+
+function VectorField({
+    value,
+    step,
+    scale = 1,
+    onChange,
+}: {
+    value: Vector3;
+    step: number;
+    scale?: number;
+    onChange: (axis: "x" | "y" | "z", v: number) => void;
+}) {
+    return (
+        <Triple>
+            {AXES.map((axis) => (
+                <Axis key={axis} $axis={axis}>
+                    <Input
+                        type="number"
+                        step={step}
+                        value={round(value[axis] * scale)}
+                        onChange={(e) => onChange(axis, num(e.target.value) / scale)}
+                    />
+                </Axis>
+            ))}
+        </Triple>
+    );
+}
 
 export function Inspector() {
     const selectedId = useEditor((s) => s.selectedId);
@@ -279,7 +179,6 @@ export function Inspector() {
     const setSnap = useEditor((s) => s.setSnap);
     const setShowInspector = useEditor((s) => s.setShowInspector);
 
-    // Function to update object name
     const updateName = useEditor((s) => s.updateName);
 
     const obj = objects.find((o) => o.id === selectedId);
@@ -288,9 +187,9 @@ export function Inspector() {
 
     // State for dragging and resizing
     const [position, setPosition] = useState({
-        top: 56,
-        left: window.innerWidth - 308 - 280,
-        height: 400,
+        top: 60,
+        left: 70,
+        height: Math.min(560, window.innerHeight - 72),
     });
     const [isDragging, setIsDragging] = useState(false);
     const [isResizing, setIsResizing] = useState(false);
@@ -299,11 +198,9 @@ export function Inspector() {
 
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // Drag handlers
     const handleDragStart = useCallback(
         (e: React.MouseEvent) => {
             const target = e.target as HTMLElement;
-            // Ignore drags starting from interactive controls
             if (
                 target.closest(
                     "input,select,textarea,button,[contenteditable='true'],[data-no-drag]"
@@ -338,7 +235,6 @@ export function Inspector() {
         [position.height]
     );
 
-    // Mouse move handler
     const handleMouseMove = useCallback(
         (e: MouseEvent) => {
             if (isDragging) {
@@ -347,7 +243,7 @@ export function Inspector() {
 
                 setPosition({
                     top: Math.max(
-                        56,
+                        60,
                         Math.min(
                             window.innerHeight - position.height - 12,
                             dragStart.top + deltaY
@@ -356,7 +252,7 @@ export function Inspector() {
                     left: Math.max(
                         12,
                         Math.min(
-                            window.innerWidth - 280 - 12,
+                            window.innerWidth - 272 - 12,
                             dragStart.left + deltaX
                         )
                     ),
@@ -390,13 +286,11 @@ export function Inspector() {
         ]
     );
 
-    // Mouse up handler
     const handleMouseUp = useCallback(() => {
         setIsDragging(false);
         setIsResizing(false);
     }, []);
 
-    // Add event listeners
     React.useEffect(() => {
         if (isDragging || isResizing) {
             document.addEventListener("mousemove", handleMouseMove);
@@ -408,25 +302,14 @@ export function Inspector() {
         }
     }, [isDragging, isResizing, handleMouseMove, handleMouseUp]);
 
-    // Don't render anything if inspector is not visible
-    if (!isVisible) {
-        return (
-            <InspectorContainer
-                $visible={false}
-                $top={position.top}
-                $left={position.left}
-                $height={position.height}
-            />
-        );
-    }
+    if (!isVisible) return null;
 
     const selectedItem = obj || light;
-    const isLight = !!light;
+    const updateFn = light ? updateLightTransform : updateTransform;
 
     return (
-        <InspectorContainer
+        <Container
             ref={containerRef}
-            $visible={isVisible}
             $top={position.top}
             $left={position.left}
             $height={position.height}
@@ -439,377 +322,248 @@ export function Inspector() {
                 $isDragging={isDragging}
                 onMouseDown={handleDragStart}
             >
-                <Title>Inspector</Title>
-                <CloseButton
-                    onClick={() => {
-                        setShowInspector(false);
-                    }}
-                >
-                    ✕
-                </CloseButton>
+                Inspector
+                <IconButton title="Close" onClick={() => setShowInspector(false)}>
+                    <X size={16} />
+                </IconButton>
             </Header>
-
-            <Label>{isLight ? "Light" : "Object"}</Label>
-            <ObjectSelector
-                value={selectedId || ""}
-                onChange={(e) => select(e.target.value || null)}
-            >
-                <option value="">Select an item...</option>
-                {objects.map((object) => (
-                    <option key={object.id} value={object.id}>
-                        {object.name} ({object.geometry})
-                    </option>
-                ))}
-                {lights.map((light) => (
-                    <option key={light.id} value={light.id}>
-                        {light.name} ({light.type})
-                    </option>
-                ))}
-            </ObjectSelector>
-
-            <Label>Name</Label>
-            <NameInput
-                type="text"
-                value={selectedItem?.name || ""}
-                onChange={(e) => {
-                    if (isLight) {
-                        // For lights, we'll need to add updateLightName function
-                        // For now, just update the name in the store directly
-                        useEditor.setState((state) => ({
-                            ...state,
-                            lights: state.lights.map((l) =>
-                                l.id === selectedId
-                                    ? { ...l, name: e.target.value }
-                                    : l
-                            ),
-                        }));
-                    } else {
-                        updateName(selectedItem!.id, e.target.value);
-                    }
-                }}
-                placeholder={isLight ? "Light Name" : "Object Name"}
-            />
-
-            <Label>Position</Label>
-            <Row>
-                <InputGroup>
-                    <InputLabel axis="x">X</InputLabel>
-                    <Input
-                        type="number"
-                        step={snap.enableSnapping ? snap.translateSnap : 0.1}
-                        value={selectedItem?.position.x || 0}
-                        onChange={(e) => {
-                            const updateFn = isLight
-                                ? updateLightTransform
-                                : updateTransform;
-                            updateFn(selectedItem!.id, {
-                                position: { x: parseFloat(e.target.value) },
-                            });
-                        }}
-                    />
-                </InputGroup>
-                <InputGroup>
-                    <InputLabel axis="y">Y</InputLabel>
-                    <Input
-                        type="number"
-                        step={snap.enableSnapping ? snap.translateSnap : 0.1}
-                        value={selectedItem?.position.y || 0}
-                        onChange={(e) => {
-                            const updateFn = isLight
-                                ? updateLightTransform
-                                : updateTransform;
-                            updateFn(selectedItem!.id, {
-                                position: { y: parseFloat(e.target.value) },
-                            });
-                        }}
-                    />
-                </InputGroup>
-                <InputGroup>
-                    <InputLabel axis="z">Z</InputLabel>
-                    <Input
-                        type="number"
-                        step={snap.enableSnapping ? snap.translateSnap : 0.1}
-                        value={selectedItem?.position.z || 0}
-                        onChange={(e) => {
-                            const updateFn = isLight
-                                ? updateLightTransform
-                                : updateTransform;
-                            updateFn(selectedItem!.id, {
-                                position: { z: parseFloat(e.target.value) },
-                            });
-                        }}
-                    />
-                </InputGroup>
-            </Row>
-            <Label>Rotation</Label>
-            <Row>
-                <InputGroup>
-                    <InputLabel axis="x">X</InputLabel>
-                    <Input
-                        type="number"
-                        step={snap.enableSnapping ? snap.rotateSnap : 0.05}
-                        value={selectedItem?.rotation.x || 0}
-                        onChange={(e) => {
-                            const updateFn = isLight
-                                ? updateLightTransform
-                                : updateTransform;
-                            updateFn(selectedItem!.id, {
-                                rotation: { x: parseFloat(e.target.value) },
-                            });
-                        }}
-                    />
-                </InputGroup>
-                <InputGroup>
-                    <InputLabel axis="y">Y</InputLabel>
-                    <Input
-                        type="number"
-                        step={snap.enableSnapping ? snap.rotateSnap : 0.05}
-                        value={selectedItem?.rotation.y || 0}
-                        onChange={(e) => {
-                            const updateFn = isLight
-                                ? updateLightTransform
-                                : updateTransform;
-                            updateFn(selectedItem!.id, {
-                                rotation: { y: parseFloat(e.target.value) },
-                            });
-                        }}
-                    />
-                </InputGroup>
-                <InputGroup>
-                    <InputLabel axis="z">Z</InputLabel>
-                    <Input
-                        type="number"
-                        step={snap.enableSnapping ? snap.rotateSnap : 0.05}
-                        value={selectedItem?.rotation.z || 0}
-                        onChange={(e) => {
-                            const updateFn = isLight
-                                ? updateLightTransform
-                                : updateTransform;
-                            updateFn(selectedItem!.id, {
-                                rotation: { z: parseFloat(e.target.value) },
-                            });
-                        }}
-                    />
-                </InputGroup>
-            </Row>
-            {!isLight && (
-                <>
-                    <Label>Scale</Label>
-                    <Row>
-                        <InputGroup>
-                            <InputLabel axis="x">X</InputLabel>
-                            <Input
-                                type="number"
-                                step={
-                                    snap.enableSnapping ? snap.scaleSnap : 0.1
-                                }
-                                value={obj?.scale.x || 0}
-                                onChange={(e) =>
-                                    updateTransform(obj!.id, {
-                                        scale: {
-                                            x: parseFloat(e.target.value),
-                                        },
-                                    })
-                                }
-                            />
-                        </InputGroup>
-                        <InputGroup>
-                            <InputLabel axis="y">Y</InputLabel>
-                            <Input
-                                type="number"
-                                step={
-                                    snap.enableSnapping ? snap.scaleSnap : 0.1
-                                }
-                                value={obj?.scale.y || 0}
-                                onChange={(e) =>
-                                    updateTransform(obj!.id, {
-                                        scale: {
-                                            y: parseFloat(e.target.value),
-                                        },
-                                    })
-                                }
-                            />
-                        </InputGroup>
-                        <InputGroup>
-                            <InputLabel axis="z">Z</InputLabel>
-                            <Input
-                                type="number"
-                                step={
-                                    snap.enableSnapping ? snap.scaleSnap : 0.1
-                                }
-                                value={obj?.scale.z || 0}
-                                onChange={(e) =>
-                                    updateTransform(obj!.id, {
-                                        scale: {
-                                            z: parseFloat(e.target.value),
-                                        },
-                                    })
-                                }
-                            />
-                        </InputGroup>
-                    </Row>
-
-                    <Label>Material</Label>
-                    <Row>
-                        <Input
-                            type="color"
-                            value={obj?.material.color || "#ffffff"}
-                            onChange={(e) =>
-                                updateMaterial(obj!.id, {
-                                    color: e.target.value,
-                                })
-                            }
-                        />
-                        <Input
-                            type="number"
-                            step="0.05"
-                            value={obj?.material.metalness || 0}
-                            onChange={(e) =>
-                                updateMaterial(obj!.id, {
-                                    metalness: parseFloat(e.target.value),
-                                })
-                            }
-                        />
-                        <Input
-                            type="number"
-                            step="0.05"
-                            value={obj?.material.roughness || 0}
-                            onChange={(e) =>
-                                updateMaterial(obj!.id, {
-                                    roughness: parseFloat(e.target.value),
-                                })
-                            }
-                        />
-                    </Row>
-                </>
-            )}
-
-            {isLight && (
-                <>
-                    <Label>Light Properties</Label>
-                    <Row>
-                        <Input
-                            type="color"
-                            value={light?.props.color || "#ffffff"}
-                            onChange={(e) =>
-                                updateLightProps(light!.id, {
-                                    color: e.target.value,
-                                })
-                            }
-                        />
-                        <Input
-                            type="number"
-                            step="0.1"
-                            value={light?.props.intensity || 1}
-                            onChange={(e) =>
-                                updateLightProps(light!.id, {
-                                    intensity: parseFloat(e.target.value),
-                                })
-                            }
-                        />
-                    </Row>
-                    {light?.type === "point" && (
-                        <>
-                            <Label>Distance</Label>
-                            <Input
-                                type="number"
-                                step="0.1"
-                                value={light?.props.distance || 0}
-                                onChange={(e) =>
-                                    updateLightProps(light!.id, {
-                                        distance: parseFloat(e.target.value),
-                                    })
-                                }
-                            />
-                        </>
-                    )}
-                    {light?.type === "spot" && (
-                        <>
-                            <Label>Angle</Label>
-                            <Input
-                                type="number"
-                                step="0.1"
-                                value={light?.props.angle || Math.PI / 3}
-                                onChange={(e) =>
-                                    updateLightProps(light!.id, {
-                                        angle: parseFloat(e.target.value),
-                                    })
-                                }
-                            />
-                        </>
-                    )}
-                </>
-            )}
-
-            <Label>Snap Settings</Label>
-            <SnapCheckbox>
-                <input
-                    type="checkbox"
-                    checked={snap.enableSnapping}
-                    onChange={(e) => toggleSnap(e.target.checked)}
-                />
-                Enable Snapping
-            </SnapCheckbox>
-            <SnapRow>
-                <div>
-                    <SnapLabel>Move</SnapLabel>
-                    <SnapInput
-                        type="number"
-                        step="0.1"
-                        value={snap.translateSnap}
-                        onChange={(e) =>
-                            setSnap({
-                                translateSnap: parseFloat(e.target.value),
-                            })
-                        }
-                    />
-                </div>
-                <div>
-                    <SnapLabel>Rotate</SnapLabel>
-                    <SnapInput
-                        type="number"
-                        step="0.01"
-                        value={snap.rotateSnap}
-                        onChange={(e) =>
-                            setSnap({ rotateSnap: parseFloat(e.target.value) })
-                        }
-                    />
-                </div>
-                <div>
-                    <SnapLabel>Scale</SnapLabel>
-                    <SnapInput
-                        type="number"
-                        step="0.01"
-                        value={snap.scaleSnap}
-                        onChange={(e) =>
-                            setSnap({ scaleSnap: parseFloat(e.target.value) })
-                        }
-                    />
-                </div>
-            </SnapRow>
-
-            <ActionsRow>
-                {!isLight && (
-                    <ActionButton
-                        onClick={duplicateSelected}
-                        title="Duplicate Object"
-                    >
-                        <DuplicateIcon size={14} />
-                        Duplicate
-                    </ActionButton>
-                )}
-                <ActionButton
-                    onClick={
-                        isLight ? () => deleteLight(light!.id) : deleteSelected
-                    }
-                    title={isLight ? "Delete Light" : "Delete Object"}
+            <Body>
+                <Select
+                    value={selectedId || ""}
+                    onChange={(e) => select(e.target.value || null)}
                 >
-                    <DeleteIcon size={14} />
-                    Delete
-                </ActionButton>
-            </ActionsRow>
+                    <option value="">No selection</option>
+                    {objects.map((object) => (
+                        <option key={object.id} value={object.id}>
+                            {object.name}
+                        </option>
+                    ))}
+                    {lights.map((l) => (
+                        <option key={l.id} value={l.id}>
+                            {l.name}
+                        </option>
+                    ))}
+                </Select>
+
+                {!selectedItem && <Muted>Select an object to edit it.</Muted>}
+
+                {selectedItem && (
+                    <>
+                        <div>
+                            <FieldLabel>Name</FieldLabel>
+                            <Input
+                                type="text"
+                                value={selectedItem.name}
+                                onChange={(e) => {
+                                    if (light) {
+                                        useEditor.setState((state) => ({
+                                            ...state,
+                                            lights: state.lights.map((l) =>
+                                                l.id === light.id
+                                                    ? { ...l, name: e.target.value }
+                                                    : l
+                                            ),
+                                        }));
+                                    } else {
+                                        updateName(selectedItem.id, e.target.value);
+                                    }
+                                }}
+                            />
+                        </div>
+                        <div>
+                            <FieldLabel>Position</FieldLabel>
+                            <VectorField
+                                value={selectedItem.position}
+                                step={snap.enableSnapping ? snap.translateSnap : 0.1}
+                                onChange={(axis, v) =>
+                                    updateFn(selectedItem.id, { position: { [axis]: v } })
+                                }
+                            />
+                        </div>
+                        <div>
+                            <FieldLabel>Rotation (degrees)</FieldLabel>
+                            <VectorField
+                                value={selectedItem.rotation}
+                                scale={RAD_TO_DEG}
+                                step={snap.enableSnapping ? round(snap.rotateSnap * RAD_TO_DEG) : 1}
+                                onChange={(axis, v) =>
+                                    updateFn(selectedItem.id, { rotation: { [axis]: v } })
+                                }
+                            />
+                        </div>
+                        {obj && (
+                            <>
+                                <div>
+                                    <FieldLabel>Scale</FieldLabel>
+                                    <VectorField
+                                        value={obj.scale}
+                                        step={snap.enableSnapping ? snap.scaleSnap : 0.1}
+                                        onChange={(axis, v) =>
+                                            updateTransform(obj.id, { scale: { [axis]: v } })
+                                        }
+                                    />
+                                </div>
+                                <div>
+                                    <FieldLabel>Material</FieldLabel>
+                                    <Triple>
+                                        <Sub>
+                                            Color
+                                            <Input
+                                                type="color"
+                                                value={obj.material.color || "#ffffff"}
+                                                onChange={(e) =>
+                                                    updateMaterial(obj.id, { color: e.target.value })
+                                                }
+                                            />
+                                        </Sub>
+                                        <Sub>
+                                            Metalness
+                                            <Input
+                                                type="number"
+                                                step="0.05"
+                                                min="0"
+                                                max="1"
+                                                value={obj.material.metalness ?? 0}
+                                                onChange={(e) =>
+                                                    updateMaterial(obj.id, { metalness: num(e.target.value) })
+                                                }
+                                            />
+                                        </Sub>
+                                        <Sub>
+                                            Roughness
+                                            <Input
+                                                type="number"
+                                                step="0.05"
+                                                min="0"
+                                                max="1"
+                                                value={obj.material.roughness ?? 0}
+                                                onChange={(e) =>
+                                                    updateMaterial(obj.id, { roughness: num(e.target.value) })
+                                                }
+                                            />
+                                        </Sub>
+                                    </Triple>
+                                </div>
+                            </>
+                        )}
+                        {light && (
+                            <div>
+                                <FieldLabel>Light</FieldLabel>
+                                <Triple>
+                                    <Sub>
+                                        Color
+                                        <Input
+                                            type="color"
+                                            value={light.props.color || "#ffffff"}
+                                            onChange={(e) =>
+                                                updateLightProps(light.id, { color: e.target.value })
+                                            }
+                                        />
+                                    </Sub>
+                                    <Sub>
+                                        Intensity
+                                        <Input
+                                            type="number"
+                                            step="0.1"
+                                            value={light.props.intensity ?? 1}
+                                            onChange={(e) =>
+                                                updateLightProps(light.id, { intensity: num(e.target.value) })
+                                            }
+                                        />
+                                    </Sub>
+                                    {light.type === "point" && (
+                                        <Sub>
+                                            Distance
+                                            <Input
+                                                type="number"
+                                                step="0.1"
+                                                value={light.props.distance ?? 0}
+                                                onChange={(e) =>
+                                                    updateLightProps(light.id, { distance: num(e.target.value) })
+                                                }
+                                            />
+                                        </Sub>
+                                    )}
+                                    {light.type === "spot" && (
+                                        <Sub>
+                                            Angle
+                                            <Input
+                                                type="number"
+                                                step="1"
+                                                value={round((light.props.angle ?? Math.PI / 3) * RAD_TO_DEG)}
+                                                onChange={(e) =>
+                                                    updateLightProps(light.id, { angle: num(e.target.value) / RAD_TO_DEG })
+                                                }
+                                            />
+                                        </Sub>
+                                    )}
+                                </Triple>
+                            </div>
+                        )}
+                        <Actions>
+                            {obj && (
+                                <Button onClick={duplicateSelected}>
+                                    <Copy size={16} />
+                                    Duplicate
+                                </Button>
+                            )}
+                            <Button
+                                $variant="danger"
+                                onClick={light ? () => deleteLight(light.id) : deleteSelected}
+                            >
+                                <Trash size={16} />
+                                Delete
+                            </Button>
+                        </Actions>
+                    </>
+                )}
+
+                <Divider />
+
+                <div>
+                    <Check>
+                        <input
+                            type="checkbox"
+                            checked={snap.enableSnapping}
+                            onChange={(e) => toggleSnap(e.target.checked)}
+                        />
+                        Snapping
+                    </Check>
+                    {snap.enableSnapping && (
+                        <Triple style={{ marginTop: 10 }}>
+                            <Sub>
+                                Move
+                                <Input
+                                    type="number"
+                                    step="0.1"
+                                    value={snap.translateSnap}
+                                    onChange={(e) => setSnap({ translateSnap: num(e.target.value) })}
+                                />
+                            </Sub>
+                            <Sub>
+                                Rotate (°)
+                                <Input
+                                    type="number"
+                                    step="1"
+                                    value={round(snap.rotateSnap * RAD_TO_DEG)}
+                                    onChange={(e) => setSnap({ rotateSnap: num(e.target.value) / RAD_TO_DEG })}
+                                />
+                            </Sub>
+                            <Sub>
+                                Scale
+                                <Input
+                                    type="number"
+                                    step="0.01"
+                                    value={snap.scaleSnap}
+                                    onChange={(e) => setSnap({ scaleSnap: num(e.target.value) })}
+                                />
+                            </Sub>
+                        </Triple>
+                    )}
+                </div>
+            </Body>
             <ResizeHandle onMouseDown={handleResizeStart} />
-        </InspectorContainer>
+        </Container>
     );
 }
 

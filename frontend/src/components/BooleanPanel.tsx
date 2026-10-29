@@ -1,40 +1,31 @@
 import { useMemo, useState } from "react";
 import styled from "styled-components";
+import { Intersect, Subtract, Unite } from "@phosphor-icons/react";
 import { useEditor } from "../store/editor";
+import { IconButton, Select } from "./ui";
 
-const Panel = styled.div`
+const Bar = styled.div`
     position: absolute;
-    bottom: 12px;
-    right: 308px;
+    bottom: var(--gap);
+    left: calc(var(--gap) * 2 + 220px);
     display: flex;
-    gap: 8px;
+    gap: 6px;
     align-items: center;
-    height: 50px;
-    background: rgba(18, 20, 26, 0.85);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    padding: 8px 10px;
-    border-radius: 10px;
+    padding: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    z-index: 20;
 `;
 
-const Select = styled.select`
-    background: #0f1116;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: #e6e9ef;
-    border-radius: 6px;
-    padding: 6px 8px;
-`;
-
-const Btn = styled.button`
-    background: #12141a;
-    color: #e6e9ef;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    padding: 6px 10px;
-    border-radius: 8px;
+const Picker = styled(Select)`
+    width: 130px;
 `;
 
 export function BooleanPanel() {
     const objects = useEditor((s) => s.objects);
     const booleanOp = useEditor((s) => s.booleanOp);
+    const editorMode = useEditor((s) => s.editorMode);
     const [aId, setA] = useState<string>("");
     const [bId, setB] = useState<string>("");
 
@@ -43,43 +34,50 @@ export function BooleanPanel() {
         [objects]
     );
 
+    if (editorMode === "render" || objects.length < 2) return null;
+
+    const ready = Boolean(aId && bId && aId !== bId);
+
     return (
-        <Panel>
-            <Select value={aId} onChange={(e) => setA(e.target.value)}>
-                <option value="">A</option>
+        <Bar>
+            <Picker value={aId} onChange={(e) => setA(e.target.value)}>
+                <option value="">First object</option>
                 {options.map((o) => (
                     <option key={o.id} value={o.id}>
                         {o.name}
                     </option>
                 ))}
-            </Select>
-            <Select value={bId} onChange={(e) => setB(e.target.value)}>
-                <option value="">B</option>
+            </Picker>
+            <Picker value={bId} onChange={(e) => setB(e.target.value)}>
+                <option value="">Second object</option>
                 {options.map((o) => (
                     <option key={o.id} value={o.id}>
                         {o.name}
                     </option>
                 ))}
-            </Select>
-            <Btn
-                disabled={!aId || !bId}
+            </Picker>
+            <IconButton
+                title="Union"
+                disabled={!ready}
                 onClick={() => booleanOp("union", aId, bId)}
             >
-                Union
-            </Btn>
-            <Btn
-                disabled={!aId || !bId}
+                <Unite size={18} />
+            </IconButton>
+            <IconButton
+                title="Subtract second from first"
+                disabled={!ready}
                 onClick={() => booleanOp("subtract", aId, bId)}
             >
-                Subtract
-            </Btn>
-            <Btn
-                disabled={!aId || !bId}
+                <Subtract size={18} />
+            </IconButton>
+            <IconButton
+                title="Intersect"
+                disabled={!ready}
                 onClick={() => booleanOp("intersect", aId, bId)}
             >
-                Intersect
-            </Btn>
-        </Panel>
+                <Intersect size={18} />
+            </IconButton>
+        </Bar>
     );
 }
 

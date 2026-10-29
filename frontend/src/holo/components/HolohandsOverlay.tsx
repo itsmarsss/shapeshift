@@ -249,7 +249,7 @@ function OverlayInner() {
                 position: "absolute",
                 left: 0,
                 right: 0,
-                top: 56,
+                top: 48,
                 bottom: 0,
             }}
         >
