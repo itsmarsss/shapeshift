@@ -11,6 +11,7 @@ import { useShortcuts } from "../hooks/useShortcuts";
 import { useUI } from "../ui/store";
 import { HandOverlay } from "../hands/HandOverlay";
 import { HandPreview } from "../hands/HandPreview";
+import { HandCommands } from "../hands/HandCommands";
 
 const Root = styled.div`
     position: relative;
@@ -39,6 +40,7 @@ export function Layout() {
             <BooleanPanel />
             <ChatPanel />
             <HandPreview />
+            <HandCommands />
         </Root>
     );
 }

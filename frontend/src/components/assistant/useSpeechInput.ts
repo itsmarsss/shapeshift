@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useVoice, VOICE_TOGGLE_EVENT } from "../../ui/voice";
 
 // Web Speech API types are not in lib.dom yet.
 type Recognition = {
@@ -19,12 +20,12 @@ function recognitionCtor(): RecognitionCtor | undefined {
     return w.SpeechRecognition ?? w.webkitSpeechRecognition;
 }
 
-// Dispatch this event to start or stop listening from anywhere, such as a
-// hand gesture.
-export const VOICE_TOGGLE_EVENT = "shapeshift:voice-toggle";
-
 export function useSpeechInput({ onInterim, onFinal, onError }: { onInterim: (text: string) => void; onFinal: (text: string) => void; onError: (message: string) => void }) {
-    const [listening, setListening] = useState(false);
+    const [listening, setListeningState] = useState(false);
+    const setListening = useCallback((on: boolean) => {
+        setListeningState(on);
+        useVoice.setState({ listening: on });
+    }, []);
     const supported = typeof window !== "undefined" && !!recognitionCtor();
     const recognitionRef = useRef<Recognition | null>(null);
     const handlers = useRef({ onInterim, onFinal, onError });
@@ -72,7 +73,7 @@ export function useSpeechInput({ onInterim, onFinal, onError }: { onInterim: (te
             recognitionRef.current = null;
             handlers.current.onError("Couldn't start voice input.");
         }
-    }, []);
+    }, [setListening]);
 
     useEffect(() => {
         window.addEventListener(VOICE_TOGGLE_EVENT, toggle);
