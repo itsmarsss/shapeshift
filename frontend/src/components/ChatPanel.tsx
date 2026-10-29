@@ -2,7 +2,6 @@ import styled from "styled-components";
 import { useMemo, useRef, useState } from "react";
 import { useEditor } from "../store/editor";
 import type { GeometryKind, SceneObject } from "../types";
-import { importObjectsFromGLTF } from "../utils/io";
 import { runAgent } from "../agent/agent";
 import { useAgentTimeline } from "../store/agentTimeline";
 
@@ -97,7 +96,7 @@ const Message = styled.div<{ role: "user" | "system" }>`
 
 const InputRow = styled.form`
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: 1fr auto;
     gap: 8px;
     padding: 8px 8px 10px 8px;
     border-top: 1px solid rgba(255, 255, 255, 0.06);
@@ -119,51 +118,7 @@ const SendBtn = styled.button`
     padding: 8px 12px;
 `;
 
-const AttachBtn = styled.button`
-    background: rgba(18, 20, 26, 0.9);
-    color: #e6e9ef;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
-    padding: 8px 12px;
-`;
-
 type ChatMsg = { role: "user" | "system"; text: string };
-
-function toRadians(value: number) {
-    return (value * Math.PI) / 180;
-}
-
-function parseNumber(s: string | undefined, fallback: number) {
-    if (s == null) return fallback;
-    const v = parseFloat(s);
-    return Number.isFinite(v) ? v : fallback;
-}
-
-async function fileToBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-            const result = String(reader.result || "");
-            const base64 = result.includes(",") ? result.split(",")[1] : result;
-            resolve(base64);
-        };
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(file);
-    });
-}
-
-const COLOR_NAMES: Record<string, string> = {
-    red: "#ff4d4f",
-    green: "#52c41a",
-    blue: "#1890ff",
-    yellow: "#fadb14",
-    orange: "#fa8c16",
-    purple: "#722ed1",
-    pink: "#eb2f96",
-    white: "#ffffff",
-    black: "#000000",
-    gray: "#8c8c8c",
-};
 
 export function ChatPanel() {
     const [input, setInput] = useState("");
@@ -176,7 +131,6 @@ export function ChatPanel() {
     const [showHistory, setShowHistory] = useState(true);
     const [usingLLM, setUsingLLM] = useState(true);
     const [isLoading, setIsLoading] = useState(false);
-    const [attachment, setAttachment] = useState<File | null>(null);
     const [pinnedIds, setPinnedIds] = useState<string[]>([]);
 
     const objects = useEditor((s) => s.objects);
@@ -198,14 +152,12 @@ export function ChatPanel() {
     const checkpoints = useEditor((s) => s.checkpoints);
     const restoreCheckpoint = useEditor((s) => s.restoreCheckpoint);
     const deleteCheckpoint = useEditor((s) => s.deleteCheckpoint);
-    const addSceneObjects = (useEditor as any).getState?.().addSceneObjects;
 
     const selected = useMemo(
         () => objects.find((o) => o.id === selectedId) ?? null,
         [objects, selectedId]
     );
     const scrollRef = useRef<HTMLDivElement>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const setDryRun = useAgentTimeline((s) => s.setDryRun);
     const dryRun = useAgentTimeline((s) => s.dryRun);
@@ -257,7 +209,7 @@ export function ChatPanel() {
         return `${o.name} [${o.id}] kind=${kind} ${dims} pos=(${o.position.x.toFixed(2)},${o.position.y.toFixed(2)},${o.position.z.toFixed(2)}) rot=(${o.rotation.x.toFixed(2)},${o.rotation.y.toFixed(2)},${o.rotation.z.toFixed(2)}) scale=(${o.scale.x.toFixed(2)},${o.scale.y.toFixed(2)},${o.scale.z.toFixed(2)}) color=${o.material.color}`;
     }
 
-    async function callLLM(userText: string, attached?: File | null) {
+    async function callLLM(userText: string) {
         try {
             setIsLoading(true);
             const sceneSummary = objects
@@ -280,23 +232,10 @@ export function ChatPanel() {
                 ? pinned.map((o) => summarizeObjectDetailed(o)).join("; ")
                 : "";
 
-            let attachmentPayload: any = undefined;
-            if (attached) {
-                try {
-                    const data = await fileToBase64(attached);
-                    attachmentPayload = {
-                        name: attached.name,
-                        type: attached.type,
-                        size: attached.size,
-                        data,
-                    };
-                } catch {}
-            }
-
             const r = await fetch(`${SERVER_URL}/api/chat`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ user: userText, sceneSummary, focusContext, attachment: attachmentPayload }),
+                body: JSON.stringify({ user: userText, sceneSummary, focusContext }),
             });
             const data = await r.json();
             // OpenAI-compatible: choices[0].message
@@ -320,37 +259,6 @@ export function ChatPanel() {
                     const st = (useEditor as any).getState?.() || {};
                     if (st.selectedId) ensurePinned(st.selectedId);
                     return { executed: true, reply: `Added ${args.kind}` };
-                }
-                if (name === "generateModelRodin") {
-                    try {
-                        const pre = new Set(((useEditor as any).getState?.().objects ?? []).map((o: any) => o.id));
-                        const body = {
-                            imageUrl: args.imageUrl,
-                            prompt: args.prompt,
-                            quality: args.quality,
-                            material: args.material,
-                        };
-                        const rr = await fetch(`${SERVER_URL}/api/rodin`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify(body),
-                        });
-                        const jd = await rr.json();
-                        const glbUrl = jd?.glbUrl;
-                        if (!glbUrl) return { executed: false, reply: "Rodin failed" };
-                        const resp = await fetch(glbUrl);
-                        if (!resp.ok) return { executed: false, reply: "Fetch GLB failed" };
-                        const blob = await resp.blob();
-                        const file = new File([blob], "rodin.glb", { type: blob.type || 'model/gltf-binary' });
-                        const objs = await importObjectsFromGLTF(file);
-                        if (addSceneObjects) addSceneObjects(objs);
-                        const postObjs = ((useEditor as any).getState?.().objects ?? []);
-                        const newIds = postObjs.filter((o: any) => !pre.has(o.id)).map((o: any) => o.id);
-                        if (newIds.length) ensurePinned(newIds);
-                        return { executed: true, reply: `Imported ${objs.length} object(s)` };
-                    } catch {
-                        return { executed: false, reply: "Rodin import failed" };
-                    }
                 }
                 if (name === "selectObject") {
                     const t = String(args.target || "");
@@ -589,49 +497,6 @@ export function ChatPanel() {
         }
     }
 
-    async function callRodinDirect(prompt: string | undefined, attached?: File | null) {
-        try {
-            setIsLoading(true);
-            const pre = new Set(((useEditor as any).getState?.().objects ?? []).map((o: any) => o.id));
-            let imageUrl: string | undefined = undefined;
-            if (attached) {
-                try {
-                    const data = await fileToBase64(attached);
-                    imageUrl = `data:${attached.type || 'image/png'};base64,${data}`;
-                } catch {}
-            }
-            if (!imageUrl && (!prompt || !prompt.trim())) {
-                return "Provide a prompt or attach an image";
-            }
-            const body: any = {
-                ...(prompt ? { prompt } : {}),
-                ...(imageUrl ? { imageUrl } : {}),
-            };
-            const rr = await fetch(`${SERVER_URL}/api/rodin`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body),
-            });
-            const jd = await rr.json();
-            const glbUrl = jd?.glbUrl;
-            if (!glbUrl) return "Rodin failed";
-            const resp = await fetch(glbUrl);
-            if (!resp.ok) return "Fetch GLB failed";
-            const blob = await resp.blob();
-            const file = new File([blob], "rodin.glb", { type: blob.type || 'model/gltf-binary' });
-            const objs = await importObjectsFromGLTF(file);
-            if (addSceneObjects) addSceneObjects(objs);
-            const postObjs = ((useEditor as any).getState?.().objects ?? []);
-            const newIds = postObjs.filter((o: any) => !pre.has(o.id)).map((o: any) => o.id);
-            if (newIds.length) ensurePinned(newIds);
-            return `Imported ${objs.length} object(s)`;
-        } catch {
-            return "";
-        } finally {
-            setIsLoading(false);
-        }
-    }
-
     function checkpoint(prompt: string, response: string) {
         addCheckpoint({ prompt, response, label: prompt.slice(0, 40) });
     }
@@ -649,33 +514,6 @@ export function ChatPanel() {
         return obj ? obj.id : undefined;
     }
 
-    function parseAddParams(kind: GeometryKind, rest: string): any | undefined {
-        const get = (key: string) => {
-            const m = rest.match(new RegExp(`${key}\\s+(-?\\d*\\.?\\d+)`, "i"));
-            return m ? parseFloat(m[1]) : undefined;
-        };
-        if (kind === "box")
-            return {
-                width: get("width") ?? 1,
-                height: get("height") ?? 1,
-                depth: get("depth") ?? 1,
-            };
-        if (kind === "sphere") return { radius: get("radius") ?? 0.5 };
-        if (kind === "cylinder")
-            return {
-                radiusTop: get("radiustop") ?? get("radius") ?? 0.5,
-                radiusBottom: get("radiusbottom") ?? get("radius") ?? 0.5,
-                height: get("height") ?? 1,
-            };
-        if (kind === "cone")
-            return { radius: get("radius") ?? 0.5, height: get("height") ?? 1 };
-        if (kind === "torus")
-            return { radius: get("radius") ?? 0.5, tube: get("tube") ?? 0.2 };
-        if (kind === "plane")
-            return { width: get("width") ?? 1, height: get("height") ?? 1 };
-        return undefined;
-    }
-
     async function handleAgent(text: string) {
         // Always call perceive first via runAgent
         console.log("[Chat] handleAgent text=", text, "dryRun=", dryRun);
@@ -687,15 +525,14 @@ export function ChatPanel() {
         return summary;
     }
 
-    function handleCommand(raw: string, attachedOverride?: File | null) {
+    function handleCommand(raw: string) {
         const text = raw.trim();
         if (!text) return;
         console.log("[Chat] handleCommand raw=", raw);
         push("user", text);
-        const attachedForThis = attachedOverride ?? attachment;
 
         if (usingLLM) {
-            callLLM(text, attachedForThis).then(({ executed, reply }) => {
+            callLLM(text).then(({ executed, reply }) => {
                 push("system", reply);
                 if (executed) {
                     checkpoint(text, reply);
@@ -716,10 +553,8 @@ export function ChatPanel() {
         e.preventDefault();
         const t = input;
         console.log("[Chat] onSubmit input=", t);
-        const attachedForThis = attachment;
         setInput("");
-        handleCommand(t, attachedForThis);
-        setAttachment(null);
+        handleCommand(t);
     }
 
     return (
@@ -811,47 +646,11 @@ export function ChatPanel() {
                     </Message>
                 ))}
             </Messages>
-            {attachment && (
-                <div style={{
-                    padding: "6px 10px",
-                    borderTop: "1px solid rgba(255, 255, 255, 0.06)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 8,
-                }}>
-                    <div style={{
-                        fontSize: 12,
-                        opacity: 0.85,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        maxWidth: "70%",
-                    }}>
-                        Attached: {attachment.name} ({Math.max(1, Math.round(attachment.size / 1024))} KB)
-                    </div>
-                    <SmallBtn onClick={() => setAttachment(null)}>✕</SmallBtn>
-                </div>
-            )}
             <div style={{ padding: "6px 10px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                 <SnapshotCounts />
                 <ExportButton />
             </div>
             <InputRow onSubmit={onSubmit}>
-                <input
-                    ref={fileInputRef}
-                    type="file"
-                    style={{ display: "none" }}
-                    onChange={(e) => setAttachment(e.target.files?.[0] ?? null)}
-                />
-                <AttachBtn
-                    type="button"
-                    aria-label="Attach file"
-                    onClick={() => fileInputRef.current?.click()}
-                    title="Attach file"
-                >
-                    📎
-                </AttachBtn>
                 <TextInput
                     placeholder={
                         selected ? `Command for ${selected.name}…` : "Command…"
