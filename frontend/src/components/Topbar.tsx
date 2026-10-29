@@ -8,12 +8,14 @@ import {
     FilePlus,
     FloppyDisk,
     FolderOpen,
+    Hand,
     SlidersHorizontal,
     TrayArrowDown,
 } from "@phosphor-icons/react";
 import { useScene, type EditorMode } from "../scene/store";
 import { exportGLB, importModel, parseSceneFile, saveSceneFile } from "../scene/io";
 import { useUI } from "../ui/store";
+import { useHands } from "../hands/tracker";
 import { IconButton, Segment, Segmented } from "./ui";
 
 const Bar = styled.div`
@@ -66,6 +68,8 @@ export function Topbar() {
     const showChat = useUI((s) => s.showChat);
     const setShowInspector = useUI((s) => s.setShowInspector);
     const setShowChat = useUI((s) => s.setShowChat);
+    const handStatus = useHands((s) => s.status);
+    const setHands = useHands((s) => s.setEnabled);
     const openRef = useRef<HTMLInputElement>(null);
     const importRef = useRef<HTMLInputElement>(null);
 
@@ -128,6 +132,13 @@ export function Topbar() {
                     <ArrowUUpRight size={18} />
                 </IconButton>
                 <Sep />
+                <IconButton
+                    title={handStatus === "off" ? "Turn on hand control" : "Turn off hand control"}
+                    $active={handStatus !== "off"}
+                    onClick={() => setHands(handStatus === "off")}
+                >
+                    <Hand size={18} />
+                </IconButton>
                 <IconButton title="Inspector" $active={showInspector} onClick={() => setShowInspector(!showInspector)}>
                     <SlidersHorizontal size={18} />
                 </IconButton>
