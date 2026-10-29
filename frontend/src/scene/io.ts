@@ -46,6 +46,23 @@ export function toThreeScene(doc: SceneDoc): THREE.Scene {
         mesh.scale.set(...o.scale);
         scene.add(mesh);
     }
+    for (const l of doc.lights) {
+        const light =
+            l.type === "point"
+                ? new THREE.PointLight(l.color, l.intensity, l.distance)
+                : l.type === "spot"
+                  ? new THREE.SpotLight(l.color, l.intensity, l.distance, l.angle, 0.35)
+                  : new THREE.DirectionalLight(l.color, l.intensity);
+        light.name = l.name;
+        light.position.set(...l.position);
+        if (light instanceof THREE.SpotLight || light instanceof THREE.DirectionalLight) {
+            // glTF lights shine down their local -Z axis, so point that at the aim.
+            light.lookAt(new THREE.Vector3(...l.aim));
+            light.target.position.set(...l.aim);
+            scene.add(light.target);
+        }
+        scene.add(light);
+    }
     return scene;
 }
 

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import styled from "styled-components";
 import { Copy, Trash, X } from "@phosphor-icons/react";
-import { selectSelected, useScene } from "../scene/store";
-import type { Command, Vec3 } from "../scene/schema";
+import { selectSelected, selectSelectedLight, useScene } from "../scene/store";
+import type { Command, Light, Vec3 } from "../scene/schema";
 import { useUI } from "../ui/store";
 import { Button, Divider, FieldLabel, IconButton, Input, Panel, PanelHeader, PanelTitle, Select } from "./ui";
 
@@ -157,11 +157,104 @@ function VectorField({
     );
 }
 
+const LIGHT_KIND: Record<Light["type"], string> = { point: "Point light", spot: "Spot light", directional: "Directional light" };
+
+function LightSection({ light }: { light: Light }) {
+    const run = useScene((s) => s.run);
+    const endCoalesce = useScene((s) => s.endCoalesce);
+    const snap = useScene((s) => s.snap);
+    const edit = (key: string, cmd: Command) => run(cmd, { coalesce: `${key}:${light.id}` });
+    const update = (key: string, fields: Omit<Extract<Command, { type: "updateLight" }>, "type" | "target">) =>
+        edit(key, { type: "updateLight", target: light.id, ...fields });
+
+    return (
+        <>
+            <div>
+                <FieldLabel>Name</FieldLabel>
+                <Input
+                    value={light.name}
+                    onChange={(e) => {
+                        if (e.target.value.trim()) edit("rename", { type: "rename", target: light.id, name: e.target.value });
+                    }}
+                    onBlur={endCoalesce}
+                />
+                <Muted style={{ marginTop: 6 }}>{LIGHT_KIND[light.type]}</Muted>
+            </div>
+            <div>
+                <FieldLabel>Position</FieldLabel>
+                <VectorField
+                    value={light.position}
+                    step={snap.enabled ? snap.translate : 0.1}
+                    onCommit={endCoalesce}
+                    onChange={(position) => update("position", { position })}
+                />
+            </div>
+            {light.type !== "point" && (
+                <div>
+                    <FieldLabel>Aim at</FieldLabel>
+                    <VectorField value={light.aim} step={0.1} onCommit={endCoalesce} onChange={(aim) => update("aim", { aim })} />
+                </div>
+            )}
+            <div>
+                <FieldLabel>Light</FieldLabel>
+                <Grid $cols={2}>
+                    <Sub>
+                        Color
+                        <Input type="color" value={light.color} onChange={(e) => update("color", { color: e.target.value })} onBlur={endCoalesce} />
+                    </Sub>
+                    <Sub>
+                        Intensity
+                        <NumberInput
+                            value={light.intensity}
+                            step={light.type === "directional" ? 0.1 : 1}
+                            min={0}
+                            max={1000}
+                            onCommit={endCoalesce}
+                            onChange={(intensity) => update("intensity", { intensity })}
+                        />
+                    </Sub>
+                    {light.type !== "directional" && (
+                        <Sub>
+                            Range (0 = ∞)
+                            <NumberInput value={light.distance} step={0.5} min={0} onCommit={endCoalesce} onChange={(distance) => update("distance", { distance })} />
+                        </Sub>
+                    )}
+                    {light.type === "spot" && (
+                        <Sub>
+                            Cone (°)
+                            <NumberInput
+                                value={light.angle * DEG}
+                                step={1}
+                                min={1}
+                                max={90}
+                                onCommit={endCoalesce}
+                                onChange={(deg) => update("angle", { angle: deg / DEG })}
+                            />
+                        </Sub>
+                    )}
+                </Grid>
+            </div>
+            <Actions>
+                <Button onClick={() => run({ type: "duplicate", target: light.id })}>
+                    <Copy size={16} />
+                    Duplicate
+                </Button>
+                <Button $variant="danger" onClick={() => run({ type: "remove", target: light.id })}>
+                    <Trash size={16} />
+                    Delete
+                </Button>
+            </Actions>
+        </>
+    );
+}
+
 export function Inspector() {
     const show = useUI((s) => s.showInspector);
     const setShow = useUI((s) => s.setShowInspector);
     const objects = useScene((s) => s.doc.objects);
     const selected = useScene(selectSelected);
+    const selectedLight = useScene(selectSelectedLight);
+    const lights = useScene((s) => s.doc.lights);
     const select = useScene((s) => s.select);
     const run = useScene((s) => s.run);
     const endCoalesce = useScene((s) => s.endCoalesce);
@@ -182,16 +275,27 @@ export function Inspector() {
                 </IconButton>
             </PanelHeader>
             <Body>
-                <Select value={selected?.id ?? ""} onChange={(e) => select(e.target.value || null)}>
-                    <option value="">{objects.length ? "No selection" : "Scene is empty"}</option>
+                <Select value={selected?.id ?? selectedLight?.id ?? ""} onChange={(e) => select(e.target.value || null)}>
+                    <option value="">{objects.length || lights.length ? "No selection" : "Scene is empty"}</option>
                     {objects.map((o) => (
                         <option key={o.id} value={o.id}>
                             {o.name}
                         </option>
                     ))}
+                    {lights.length > 0 && (
+                        <optgroup label="Lights">
+                            {lights.map((l) => (
+                                <option key={l.id} value={l.id}>
+                                    {l.name}
+                                </option>
+                            ))}
+                        </optgroup>
+                    )}
                 </Select>
 
-                {!selected && objects.length > 0 && <Muted>Select an object to edit it.</Muted>}
+                {!selected && !selectedLight && objects.length + lights.length > 0 && <Muted>Select an object to edit it.</Muted>}
+
+                {selectedLight && <LightSection light={selectedLight} />}
 
                 {selected && mode === "edit" && <Muted>Click a vertex to move it. Shift-click to select more.</Muted>}
 

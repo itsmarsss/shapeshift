@@ -1,4 +1,4 @@
-import type { Command, Geometry, Material, Primitive, SceneDoc, SceneObject, Vec3 } from "./schema";
+import type { Command, Geometry, Light, LightType, Material, Primitive, SceneDoc, SceneObject, Vec3 } from "./schema";
 import { current, isDraft } from "immer";
 import { booleanGeometry } from "./geometry";
 
@@ -66,8 +66,60 @@ export function findObject(doc: SceneDoc, target: string): SceneObject | undefin
     );
 }
 
+export function findLight(doc: SceneDoc, target: string): Light | undefined {
+    return (
+        doc.lights.find((l) => l.id === target) ??
+        doc.lights.find((l) => l.name === target) ??
+        doc.lights.find((l) => l.name.toLowerCase() === target.toLowerCase())
+    );
+}
+
+export const DEFAULT_LIGHTS: Record<LightType, Omit<Light, "id" | "name" | "type">> = {
+    point: { position: [2, 3, 2], aim: [0, 0, 0], color: "#ffffff", intensity: 20, distance: 0, angle: Math.PI / 6 },
+    spot: { position: [3, 5, 3], aim: [0, 0, 0], color: "#ffffff", intensity: 60, distance: 0, angle: Math.PI / 6 },
+    directional: { position: [5, 8, 4], aim: [0, 0, 0], color: "#ffffff", intensity: 2, distance: 0, angle: Math.PI / 6 },
+};
+
+const LIGHT_LABELS: Record<LightType, string> = { point: "Point Light", spot: "Spot Light", directional: "Sun" };
+
+type LightFields = Partial<Pick<Light, "position" | "aim" | "color" | "intensity" | "distance" | "angle">>;
+
+function setLightFields(light: Light, fields: LightFields) {
+    if (fields.position) light.position = fields.position;
+    if (fields.aim) light.aim = fields.aim;
+    if (fields.color !== undefined) light.color = fields.color;
+    if (fields.intensity !== undefined) light.intensity = fields.intensity;
+    if (fields.distance !== undefined) light.distance = fields.distance;
+    if (fields.angle !== undefined) light.angle = fields.angle;
+}
+
+function applyToLight(doc: SceneDoc, light: Light, cmd: Command, newId: () => string): CommandResult {
+    switch (cmd.type) {
+        case "remove":
+            doc.lights = doc.lights.filter((l) => l.id !== light.id);
+            return { ok: true, created: [] };
+        case "rename":
+            light.name = cmd.name;
+            return { ok: true, created: [] };
+        case "duplicate": {
+            const id = newId();
+            const offset = cmd.offset ?? [0.5, 0, 0.5];
+            doc.lights.push({ ...copy(light), id, name: uniqueName(doc, light.name), position: add(light.position, offset), aim: add(light.aim, offset) });
+            return { ok: true, created: [id] };
+        }
+        case "transform":
+            if (cmd.position) light.position = cmd.relative ? add(light.position, cmd.position) : cmd.position;
+            return { ok: true, created: [] };
+        case "updateLight":
+            setLightFields(light, cmd);
+            return { ok: true, created: [] };
+        default:
+            return { ok: false, error: `"${light.name}" is a light, so ${cmd.type} doesn't apply. Use updateLight` };
+    }
+}
+
 export function uniqueName(doc: SceneDoc, base: string): string {
-    const taken = new Set(doc.objects.map((o) => o.name));
+    const taken = new Set([...doc.objects.map((o) => o.name), ...doc.lights.map((l) => l.name)]);
     if (!taken.has(base)) return base;
     for (let i = 2; ; i++) {
         const candidate = `${base} ${i}`;
@@ -105,8 +157,17 @@ export function applyCommand(doc: SceneDoc, cmd: Command, newId: () => string): 
         return { ok: true, created: [id] };
     }
 
+    if (cmd.type === "addLight") {
+        const id = newId();
+        const light: Light = { id, name: uniqueName(doc, cmd.name ?? LIGHT_LABELS[cmd.light]), type: cmd.light, ...structuredClone(DEFAULT_LIGHTS[cmd.light]) };
+        setLightFields(light, cmd);
+        doc.lights.push(light);
+        return { ok: true, created: [id] };
+    }
+
     if (cmd.type === "clear") {
         doc.objects = [];
+        doc.lights = [];
         return { ok: true, created: [] };
     }
 
@@ -137,7 +198,11 @@ export function applyCommand(doc: SceneDoc, cmd: Command, newId: () => string): 
     }
 
     const obj = findObject(doc, cmd.target);
-    if (!obj) return { ok: false, error: `No object named "${cmd.target}"` };
+    if (!obj) {
+        const light = findLight(doc, cmd.target);
+        if (light) return applyToLight(doc, light, cmd, newId);
+        return { ok: false, error: `No object or light named "${cmd.target}"` };
+    }
 
     switch (cmd.type) {
         case "remove":
@@ -170,5 +235,7 @@ export function applyCommand(doc: SceneDoc, cmd: Command, newId: () => string): 
         case "geometry":
             obj.geometry = cmd.geometry;
             return { ok: true, created: [] };
+        case "updateLight":
+            return { ok: false, error: `"${obj.name}" is an object, not a light` };
     }
 }

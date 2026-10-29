@@ -1,8 +1,8 @@
-import { findObject } from "../scene/commands";
+import { findLight, findObject } from "../scene/commands";
 import type { Command } from "../scene/schema";
 import { useScene } from "../scene/store";
 import { takeSnapshot, type View } from "../viewport/snapshot";
-import { describeCommand, describeObject, describeScene, inspectObject } from "./assistant";
+import { describeCommand, describeLight, describeObject, describeScene, inspectObject } from "./assistant";
 import { LIMITS, type WireMessage, type WireToolCall } from "./protocol";
 import { parseToolCall } from "./tools";
 
@@ -57,7 +57,7 @@ function withAliases(cmd: Command, ctx: TurnContext): Command {
 }
 
 function commandColor(cmd: Command): string | undefined {
-    if (cmd.type === "add" || cmd.type === "material") return cmd.color;
+    if (cmd.type === "add" || cmd.type === "material" || cmd.type === "addLight" || cmd.type === "updateLight") return cmd.color;
     return undefined;
 }
 
@@ -86,11 +86,13 @@ function runCommand(original: Command, ctx: TurnContext): Outcome {
     const touched = result.created.length
         ? result.created
         : "target" in cmd
-          ? [findObject(doc, cmd.target)?.id].filter((id): id is string => !!id)
+          ? [(findObject(doc, cmd.target) ?? findLight(doc, cmd.target))?.id].filter((id): id is string => !!id)
           : [];
     const objects = touched.flatMap((id) => {
         const o = doc.objects.find((x) => x.id === id);
-        return o ? [describeObject(o, selectedId)] : [];
+        if (o) return [describeObject(o, selectedId)];
+        const l = doc.lights.find((x) => x.id === id);
+        return l ? [describeLight(l, selectedId)] : [];
     });
     if (cmd.type === "add" && cmd.name && result.created[0]) ctx.aliases.set(cmd.name.toLowerCase(), result.created[0]);
 

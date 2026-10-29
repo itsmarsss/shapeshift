@@ -44,9 +44,31 @@ export const SceneObject = z.object({
 });
 export type SceneObject = z.infer<typeof SceneObject>;
 
+export const LIGHT_TYPES = ["point", "spot", "directional"] as const;
+export const LightType = z.enum(LIGHT_TYPES);
+export type LightType = z.infer<typeof LightType>;
+
+const LightProps = {
+    color: Material.shape.color,
+    intensity: z.number().min(0).max(1000).describe("Point and spot lights use candela (10 to 50 lights a room), directional uses lux (1 to 4)"),
+    distance: z.number().min(0).describe("Range of a point or spot light. 0 means no limit"),
+    angle: z.number().min(0.02).max(Math.PI / 2).describe("Spot cone half-angle in radians"),
+};
+
+export const Light = z.object({
+    id: z.string(),
+    name: z.string(),
+    type: LightType,
+    position: Vec3,
+    aim: Vec3.describe("The point a spot or directional light shines toward"),
+    ...LightProps,
+});
+export type Light = z.infer<typeof Light>;
+
 export const SceneDoc = z.object({
     version: z.literal(2),
     objects: z.array(SceneObject),
+    lights: z.array(Light).default([]),
 });
 export type SceneDoc = z.infer<typeof SceneDoc>;
 
@@ -89,9 +111,30 @@ export const Command = z.discriminatedUnion("type", [
         target: Target.describe("First object, kept and replaced by the result"),
         tool: Target.describe("Second object, removed after the operation"),
     }),
+    z.object({
+        type: z.literal("addLight"),
+        light: LightType,
+        name: z.string().optional(),
+        position: Vec3.optional(),
+        aim: Light.shape.aim.optional(),
+        color: LightProps.color.optional(),
+        intensity: LightProps.intensity.optional(),
+        distance: LightProps.distance.optional(),
+        angle: LightProps.angle.optional(),
+    }),
+    z.object({
+        type: z.literal("updateLight"),
+        target: Target,
+        position: Vec3.optional(),
+        aim: Light.shape.aim.optional(),
+        color: LightProps.color.optional(),
+        intensity: LightProps.intensity.optional(),
+        distance: LightProps.distance.optional(),
+        angle: LightProps.angle.optional(),
+    }),
     z.object({ type: z.literal("insert"), objects: z.array(SceneObject) }),
     z.object({ type: z.literal("clear") }),
 ]);
 
-export const AI_COMMANDS = ["add", "remove", "duplicate", "transform", "material", "rename", "boolean"] as const;
+export const AI_COMMANDS = ["add", "remove", "duplicate", "transform", "material", "rename", "boolean", "addLight", "updateLight"] as const;
 export type Command = z.infer<typeof Command>;

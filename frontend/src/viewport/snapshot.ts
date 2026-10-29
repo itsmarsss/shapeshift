@@ -29,7 +29,7 @@ const DIRECTIONS: Record<Exclude<View, "current">, THREE.Vector3> = {
 
 // Editor overlays that would only clutter the picture.
 export function isHelper(o: THREE.Object3D) {
-    return o.type === "TransformControlsGizmo" || o.type === "TransformControlsPlane" || o.type === "LineSegments";
+    return o.userData.helper === true || o.type === "TransformControlsGizmo" || o.type === "TransformControlsPlane" || o.type === "LineSegments";
 }
 
 export function framedCamera(scene: THREE.Scene, view: Exclude<View, "current">, aspect: number, targets?: string[]) {
