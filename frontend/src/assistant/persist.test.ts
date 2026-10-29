@@ -38,7 +38,7 @@ describe("chat persistence", () => {
                 { role: "assistant", content: null, tool_calls: [{ id: "l1", name: "look", arguments: "{}" }] },
                 { role: "tool", tool_call_id: "l1", content: "{}", images: ["QUJD"] },
             ],
-            turns: [turn({ entry: { patches: [], inverse: [] } })],
+            turns: [turn({ entry: { objects: [], lights: [] } })],
         });
         const loaded = loadChat()!;
         expect(loaded.conversation[0]).toEqual({ role: "user", content: "look" });

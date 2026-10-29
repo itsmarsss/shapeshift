@@ -1,10 +1,9 @@
 import { create } from "zustand";
-import { applyPatches, enablePatches, produceWithPatches, type Patch } from "immer";
+import { produce } from "immer";
 import { nanoid } from "nanoid";
 import { applyCommand, type CommandResult } from "./commands";
+import { applyDiff, diffDocs, isEmptyDiff, mergeDiffs, type DocDiff } from "./diff";
 import type { Command, SceneDoc } from "./schema";
-
-enablePatches();
 
 export type EditorMode = "object" | "edit" | "render";
 export type TransformMode = "translate" | "rotate" | "scale";
@@ -16,7 +15,8 @@ export type Snap = {
     scale: number;
 };
 
-type HistoryEntry = { patches: Patch[]; inverse: Patch[] };
+// One undo step: the before and after state of every entity it touched.
+type HistoryEntry = DocDiff;
 
 type RunOptions = {
     coalesce?: string;
@@ -78,10 +78,11 @@ export const useScene = create<SceneState>()((set, get) => ({
         const list = Array.isArray(commands) ? commands : [commands];
         const results: CommandResult[] = [];
         const state = get();
-        const [doc, patches, inverse] = produceWithPatches(state.doc, (draft) => {
+        const doc = produce(state.doc, (draft) => {
             for (const cmd of list) results.push(applyCommand(draft, cmd, () => nanoid(8)));
         });
-        if (patches.length === 0) return results;
+        const diff = diffDocs(state.doc, doc);
+        if (isEmptyDiff(diff)) return results;
 
         const created = results.flatMap((r) => (r.ok ? r.created : []));
         const merge =
@@ -91,14 +92,8 @@ export const useScene = create<SceneState>()((set, get) => ({
             state.past.length > 0;
 
         const past = merge
-            ? [
-                  ...state.past.slice(0, -1),
-                  {
-                      patches: [...state.past[state.past.length - 1].patches, ...patches],
-                      inverse: [...inverse, ...state.past[state.past.length - 1].inverse],
-                  },
-              ]
-            : [...state.past, { patches, inverse }].slice(-HISTORY_LIMIT);
+            ? [...state.past.slice(0, -1), mergeDiffs(state.past[state.past.length - 1], diff)]
+            : [...state.past, diff].slice(-HISTORY_LIMIT);
 
         set({
             doc,
@@ -118,7 +113,7 @@ export const useScene = create<SceneState>()((set, get) => ({
         const { past, future, doc, selectedIds } = get();
         const entry = past[past.length - 1];
         if (!entry) return;
-        const next = applyPatches(doc, entry.inverse);
+        const next = applyDiff(doc, entry, "before");
         set({
             doc: next,
             past: past.slice(0, -1),
@@ -132,7 +127,7 @@ export const useScene = create<SceneState>()((set, get) => ({
         const { past, future, doc, selectedIds } = get();
         const entry = future[0];
         if (!entry) return;
-        const next = applyPatches(doc, entry.patches);
+        const next = applyDiff(doc, entry, "after");
         set({
             doc: next,
             past: [...past, entry],
