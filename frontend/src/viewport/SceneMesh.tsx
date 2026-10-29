@@ -9,12 +9,14 @@ type Props = {
     object: SceneObject;
     selected: boolean;
     hovered: boolean;
+    // Set when someone else in a shared room has this selected.
+    peerColor?: string;
     showSelection: boolean;
     onSelect: (id: string, event: MouseEvent) => void;
     meshRef?: (mesh: THREE.Mesh | null) => void;
 };
 
-export const SceneMesh = memo(function SceneMesh({ object, selected, hovered, showSelection, onSelect, meshRef }: Props) {
+export const SceneMesh = memo(function SceneMesh({ object, selected, hovered, peerColor, showSelection, onSelect, meshRef }: Props) {
     const geometry = useMemo(() => buildGeometry(object.geometry), [object.geometry]);
     useEffect(() => () => geometry.dispose(), [geometry]);
     const { color, metalness, roughness, opacity } = object.material;
@@ -42,6 +44,7 @@ export const SceneMesh = memo(function SceneMesh({ object, selected, hovered, sh
                 transparent={opacity < 1}
             />
             {selected && showSelection && <Edges threshold={20} color="#4f7cff" />}
+            {peerColor && !selected && <Edges threshold={20} color={peerColor} lineWidth={2} />}
             {hovered && !selected && <Edges threshold={20} color="#9db4ff" lineWidth={2} />}
         </mesh>
     );

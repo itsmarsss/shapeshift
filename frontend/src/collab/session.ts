@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { nanoid } from "nanoid";
 import { diffDocs, isEmptyDiff } from "../scene/diff";
 import { useScene } from "../scene/store";
+import { parseSceneFile } from "../scene/io";
 import { diffToOps, opsToDiff, syncDiff } from "./ops";
 import { ROOM_ID, ROOM_LIMITS, type ClientMessage, type Ops, type Peer, type ServerMessage } from "./protocol";
 
@@ -16,7 +17,8 @@ type CollabState = {
     name: string;
     join: (roomId: string, options?: { seed?: boolean }) => void;
     share: () => string;
-    leave: () => void;
+    // `restore` brings back the scene the user had before joining someone else's room.
+    leave: (options?: { restore?: boolean }) => void;
     rename: (name: string) => void;
 };
 
@@ -25,11 +27,21 @@ const BACKUP_KEY = "shapeshift-scene-solo";
 const PING_MS = 25_000;
 const RETRY_MS = [500, 1_000, 2_000, 4_000, 8_000];
 
+const ADJECTIVES = ["Amber", "Brisk", "Coral", "Dusky", "Golden", "Jade", "Lunar", "Misty", "Ruby", "Teal", "Velvet", "Witty"];
+const ANIMALS = ["Badger", "Crane", "Falcon", "Fox", "Gecko", "Heron", "Lynx", "Otter", "Panda", "Raven", "Seal", "Wren"];
+
+const pick = <T>(list: T[]) => list[Math.floor(Math.random() * list.length)];
+
+// A friendly name until the user picks one, kept so it stays the same.
 function storedName() {
     try {
-        return localStorage.getItem(NAME_KEY) || "";
+        const saved = localStorage.getItem(NAME_KEY);
+        if (saved) return saved;
+        const name = `${pick(ADJECTIVES)} ${pick(ANIMALS)}`;
+        localStorage.setItem(NAME_KEY, name);
+        return name;
     } catch {
-        return "";
+        return `${pick(ADJECTIVES)} ${pick(ANIMALS)}`;
     }
 }
 
@@ -213,7 +225,7 @@ export const useCollab = create<CollabState>()((set, get) => {
             return roomLink(roomId);
         },
 
-        leave: () => {
+        leave: (options = {}) => {
             clearTimeout(retryTimer);
             clearInterval(pingTimer);
             unsubscribers.forEach((u) => u());
@@ -224,6 +236,16 @@ export const useCollab = create<CollabState>()((set, get) => {
             ws?.close(1000, "Left");
             if (get().roomId) setRoomInUrl(null);
             set({ status: "off", roomId: null, you: null, peers: {}, error: null });
+            if (options.restore) {
+                try {
+                    const solo = localStorage.getItem(BACKUP_KEY);
+                    const doc = solo ? parseSceneFile(solo) : null;
+                    if (doc) useScene.getState().load(doc);
+                    localStorage.removeItem(BACKUP_KEY);
+                } catch {
+                    // Nothing to restore.
+                }
+            }
         },
 
         rename: (raw) => {
