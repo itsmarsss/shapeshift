@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "cf-typegen": "wrangler types",
-    "deploy": "pnpm build && wrangler deploy"
+    "deploy": "pnpm build && wrangler deploy",
+    "test": "vitest run"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.2.0",
@@ -32,6 +33,7 @@
     "three-csg-ts": "^3.2.0",
     "three-mesh-bvh": "^0.9.1",
     "three-stdlib": "^2.36.0",
+    "zod": "^4.6.7",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
@@ -48,6 +50,7 @@
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.39.1",
     "vite": "^7.1.2",
+    "vitest": "^5.0.5",
     "wrangler": "^4.154.0"
   }
 }
