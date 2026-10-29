@@ -9,6 +9,8 @@ import ChatPanel from "./ChatPanel";
 import { Viewport } from "../viewport/Viewport";
 import { useShortcuts } from "../hooks/useShortcuts";
 import { useUI } from "../ui/store";
+import { HandOverlay } from "../hands/HandOverlay";
+import { HandPreview } from "../hands/HandPreview";
 
 const Root = styled.div`
     position: relative;
@@ -30,11 +32,13 @@ export function Layout() {
             <Topbar />
             <Stage>
                 <Viewport />
+                <HandOverlay />
             </Stage>
             <Toolbar />
             <Inspector />
             <BooleanPanel />
             <ChatPanel />
+            <HandPreview />
         </Root>
     );
 }
