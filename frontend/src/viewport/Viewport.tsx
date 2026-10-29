@@ -63,6 +63,9 @@ export function Viewport() {
 
     return (
         <Canvas
+            // Draw only when something changes. Hand control polls the
+            // tracker every frame, so it needs the loop running.
+            frameloop={handsOn ? "always" : "demand"}
             shadows
             dpr={[1, 2]}
             camera={{ position: [4, 3.5, 6], fov: 45, near: 0.05, far: 500 }}
