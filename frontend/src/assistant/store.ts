@@ -115,6 +115,9 @@ export const useAssistant = create<AssistantState>()((set, get) => {
         } finally {
             const scene = useScene.getState();
             scene.endCoalesce();
+            // Select what the turn made when it made one thing, so "it" means that next.
+            const made = ctx.created.filter((id) => scene.doc.objects.some((o) => o.id === id));
+            if (made.length === 1) scene.select(made[0]);
             const entry = ctx.changed ? scene.past[scene.past.length - 1] : undefined;
             patchTurn(turnId, (t) => ({ writing: null, finishedAt: Date.now(), entry: entry ?? t.entry }));
             controller = null;

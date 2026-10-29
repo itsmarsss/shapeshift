@@ -24,11 +24,12 @@ export type TurnContext = {
     // If "Leg" was taken and the new object became "Leg 2", the model can
     // still reach it as "Leg" for the rest of the turn.
     aliases: Map<string, string>;
+    created: string[];
     changed: boolean;
 };
 
 export function newTurnContext(coalesce: string): TurnContext {
-    return { coalesce, aliases: new Map(), changed: false };
+    return { coalesce, aliases: new Map(), created: [], changed: false };
 }
 
 function clip(text: string) {
@@ -66,12 +67,14 @@ function runCommand(original: Command, ctx: TurnContext): Outcome {
         return { activity: { label, ok: false, error }, result: { ok: false, error }, isError: true };
     }
 
-    const [result] = state.run(cmd, { coalesce: ctx.coalesce });
+    // Leave the selection alone while building; the turn selects what it made at the end.
+    const [result] = state.run(cmd, { coalesce: ctx.coalesce, select: false });
     if (!result?.ok) {
         const error = result?.error ?? "The change could not be applied";
         return { activity: { label, ok: false, error }, result: { ok: false, error }, isError: true };
     }
     ctx.changed = true;
+    ctx.created.push(...result.created);
 
     const { doc, selectedId } = useScene.getState();
     const touched = result.created.length
