@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { useScene } from "../scene/store";
 import type { Handedness } from "./gestures";
 import { IntentTracker } from "./intents";
-import { live } from "./tracker";
+import { live, useHandHover } from "./tracker";
 
 type Drag =
     | { kind: "object"; id: string; plane: THREE.Plane; offset: THREE.Vector3 }
@@ -27,13 +27,23 @@ export function HandControls() {
 
     const aim = (x: number, y: number) => raycaster.current.setFromCamera(new THREE.Vector2(x * 2 - 1, -(y * 2 - 1)), camera);
 
+    function pick(x: number, y: number) {
+        aim(x, y);
+        const ids = new Set(useScene.getState().doc.objects.map((o) => o.id));
+        return raycaster.current.intersectObjects(scene.children, false).find((i) => ids.has(i.object.name));
+    }
+
+    function hover() {
+        const h = live.hands.find((hand) => hand.handedness === OBJECT_HAND && !hand.pinching);
+        const id = h && useScene.getState().mode !== "render" && !drag.current ? pick(h.x, h.y)?.object.name ?? null : null;
+        if (useHandHover.getState().hoveredId !== id) useHandHover.setState({ hoveredId: id });
+    }
+
     function start(handedness: Handedness, x: number, y: number) {
         drag.current = { kind: "orbit" };
         if (handedness !== OBJECT_HAND) return;
         const state = useScene.getState();
-        aim(x, y);
-        const ids = new Set(state.doc.objects.map((o) => o.id));
-        const hit = raycaster.current.intersectObjects(scene.children, false).find((i) => ids.has(i.object.name));
+        const hit = pick(x, y);
         if (!hit || state.mode === "render") return;
         state.select(hit.object.name);
         if (state.mode !== "object") return;
@@ -76,6 +86,7 @@ export function HandControls() {
                 controls.truck(-intent.panX * PAN_SPEED, -intent.panY * PAN_SPEED, false);
             }
         }
+        hover();
     });
 
     return null;

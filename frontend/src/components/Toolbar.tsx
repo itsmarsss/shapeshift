@@ -5,11 +5,10 @@ import {
     ArrowsOutCardinal,
     Cube,
     Cylinder,
-    Disc,
     Sphere,
     Square,
-    Triangle,
 } from "@phosphor-icons/react";
+import { ConeIcon, TorusIcon } from "./icons";
 import { useScene, type TransformMode } from "../scene/store";
 import type { Primitive } from "../scene/schema";
 import { IconButton } from "./ui";
@@ -34,12 +33,12 @@ const Group = styled.div`
     border-radius: var(--radius-lg);
 `;
 
-const SHAPES: { primitive: Primitive; label: string; Icon: typeof Cube }[] = [
+const SHAPES: { primitive: Primitive; label: string; Icon: React.ComponentType<{ size?: number }> }[] = [
     { primitive: "box", label: "Add box", Icon: Cube },
     { primitive: "sphere", label: "Add sphere", Icon: Sphere },
     { primitive: "cylinder", label: "Add cylinder", Icon: Cylinder },
-    { primitive: "cone", label: "Add cone", Icon: Triangle },
-    { primitive: "torus", label: "Add torus", Icon: Disc },
+    { primitive: "cone", label: "Add cone", Icon: ConeIcon },
+    { primitive: "torus", label: "Add torus", Icon: TorusIcon },
     { primitive: "plane", label: "Add plane", Icon: Square },
 ];
 
