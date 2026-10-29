@@ -14,8 +14,8 @@
 4. Run the backend with `python backend/webserver.py`
 5. Run the following commands in a separate terminal to set up the frontend:
     - `cd frontend`
-    - `npm install`
-    - `npm run dev`
+    - `pnpm install`
+    - `pnpm dev`
 6. Open the browser and go to `http://localhost:5173`
 7. Enjoy! (note: the AI agent is not currently configured to work properly, so a fallback mode is used instead)
 
@@ -33,7 +33,6 @@ ShapeShift is an innovative, browser-based 3D modeling platform that transforms 
 
 -   **👋 Real-Time Gesture Control:** Using your hands, you can directly manipulate objects in the 3D scene. ShapeShift tracks your hand movements in real-time, allowing you to grab, move, rotate, and scale objects with intuitive gestures, eliminating the need for a mouse and keyboard.
 -   **🤖 AI Agent Assistant:** ShapeShift features an intelligent AI assistant that understands natural language. You can simply tell the AI what you want to create or modify. For example, you can say, "Create a red sphere and a blue cube, then place the sphere on top of the cube," and the AI will execute the commands.
--   **✨ AI-Powered 3D Model Generation:** Stuck for ideas? You can describe a concept like "a futuristic spaceship" or "a stylized tree," and our integrated generative AI will create a detailed 3D model for you on the fly, ready to be imported and manipulated in your scene.
 
 ---
 
@@ -45,7 +44,7 @@ ShapeShift is built on a modern, multi-faceted tech stack designed for real-time
 
 -   **Backend (Computer Vision):** The gesture-control engine is powered by a **Python** backend using **Flask** and **Eventlet** for high-performance WebSocket communication. We use **OpenCV** to capture the video feed from the user's webcam and the **MediaPipe** library to perform real-time hand landmark detection. This landmark data is then streamed to the frontend.
 
--   **Backend (AI Agent):** The AI assistant is orchestrated by a **Node.js** server using **Express**. This server acts as a middleware that defines a set of tools (functions) the AI can use to manipulate the 3D scene. It integrates with LLM providers (like Martian) and the **Fal AI** API for generative 3D model creation from text prompts.
+-   **Backend (AI Agent):** The AI assistant is orchestrated by a **Node.js** server using **Express**. This server acts as a middleware that defines a set of tools (functions) the AI can use to manipulate the 3D scene. It integrates with LLM providers (like Martian).
 
 The components communicate seamlessly: the Python backend streams hand data to the React frontend via WebSockets, while the frontend sends user prompts to the Node.js server to trigger AI actions.
 
