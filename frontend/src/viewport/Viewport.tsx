@@ -1,10 +1,12 @@
 import { useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { Canvas } from "@react-three/fiber";
 import { CameraControls, Grid, Line, TransformControls } from "@react-three/drei";
 import type * as THREE from "three";
 import { useScene } from "../scene/store";
 import { SceneMesh } from "./SceneMesh";
 import { SceneLight } from "./SceneLight";
+import { MultiTransform } from "./MultiTransform";
 import { EditOverlay } from "./EditOverlay";
 import { SnapshotBridge } from "./SnapshotBridge";
 import { HandControls } from "../hands/HandControls";
@@ -25,6 +27,8 @@ export function Viewport() {
     const objects = useScene((s) => s.doc.objects);
     const lights = useScene((s) => s.doc.lights);
     const selectedId = useScene((s) => s.selectedId);
+    const selectedIds = useScene(useShallow((s) => s.selectedIds));
+    const selectMany = useScene((s) => s.selectMany);
     const mode = useScene((s) => s.mode);
     const transformMode = useScene((s) => s.transformMode);
     const snap = useScene((s) => s.snap);
@@ -38,6 +42,19 @@ export function Viewport() {
     const editing = mode !== "render";
     const selectedObject = objects.find((o) => o.id === selectedId);
     const selectedLight = lights.find((l) => l.id === selectedId);
+    const selectedObjects = objects.filter((o) => selectedIds.includes(o.id));
+
+    // Shift-click adds or removes one object. Clicking a grouped object picks
+    // its whole group; Alt-click picks just that part.
+    function pick(id: string, event: MouseEvent) {
+        if (event.shiftKey) return select(id, { toggle: true });
+        const group = objects.find((o) => o.id === id)?.group;
+        if (group && !event.altKey) {
+            const members = objects.filter((o) => o.group === group && o.id !== id).map((o) => o.id);
+            return selectMany([...members, id]);
+        }
+        select(id);
+    }
     // The built-in key light only shows until the scene has lights of its own.
     const studio = lights.length === 0;
 
@@ -87,10 +104,10 @@ export function Viewport() {
                 <SceneMesh
                     key={o.id}
                     object={o}
-                    selected={o.id === selectedId}
+                    selected={selectedIds.includes(o.id)}
                     hovered={o.id === hoveredId}
                     showSelection={mode === "object"}
-                    onSelect={select}
+                    onSelect={pick}
                     meshRef={o.id === selectedId ? setSelectedMesh : undefined}
                 />
             ))}
@@ -118,7 +135,9 @@ export function Viewport() {
 
             {mode === "edit" && selectedObject && <EditOverlay object={selectedObject} gizmoBusy={gizmoBusy} />}
 
-            {mode === "object" && selectedId && selectedMesh && (
+            {mode === "object" && selectedObjects.length > 1 && <MultiTransform objects={selectedObjects} gizmoBusy={gizmoBusy} />}
+
+            {mode === "object" && selectedObjects.length <= 1 && selectedId && selectedMesh && (
                 <TransformControls
                     object={selectedMesh}
                     mode={selectedLight ? "translate" : transformMode}

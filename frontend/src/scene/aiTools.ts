@@ -10,6 +10,8 @@ const DESCRIPTIONS: Record<(typeof AI_COMMANDS)[number], string> = {
     rename: "Rename an object.",
     addLight:
         "Add a light. point shines in every direction, spot shines a cone from position toward aim, directional is sunlight from the direction of position toward aim.",
+    group: "Group objects under a name. Every other command can then target the group by that name to change all of its parts at once, such as moving or recoloring a whole chair.",
+    ungroup: "Dissolve a group. Its objects stay where they are.",
     updateLight: "Change a light's position, aim, color, intensity, range or spot angle.",
     boolean: "Combine two objects. union merges them, subtract cuts `tool` out of `target`, intersect keeps the overlap. `tool` is removed.",
 };

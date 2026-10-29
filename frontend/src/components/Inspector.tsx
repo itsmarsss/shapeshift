@@ -1,7 +1,9 @@
 import { useState } from "react";
 import styled from "styled-components";
-import { Copy, Trash, X } from "@phosphor-icons/react";
-import { selectSelected, selectSelectedLight, useScene } from "../scene/store";
+import { Copy, SelectionPlus, SelectionSlash, Trash, X } from "@phosphor-icons/react";
+import { useShallow } from "zustand/react/shallow";
+import { selectSelected, selectSelectedLight, selectSelectedObjects, useScene } from "../scene/store";
+import { duplicateSelection, groupSelection, removeSelection, ungroupSelection } from "../scene/selection";
 import type { Command, Light, Vec3 } from "../scene/schema";
 import { useUI } from "../ui/store";
 import { Button, Divider, FieldLabel, IconButton, Input, Panel, PanelHeader, PanelTitle, Select } from "./ui";
@@ -248,12 +250,67 @@ function LightSection({ light }: { light: Light }) {
     );
 }
 
+function SelectionSection({ count, groups }: { count: number; groups: string[] }) {
+    const [name, setName] = useState("");
+    const run = useScene((s) => s.run);
+    const endCoalesce = useScene((s) => s.endCoalesce);
+    const ids = useScene(useShallow((s) => s.selectedIds));
+    const color = useScene((s) => s.doc.objects.find((o) => o.id === s.selectedId)?.material.color ?? "#ffffff");
+    const shared = groups.length === 1 ? groups[0] : null;
+
+    return (
+        <>
+            <Muted>
+                {count} objects selected{shared ? ` · group “${shared}”` : ""}. Shift-click to add or remove one.
+            </Muted>
+            <div>
+                <FieldLabel>Group</FieldLabel>
+                <Grid $cols={2}>
+                    <Input placeholder={shared ?? "Group name"} value={name} onChange={(e) => setName(e.target.value)} />
+                    <Button onClick={() => (groupSelection(name), setName(""))} title="Group (⌘G)">
+                        <SelectionPlus size={16} />
+                        {shared ? "Regroup" : "Group"}
+                    </Button>
+                </Grid>
+                {groups.length > 0 && (
+                    <Button style={{ marginTop: 6 }} onClick={ungroupSelection} title="Ungroup (⇧⌘G)">
+                        <SelectionSlash size={16} />
+                        Ungroup
+                    </Button>
+                )}
+            </div>
+            <div>
+                <FieldLabel>Color for all</FieldLabel>
+                <Input
+                    type="color"
+                    value={color}
+                    onChange={(e) => run(ids.map((id): Command => ({ type: "material", target: id, color: e.target.value })), { coalesce: "color:selection" })}
+                    onBlur={endCoalesce}
+                />
+            </div>
+            <Actions>
+                <Button onClick={duplicateSelection}>
+                    <Copy size={16} />
+                    Duplicate
+                </Button>
+                <Button $variant="danger" onClick={removeSelection}>
+                    <Trash size={16} />
+                    Delete
+                </Button>
+            </Actions>
+        </>
+    );
+}
+
 export function Inspector() {
     const show = useUI((s) => s.showInspector);
     const setShow = useUI((s) => s.setShowInspector);
     const objects = useScene((s) => s.doc.objects);
     const selected = useScene(selectSelected);
     const selectedLight = useScene(selectSelectedLight);
+    const selectedObjects = useScene(useShallow(selectSelectedObjects));
+    const multi = selectedObjects.length > 1;
+    const groups = [...new Set(selectedObjects.flatMap((o) => (o.group ? [o.group] : [])))];
     const lights = useScene((s) => s.doc.lights);
     const select = useScene((s) => s.select);
     const run = useScene((s) => s.run);
@@ -297,9 +354,11 @@ export function Inspector() {
 
                 {selectedLight && <LightSection light={selectedLight} />}
 
-                {selected && mode === "edit" && <Muted>Click a vertex to move it. Shift-click to select more.</Muted>}
+                {multi && <SelectionSection count={selectedObjects.length} groups={groups} />}
 
-                {selected && (
+                {selected && !multi && mode === "edit" && <Muted>Click a vertex to move it. Shift-click to select more.</Muted>}
+
+                {selected && !multi && (
                     <>
                         <div>
                             <FieldLabel>Name</FieldLabel>
@@ -311,6 +370,7 @@ export function Inspector() {
                                 }}
                                 onBlur={endCoalesce}
                             />
+                            {selected.group && <Muted style={{ marginTop: 6 }}>In group “{selected.group}”. Alt-click picks one part.</Muted>}
                         </div>
                         <div>
                             <FieldLabel>Position</FieldLabel>

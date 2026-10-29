@@ -65,11 +65,11 @@ export async function runTurn(opts: {
     const maxSteps = opts.maxSteps ?? LIMITS.stepsPerTurn;
 
     if (opts.prompt !== undefined) {
-        const { doc, selectedId } = useScene.getState();
+        const { doc, selectedId, selectedIds } = useScene.getState();
         conversation.push({
             role: "user",
             content: opts.prompt.slice(0, LIMITS.promptChars),
-            scene: describeScene(doc, selectedId).slice(0, LIMITS.sceneChars),
+            scene: describeScene(doc, selectedId, selectedIds).slice(0, LIMITS.sceneChars),
             ...(opts.images?.length ? { images: opts.images } : {}),
         });
     }

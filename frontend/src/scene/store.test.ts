@@ -185,3 +185,89 @@ describe("lights", () => {
         expect(SceneDoc.parse({ version: 2, objects: [] }).lights).toEqual([]);
     });
 });
+
+describe("groups", () => {
+    function chair() {
+        s().run([
+            { type: "add", primitive: "box", name: "Seat", group: "Chair", position: [0, 1, 0] },
+            { type: "add", primitive: "box", name: "Back", group: "Chair", position: [0, 2, -1] },
+        ]);
+    }
+
+    it("targets every member by the group name", () => {
+        chair();
+        s().run({ type: "material", target: "chair", color: "#8b5a2b" });
+        expect(s().doc.objects.map((o) => o.material.color)).toEqual(["#8b5a2b", "#8b5a2b"]);
+        s().run({ type: "transform", target: "Chair", position: [2, 0, 0], relative: true });
+        expect(s().doc.objects.map((o) => o.position)).toEqual([
+            [2, 1, 0],
+            [2, 2, -1],
+        ]);
+    });
+
+    it("moves a group to an absolute spot by its center", () => {
+        chair();
+        s().run({ type: "transform", target: "Chair", position: [5, 1.5, -0.5] });
+        expect(s().doc.objects.map((o) => o.position)).toEqual([
+            [5, 1, 0],
+            [5, 2, -1],
+        ]);
+    });
+
+    it("turns a group around its center", () => {
+        chair();
+        s().run({ type: "transform", target: "Chair", rotation: [0, Math.PI, 0], relative: true });
+        const [seat, back] = s().doc.objects;
+        expect(back.position[2]).toBeCloseTo(0);
+        expect(seat.position[2]).toBeCloseTo(-1);
+        expect(Math.abs(back.rotation[1]) + Math.abs(back.rotation[0])).toBeGreaterThan(3);
+        expect(s().run({ type: "transform", target: "Chair", rotation: [0, 1, 0] })[0].ok).toBe(false);
+    });
+
+    it("groups, duplicates, renames, ungroups and removes", () => {
+        s().run([
+            { type: "add", primitive: "sphere", name: "Wheel A" },
+            { type: "add", primitive: "sphere", name: "Wheel B" },
+            { type: "add", primitive: "box", name: "Body" },
+        ]);
+        s().run({ type: "group", name: "Car", targets: ["Wheel A", "Wheel B", "Body"] });
+        expect(s().run({ type: "group", name: "Body", targets: ["Wheel A"] })[0].ok).toBe(false);
+        const [dup] = s().run({ type: "duplicate", target: "Car" });
+        expect(dup.ok && dup.created).toHaveLength(3);
+        expect(s().doc.objects.filter((o) => o.group === "Car 2")).toHaveLength(3);
+        s().run({ type: "rename", target: "Car 2", name: "Truck" });
+        s().run({ type: "ungroup", target: "Car" });
+        expect(s().doc.objects.filter((o) => o.group === undefined)).toHaveLength(3);
+        s().run({ type: "remove", target: "Truck" });
+        expect(s().doc.objects).toHaveLength(3);
+        s().undo();
+        expect(s().doc.objects).toHaveLength(6);
+    });
+});
+
+describe("selection", () => {
+    it("toggles extra objects in and keeps the last one primary", () => {
+        s().run([
+            { type: "add", primitive: "box", name: "A" },
+            { type: "add", primitive: "box", name: "B" },
+        ]);
+        const [a, b] = s().doc.objects.map((o) => o.id);
+        s().select(a);
+        s().select(b, { toggle: true });
+        expect(s().selectedIds).toEqual([a, b]);
+        expect(s().selectedId).toBe(b);
+        s().select(b, { toggle: true });
+        expect(s().selectedIds).toEqual([a]);
+        expect(s().selectedId).toBe(a);
+    });
+
+    it("drops removed objects from the selection", () => {
+        s().run([
+            { type: "add", primitive: "box", name: "A" },
+            { type: "add", primitive: "box", name: "B" },
+        ]);
+        s().selectMany(s().doc.objects.map((o) => o.id));
+        s().run({ type: "remove", target: "B" });
+        expect(s().selectedIds).toEqual([s().doc.objects[0].id]);
+    });
+});

@@ -80,6 +80,7 @@ export function describeObject(o: SceneObject, selectedId: string | null = null)
     const m = o.material;
     return [
         `"${o.name}" id=${o.id}`,
+        o.group ? `in group "${o.group}"` : null,
         `${o.geometry.type} ${size(o.geometry)}`,
         `at ${fmt(o.position)}`,
         o.rotation.some((r) => r !== 0) ? `rotation ${fmt(o.rotation)}` : null,
@@ -111,7 +112,7 @@ export function describeLight(l: Light, selectedId: string | null = null): strin
 
 const SCENE_OBJECT_LIMIT = 200;
 
-export function describeScene(doc: SceneDoc, selectedId: string | null): string {
+export function describeScene(doc: SceneDoc, selectedId: string | null, selectedIds: string[] = []): string {
     const lights = doc.lights.length
         ? doc.lights.map((l) => describeLight(l, selectedId))
         : ["No lights yet, so the editor's default studio lighting is on."];
@@ -122,7 +123,8 @@ export function describeScene(doc: SceneDoc, selectedId: string | null): string 
     const lines = listed.map((o) => describeObject(o, selectedId));
     if (doc.objects.length > listed.length) lines.push(`…and ${doc.objects.length - listed.length} more objects. Use inspect to read them.`);
     lines.push(...lights);
-    if (!selected && !doc.lights.some((l) => l.id === selectedId)) lines.push("Nothing is selected.");
+    if (selectedIds.length > 1) lines.push(`${selectedIds.length} objects are selected; "these" or "them" means all of them: ${selectedIds.join(", ")}.`);
+    else if (!selected && !doc.lights.some((l) => l.id === selectedId)) lines.push("Nothing is selected.");
     return lines.join("\n");
 }
 
@@ -171,6 +173,10 @@ export function describeCommand(cmd: Command, doc: SceneDoc): string {
             const verb = { union: "Merged", subtract: "Cut", intersect: "Intersected" }[cmd.operation];
             return cmd.operation === "subtract" ? `Cut ${tool} out of ${name}` : `${verb} ${name} with ${tool}`;
         }
+        case "group":
+            return `Grouped ${cmd.targets.length === 1 ? cmd.targets[0] : `${cmd.targets.length} objects`} as ${cmd.name}`;
+        case "ungroup":
+            return `Ungrouped ${name}`;
         case "addLight":
             return `Added ${cmd.name ?? `a ${cmd.light} light`}`;
         case "updateLight":
