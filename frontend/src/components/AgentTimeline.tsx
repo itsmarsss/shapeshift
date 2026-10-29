@@ -104,11 +104,10 @@ export function AgentTimeline({ steps }: { steps: StepResult[] }) {
     );
 }
 
-function shortArgs(args: any): string {
+function shortArgs(args: object): string {
     try {
-        const pruned: any = {};
-        for (const k of Object.keys(args || {})) {
-            const v = (args as any)[k];
+        const pruned: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(args || {})) {
             if (v == null) continue;
             if (Array.isArray(v)) pruned[k] = v.map((x) => (typeof x === "number" ? Number(x.toFixed?.(3) ?? x) : x));
             else if (typeof v === "object") pruned[k] = "{...}";

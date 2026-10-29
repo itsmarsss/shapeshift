@@ -1,6 +1,7 @@
 // Minimal placeholder to keep types and structure ready; full port available on request
 import { useCallback, useRef } from "react";
 import type { Hand } from "../objects/hand";
+import type { InteractionState } from "../objects/InteractionState";
 
 interface ImageSize {
     width: number;
@@ -12,8 +13,7 @@ export default function useSkeleton({
     updateInteractionState,
 }: {
     overlayCanvasRef: React.RefObject<HTMLCanvasElement | null>;
-    fpsRef: React.RefObject<number>;
-    updateInteractionState: (s: any) => void;
+    updateInteractionState: (s: InteractionState) => void;
 }) {
     // History for holding detection (thumb-index and middle-thumb distances)
     const distanceHistoryIndexThumb = useRef<
@@ -59,7 +59,7 @@ export default function useSkeleton({
             imageSize: ImageSize,
             ctx: CanvasRenderingContext2D
         ) => {
-            const state: any = { Left: null, Right: null, angleBetween: 0 };
+            const state: InteractionState = { Left: null, Right: null, angleBetween: 0 };
 
             // Get actual canvas dimensions
             const targetW = overlayCanvasRef.current?.width || imageSize.width;
@@ -194,11 +194,10 @@ export default function useSkeleton({
                         Math.PI * 2
                     );
                     ctx.fill();
-                    if ((hand as any).connections) {
+                    if (hand.connections) {
                         ctx.strokeStyle = "#88aaff";
                         ctx.lineWidth = 2;
-                        for (const [a, b] of (hand as any)
-                            .connections as number[][]) {
+                        for (const [a, b] of hand.connections) {
                             const p = hand.landmarks[a];
                             const q = hand.landmarks[b];
                             ctx.beginPath();
@@ -215,6 +214,5 @@ export default function useSkeleton({
         },
         [overlayCanvasRef, updateInteractionState]
     );
-    const drawStrokes = useCallback((_ctx: CanvasRenderingContext2D) => {}, []);
-    return { processHands, drawStrokes };
+    return { processHands };
 }

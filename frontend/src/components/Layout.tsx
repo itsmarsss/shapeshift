@@ -10,7 +10,7 @@ import Viewport from "./Viewport";
 import ChatPanel from "./ChatPanel";
 import { useEditor } from "../store/editor";
 import VideoStream from "./VideoStream";
-import { VideoStreamProvider } from "../holo/provider/VideoStreamContext";
+import { VideoStreamProvider } from "../holo/provider/VideoStreamProvider";
 import AgentTimeline from "./AgentTimeline";
 import { useAgentTimeline } from "../store/agentTimeline";
 

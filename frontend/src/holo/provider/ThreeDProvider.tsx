@@ -1,56 +1,6 @@
-import React, {
-    createContext,
-    useContext,
-    useEffect,
-    useMemo,
-    useRef,
-} from "react";
+import React, { useState, useRef } from "react";
 import * as THREE from "three";
-
-interface ThreeDContextType {
-    selectObject: (objectName: string) => void;
-    setObjectVisibility: (objectName: string, visible: boolean) => void;
-    registerObject: (
-        objectName: string,
-        object: THREE.Group<THREE.Object3DEventMap>
-    ) => void;
-    unregisterObject: (objectName: string) => void;
-    setupScene: (mountRef: React.RefObject<HTMLDivElement>) => void;
-    createCube: (
-        objectName: string,
-        position: THREE.Vector3,
-        faceColor: number
-    ) => THREE.Group;
-    createSphere: (
-        objectName: string,
-        position: THREE.Vector3,
-        radius: number,
-        faceColor: number
-    ) => THREE.Group;
-    createShape: (
-        objectName: string,
-        geometry: THREE.BufferGeometry,
-        position: THREE.Vector3,
-        faceColor: number
-    ) => THREE.Group;
-    resetCamera: () => void;
-    objectsRef: React.RefObject<{
-        [key: string]: THREE.Group<THREE.Object3DEventMap>;
-    }>;
-    renderScene: () => void;
-    cameraRef: React.RefObject<THREE.PerspectiveCamera | undefined>;
-    sceneRef: React.RefObject<THREE.Scene>;
-    mainGroupRef: React.RefObject<THREE.Group>;
-    rendererRef: React.RefObject<THREE.WebGLRenderer>;
-    cornerMarkersRef: React.RefObject<THREE.Mesh[]>;
-    zoomRef: React.RefObject<number>;
-    resetCameraRef: React.RefObject<boolean>;
-    renameObject: (oldName: string, newName: string) => void;
-    updateCubeGeometry: (faceMesh: THREE.Mesh) => void;
-    updateSphereGeometry: (sphereMesh: THREE.Mesh) => void;
-}
-
-const ThreeDContext = createContext<ThreeDContextType | null>(null);
+import { ThreeDContext, type ThreeDContextType } from "./ThreeDContext";
 
 export const ThreeDProvider: React.FC<{ children: React.ReactNode }> = ({
     children,
@@ -404,10 +354,6 @@ export const ThreeDProvider: React.FC<{ children: React.ReactNode }> = ({
         mainGroupRef.current.remove(object);
     };
 
-    useEffect(() => {
-        console.log(objectsRef.current);
-    }, [objectsRef.current]);
-
     const createSphere = (
         objectName: string,
         position: THREE.Vector3,
@@ -577,7 +523,7 @@ export const ThreeDProvider: React.FC<{ children: React.ReactNode }> = ({
         group.position.copy(position);
 
         // Store mapping for geometry updates
-        (faceMesh.userData as any).positionGroups = markerGroups.map((mg) => ({
+        faceMesh.userData.positionGroups = markerGroups.map((mg) => ({
             controlIndex: mg.index,
             vertexIndices: mg.vertexIndices,
         }));
@@ -595,10 +541,10 @@ export const ThreeDProvider: React.FC<{ children: React.ReactNode }> = ({
             const positionGroups: Array<{
                 controlIndex: number;
                 vertexIndices: number[];
-            }> = (fm.userData as any).positionGroups || [];
+            }> = fm.userData.positionGroups || [];
             // For each control marker, assign its local position to all grouped vertex indices
             const markers = fm.children.filter(
-                (c) => (c as any).userData?.isControlMarker
+                (c) => c.userData?.isControlMarker
             ) as THREE.Mesh[];
             for (const pg of positionGroups) {
                 const m = markers.find(
@@ -669,7 +615,7 @@ export const ThreeDProvider: React.FC<{ children: React.ReactNode }> = ({
         icosahedronMesh.geometry = newGeometry;
     };
 
-    const threeDContextValue: ThreeDContextType = useMemo(() => {
+    const [threeDContextValue] = useState<ThreeDContextType>(() => {
         return {
             selectObject,
             setObjectVisibility,
@@ -693,19 +639,11 @@ export const ThreeDProvider: React.FC<{ children: React.ReactNode }> = ({
             renameObject,
             updateCubeGeometry,
         };
-    }, []);
+    });
 
     return (
         <ThreeDContext.Provider value={threeDContextValue}>
             {children}
         </ThreeDContext.Provider>
     );
-};
-
-export const useThreeD = () => {
-    const context = useContext(ThreeDContext);
-    if (!context) {
-        throw new Error("useThreeD must be used within an ThreeDProvider");
-    }
-    return context;
 };

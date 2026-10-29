@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import type { Coords } from "./coords";
 
 interface InteractionState {
@@ -29,5 +30,9 @@ const DEFAULT_INTERACTION_STATE: InteractionState = {
     angleBetween: 0,
 };
 
-export type { InteractionState, InteractionStateHand };
+type InteractionStateRef = RefObject<InteractionState> & {
+    canvasOverlayRef?: RefObject<HTMLCanvasElement | null>;
+};
+
+export type { InteractionState, InteractionStateHand, InteractionStateRef };
 export { DEFAULT_INTERACTION_STATE, DEFAULT_INTERACTION_STATE_HAND };

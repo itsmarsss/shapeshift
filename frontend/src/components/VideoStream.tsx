@@ -69,8 +69,10 @@ export function VideoStream() {
         const loadCameras = async () => {
             const availableCameras = await getAvailableCameras();
             setCameras(availableCameras);
-            if (availableCameras.length > 0 && !selectedCamera) {
-                setSelectedCamera(availableCameras[0].deviceId);
+            if (availableCameras.length > 0) {
+                setSelectedCamera(
+                    (prev) => prev || availableCameras[0].deviceId
+                );
             }
         };
         loadCameras();
@@ -109,7 +111,7 @@ export function VideoStream() {
 
     return (
         <VideoContainer>
-            <Video ref={videoRef as any} autoPlay muted />
+            <Video ref={videoRef} autoPlay muted />
             <Controls>
                 <Status>{status}</Status>
                 {cameras.length > 1 && (

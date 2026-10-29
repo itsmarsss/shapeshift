@@ -48,8 +48,8 @@ export function serializeScene(state: EditorState): SavedScene {
 
 export function deserializeScene(input: unknown): SavedScene | null {
   if (!isObject(input)) return null
-  const version = (input as any).version
-  const editor = (input as any).editor
+  const version = input.version
+  const editor = input.editor
   if (version !== 1 || !isObject(editor)) return null
   const ed = editor as Record<string, unknown>
   const objects = coerceSceneObjectArray(ed.objects)

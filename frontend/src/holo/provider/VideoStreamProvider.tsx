@@ -1,23 +1,9 @@
-import React, {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { StreamStatus } from "../types/streamstatus";
-
-interface VideoStreamContextType {
-    videoRef: React.RefObject<HTMLVideoElement | null>;
-    getAvailableCameras: () => Promise<MediaDeviceInfo[]>;
-    setActiveCamera: (cameraId: string) => void;
-    status: StreamStatus;
-    getStream: () => MediaStream | null;
-}
-
-const VideoStreamContext = createContext<VideoStreamContextType | null>(null);
+import {
+    VideoStreamContext,
+    type VideoStreamContextType,
+} from "./VideoStreamContext";
 
 export const VideoStreamProvider: React.FC<{ children: React.ReactNode }> = ({
     children,
@@ -31,8 +17,13 @@ export const VideoStreamProvider: React.FC<{ children: React.ReactNode }> = ({
         MediaDeviceInfo[]
     > => {
         try {
-            await navigator.mediaDevices.getUserMedia({ video: true });
-        } catch {}
+            const probe = await navigator.mediaDevices.getUserMedia({
+                video: true,
+            });
+            probe.getTracks().forEach((t) => t.stop());
+        } catch (error) {
+            console.warn("Camera permission not granted:", error);
+        }
         const devices = await navigator.mediaDevices.enumerateDevices();
         return devices.filter((d) => d.kind === "videoinput");
     }, []);
@@ -111,13 +102,4 @@ export const VideoStreamProvider: React.FC<{ children: React.ReactNode }> = ({
             {children}
         </VideoStreamContext.Provider>
     );
-};
-
-export const useVideoStream = () => {
-    const ctx = useContext(VideoStreamContext);
-    if (!ctx)
-        throw new Error(
-            "useVideoStream must be used within a VideoStreamProvider"
-        );
-    return ctx;
 };
