@@ -1,7 +1,7 @@
 import type { Handedness, HandState } from "./gestures";
 
 export type Intent =
-    | { type: "start"; x: number; y: number }
+    | { type: "start"; handedness: Handedness; x: number; y: number }
     | { type: "move"; x: number; y: number; dx: number; dy: number }
     | { type: "end" }
     | { type: "pair"; zoom: number; panX: number; panY: number };
@@ -46,7 +46,7 @@ export class IntentTracker {
         if (fresh) {
             this.used.set(fresh.handedness, fresh.pinchId);
             this.active = { handedness: fresh.handedness, pinchId: fresh.pinchId, x: fresh.x, y: fresh.y };
-            intents.push({ type: "start", x: fresh.startX, y: fresh.startY });
+            intents.push({ type: "start", handedness: fresh.handedness, x: fresh.startX, y: fresh.startY });
             intents.push({ type: "move", x: fresh.x, y: fresh.y, dx: fresh.x - fresh.startX, dy: fresh.y - fresh.startY });
         }
         return intents;
