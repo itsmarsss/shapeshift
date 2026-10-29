@@ -761,11 +761,9 @@ export function Viewport() {
         register({
             resetCamera: () => {
                 if (!orbitRef.current) return;
-                (orbitRef.current as any).target.set(0, 0, 0);
-                const camera = (orbitRef.current as any).object as THREE.Camera;
-                if ((camera as any).position)
-                    (camera as any).position.set(4, 3, 6);
-                (orbitRef.current as any).update?.();
+                orbitRef.current.target.set(0, 0, 0);
+                orbitRef.current.object.position.set(4, 3, 6);
+                orbitRef.current.update();
             },
             createCube: () => addObject("box"),
             createSphere: () => addObject("sphere"),
@@ -796,13 +794,11 @@ export function Viewport() {
             },
             orbitRotate: (dxN: number, dyN: number) => {
                 if (!orbitRef.current) return;
-                const ctrl = orbitRef.current as any;
-                const camera = ctrl.object as THREE.Camera;
-                const target: THREE.Vector3 =
-                    ctrl.target || new THREE.Vector3();
-                if (!(camera as any).position) return;
+                const ctrl = orbitRef.current;
+                const camera = ctrl.object;
+                const target = ctrl.target;
 
-                const pos = (camera as any).position as THREE.Vector3;
+                const pos = camera.position;
                 const offset = new THREE.Vector3().subVectors(pos, target);
                 const spherical = new THREE.Spherical().setFromVector3(offset);
 
@@ -820,22 +816,20 @@ export function Viewport() {
                     spherical
                 );
                 pos.copy(new THREE.Vector3().addVectors(target, newOffset));
-                (camera as any).lookAt(target);
-                ctrl.update?.();
+                camera.lookAt(target);
+                ctrl.update();
             },
             orbitPan: (dxN: number, dyN: number) => {
                 if (!orbitRef.current) return;
-                const ctrl = orbitRef.current as any;
-                const camera = ctrl.object as THREE.Camera;
-                const target: THREE.Vector3 =
-                    ctrl.target || new THREE.Vector3();
-                if (!camera) return;
+                const ctrl = orbitRef.current;
+                const camera = ctrl.object;
+                const target = ctrl.target;
 
                 // Determine pan distance scaling
                 let panX = 0;
                 let panY = 0;
-                if ((camera as any).isPerspectiveCamera) {
-                    const perspective = camera as THREE.PerspectiveCamera;
+                if (camera instanceof THREE.PerspectiveCamera) {
+                    const perspective = camera;
                     const distance = perspective.position
                         .clone()
                         .sub(target)
@@ -844,8 +838,8 @@ export function Viewport() {
                     const heightAtDistance = 2 * distance * Math.tan(halfFovY);
                     panX = -dxN * heightAtDistance;
                     panY = dyN * heightAtDistance;
-                } else if ((camera as any).isOrthographicCamera) {
-                    const ortho = camera as THREE.OrthographicCamera;
+                } else if (camera instanceof THREE.OrthographicCamera) {
+                    const ortho = camera;
                     const width = (ortho.right - ortho.left) / ortho.zoom;
                     const height = (ortho.top - ortho.bottom) / ortho.zoom;
                     panX = -dxN * width;
@@ -860,23 +854,21 @@ export function Viewport() {
                 const xAxis = new THREE.Vector3();
                 const yAxis = new THREE.Vector3();
                 const zAxis = new THREE.Vector3();
-                (camera as any).matrix.extractBasis(xAxis, yAxis, zAxis);
+                camera.matrix.extractBasis(xAxis, yAxis, zAxis);
                 const panOffset = new THREE.Vector3();
                 panOffset
                     .add(xAxis.multiplyScalar(panX))
                     .add(yAxis.multiplyScalar(panY));
-                (camera as any).position.add(panOffset);
+                camera.position.add(panOffset);
                 target.add(panOffset);
-                ctrl.update?.();
+                ctrl.update();
             },
             orbitDolly: (delta: number) => {
                 if (!orbitRef.current) return;
-                const ctrl = orbitRef.current as any;
+                const ctrl = orbitRef.current;
                 const zoomFactor = Math.exp(delta * 0.5);
-                if (typeof ctrl.dollyIn === "function") {
-                    ctrl.dollyIn(zoomFactor);
-                }
-                ctrl.update?.();
+                ctrl.dollyIn(zoomFactor);
+                ctrl.update();
             },
         });
     }, [register, addObject]);

@@ -1,12 +1,9 @@
 import styled from "styled-components";
 import { useMemo, useRef, useState } from "react";
 import { useEditor } from "../store/editor";
-import type { GeometryKind, SceneObject } from "../types";
+import type { GeometryKind, GeometryParamsMap, SceneObject, TransformMode, Vector3 } from "../types";
 import { runAgent } from "../agent/agent";
 import { useAgentTimeline } from "../store/agentTimeline";
-
-const SERVER_URL =
-    (import.meta as any).env?.VITE_SERVER_URL ?? "http://localhost:8787";
 
 const Panel = styled.div`
     position: absolute;
@@ -120,6 +117,44 @@ const SendBtn = styled.button`
 
 type ChatMsg = { role: "user" | "system"; text: string };
 
+type ItemArgs = {
+    id?: string;
+    target?: string;
+    position?: Partial<Vector3>;
+    rotation?: Partial<Vector3>;
+    scale?: Partial<Vector3>;
+    isDelta?: boolean;
+    color?: string;
+    metalness?: number;
+    roughness?: number;
+    opacity?: number;
+    transparent?: boolean;
+};
+
+type ToolCallArgs = ItemArgs & {
+    kind?: GeometryKind;
+    params?: GeometryParamsMap[GeometryKind];
+    name?: string;
+    op?: "union" | "subtract" | "intersect";
+    a?: string;
+    b?: string;
+    enabled?: boolean;
+    translateSnap?: number;
+    rotateSnap?: number;
+    scaleSnap?: number;
+    mode?: TransformMode;
+    count?: number;
+    spacingX?: number;
+    spacingY?: number;
+    spacingZ?: number;
+    startX?: number;
+    startY?: number;
+    startZ?: number;
+    items?: ItemArgs[];
+};
+
+type GeomDims = Partial<Record<"width" | "height" | "depth" | "radius" | "radiusTop" | "radiusBottom", number>>;
+
 export function ChatPanel() {
     const [input, setInput] = useState("");
     const [messages, setMessages] = useState<ChatMsg[]>([
@@ -152,6 +187,7 @@ export function ChatPanel() {
     const checkpoints = useEditor((s) => s.checkpoints);
     const restoreCheckpoint = useEditor((s) => s.restoreCheckpoint);
     const deleteCheckpoint = useEditor((s) => s.deleteCheckpoint);
+    const setShowChatPanel = useEditor((s) => s.setShowChatPanel);
 
     const selected = useMemo(
         () => objects.find((o) => o.id === selectedId) ?? null,
@@ -199,7 +235,7 @@ export function ChatPanel() {
 
     function summarizeObjectDetailed(o: SceneObject) {
         const kind = o.geometry;
-        const p: any = o.geometryParams || {};
+        const p = (o.geometryParams ?? {}) as GeomDims;
         const eff = {
             width: kind === "box" ? (p.width ?? 1) * o.scale.x : kind === "sphere" ? 2 * (p.radius ?? 0.5) * o.scale.x : kind === "cylinder" ? 2 * Math.max(p.radiusTop ?? p.radius ?? 0.5, p.radiusBottom ?? p.radius ?? 0.5) * o.scale.x : kind === "cone" ? 2 * (p.radius ?? 0.5) * o.scale.x : kind === "torus" ? 2 * (p.radius ?? 0.5) * o.scale.x : kind === "plane" ? (p.width ?? 1) * o.scale.x : 1,
             height: kind === "box" ? (p.height ?? 1) * o.scale.y : kind === "sphere" ? 2 * (p.radius ?? 0.5) * o.scale.y : kind === "cylinder" ? (p.height ?? 1) * o.scale.y : kind === "cone" ? (p.height ?? 1) * o.scale.y : kind === "torus" ? 2 * (p.radius ?? 0.5) * o.scale.y : kind === "plane" ? (p.height ?? 1) * o.scale.y : 1,
@@ -232,7 +268,7 @@ export function ChatPanel() {
                 ? pinned.map((o) => summarizeObjectDetailed(o)).join("; ")
                 : "";
 
-            const r = await fetch(`${SERVER_URL}/api/chat`, {
+            const r = await fetch("/api/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ user: userText, sceneSummary, focusContext }),
@@ -246,17 +282,19 @@ export function ChatPanel() {
             const tool = msg?.tool_calls?.[0];
             if (tool?.function?.name) {
                 const name = tool.function.name as string;
-                let args: any = {};
+                let args: ToolCallArgs = {};
                 try {
                     args = tool.function.arguments
                         ? JSON.parse(tool.function.arguments)
                         : {};
-                } catch {}
+                } catch {
+                    args = {};
+                }
 
                 // map tools to store actions
                 if (name === "addObject") {
                     addObject(args.kind as GeometryKind, args.params);
-                    const st = (useEditor as any).getState?.() || {};
+                    const st = useEditor.getState();
                     if (st.selectedId) ensurePinned(st.selectedId);
                     return { executed: true, reply: `Added ${args.kind}` };
                 }
@@ -344,7 +382,7 @@ export function ChatPanel() {
                     return { executed: true, reply: "Material updated" };
                 }
                 if (name === "updateGeometry") {
-                    const candidate = args.id ?? args.target ?? selectedId;
+                    const candidate = args.id ?? args.target ?? selectedId ?? "";
                     const id = resolveId(candidate) ?? null;
                     if (!id)
                         return {
@@ -358,17 +396,16 @@ export function ChatPanel() {
                     };
                 }
                 if (name === "updateName") {
-                    const candidate = args.id ?? args.target ?? selectedId;
+                    const candidate = args.id ?? args.target ?? selectedId ?? "";
                     const id = resolveId(candidate) ?? null;
                     const newName = String(args.name || "").trim();
                     if (!id || !newName) return { executed: false, reply: "Missing id or name" };
-                    const updateNameStore = (useEditor as any).getState?.().updateName;
-                    if (updateNameStore) updateNameStore(id, newName);
+                    useEditor.getState().updateName(id, newName);
                     return { executed: true, reply: `Renamed to ${newName}` };
                 }
                 if (name === "duplicateSelected") {
                     duplicateSelected();
-                    const st = (useEditor as any).getState?.() || {};
+                    const st = useEditor.getState();
                     if (st.selectedId) ensurePinned(st.selectedId);
                     return { executed: true, reply: "Duplicated" };
                 }
@@ -377,8 +414,10 @@ export function ChatPanel() {
                     return { executed: true, reply: "Deleted" };
                 }
                 if (name === "booleanOp") {
+                    if (!args.op || !args.a || !args.b)
+                        return { executed: false, reply: "Missing boolean args" };
                     booleanOp(args.op, args.a, args.b);
-                    const st = (useEditor as any).getState?.() || {};
+                    const st = useEditor.getState();
                     if (st.selectedId) ensurePinned(st.selectedId);
                     return { executed: true, reply: `Boolean ${args.op}` };
                 }
@@ -408,6 +447,7 @@ export function ChatPanel() {
                     return { executed: true, reply: "Snap updated" };
                 }
                 if (name === "setMode") {
+                    if (!args.mode) return { executed: false, reply: "Missing mode" };
                     setMode(args.mode);
                     return { executed: true, reply: `Mode: ${args.mode}` };
                 }
@@ -415,7 +455,8 @@ export function ChatPanel() {
                     const kind = args.kind as GeometryKind;
                     const count = Math.max(1, Number(args.count || 1));
                     const params = args.params;
-                    const sx = Number(args.spacingX ?? (params?.width ?? params?.radius ?? 1.0) * 1.2);
+                    const dims = params as GeomDims | undefined;
+                    const sx = Number(args.spacingX ?? (dims?.width ?? dims?.radius ?? 1.0) * 1.2);
                     const sy = Number(args.spacingY ?? 0);
                     const sz = Number(args.spacingZ ?? 0);
                     const startX = Number(args.startX ?? 0);
@@ -424,8 +465,7 @@ export function ChatPanel() {
                     let created = 0;
                     for (let i = 0; i < count; i++) {
                         addObject(kind, params);
-                        const state = (useEditor as any).getState?.() || {};
-                        const id = state.selectedId as string | undefined;
+                        const id = useEditor.getState().selectedId;
                         if (id) {
                             updateTransform(id, {
                                 position: {
@@ -441,7 +481,7 @@ export function ChatPanel() {
                     return { executed: true, reply: `Added ${created} ${kind}(s)` };
                 }
                 if (name === "updateTransformMany") {
-                    const items: any[] = Array.isArray(args.items) ? args.items : [];
+                    const items: ItemArgs[] = Array.isArray(args.items) ? args.items : [];
                     let applied = 0;
                     for (const it of items) {
                         const t = String(it.id || it.target || "");
@@ -469,7 +509,7 @@ export function ChatPanel() {
                     return { executed: applied > 0, reply: `Updated ${applied} object(s)` };
                 }
                 if (name === "updateMaterialMany") {
-                    const items: any[] = Array.isArray(args.items) ? args.items : [];
+                    const items: ItemArgs[] = Array.isArray(args.items) ? args.items : [];
                     let applied = 0;
                     for (const it of items) {
                         const t = String(it.id || it.target || "");
@@ -490,7 +530,7 @@ export function ChatPanel() {
 
             const text = msg?.content ?? "Ok";
             return { executed: false, reply: text };
-        } catch (e) {
+        } catch {
             return { executed: false, reply: "LLM call failed" };
         } finally {
             setIsLoading(false);
@@ -571,10 +611,7 @@ export function ChatPanel() {
                     <Toggle onClick={() => setDryRun(!dryRun)} title="Toggle dry-run / apply">
                         {dryRun ? "Dry-run" : "Apply"}
                     </Toggle>
-          <Toggle onClick={() => {
-            // Hide via global store so layout unmounts the panel
-            try { (useEditor as any).setState((s: any) => ({ ...s, showChatPanel: false })); } catch {}
-          }}>✕</Toggle>
+                    <Toggle onClick={() => setShowChatPanel(false)}>✕</Toggle>
                 </div>
             </Header>
             <div style={{ padding: "6px 10px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>

@@ -39,8 +39,8 @@ export function planFromPrompt(prompt: string, snapshot: SceneSnapshot): AgentPl
     if (addMatch) {
         const kindWord = addMatch[1];
         const rest = addMatch[2] || "";
-        const kind = kindWord === "box" || kindWord === "cube" ? "cube" : (kindWord as any);
-        const dims: any = {};
+        const kind = kindWord === "box" || kindWord === "cube" ? "cube" : (kindWord as "sphere" | "plane" | "cylinder" | "cone");
+        const dims: { x?: number; y?: number; z?: number; radius?: number; height?: number } = {};
         const sizeM = rest.match(/(\d+(?:\.\d+)?)\s*m\b/);
         if (kind === "cube" && sizeM) dims.x = dims.y = dims.z = parseFloat(sizeM[1]);
         if (kind === "sphere") {
@@ -199,7 +199,7 @@ export async function runAgent(prompt: string, apply: boolean): Promise<AgentRun
     let lastSnapshot = s0;
 
     for (const step of plan.steps) {
-        let filled = { ...step } as ToolInvocation;
+        const filled = { ...step } as ToolInvocation;
         if (filled.name === "delete" && (!filled.args.ids || filled.args.ids.length === 0)) {
             const sel = Tools.get_selection().payload?.ids || [];
             filled.args = { ...filled.args, ids: sel };

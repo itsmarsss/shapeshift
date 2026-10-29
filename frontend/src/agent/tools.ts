@@ -1,8 +1,11 @@
 import { nanoid } from "nanoid";
-import { useEditor } from "../store/editor";
+import { useEditor, type TransformPartial } from "../store/editor";
 import type { SceneObject } from "../types";
 import { buildSceneFromObjects, exportSceneToGLB } from "../utils/io";
 import type { Diff, SceneSnapshot, ToolResult } from "./types";
+
+type PrimitiveKind = "cube" | "sphere" | "plane" | "cylinder" | "cone";
+type Dims = { x?: number; y?: number; z?: number; radius?: number; height?: number };
 
 const materialRegistry: Record<string, { id: string; name: string; pbr: { baseColorHex?: string; metalness?: number; roughness?: number } }> = {};
 
@@ -20,7 +23,7 @@ const COLOR_MAP: Record<string, string> = {
 };
 
 function nowState() {
-    return (useEditor as any).getState?.();
+    return useEditor.getState();
 }
 
 function snapshot(): SceneSnapshot {
@@ -131,36 +134,30 @@ export function get_selection(): ToolResult {
 }
 
 // WRITE
-export function create_primitive(args: { kind: "cube" | "sphere" | "plane" | "cylinder" | "cone"; name?: string; dims?: { x?: number; y?: number; z?: number; radius?: number; height?: number }; parentId?: string }): ToolResult {
+export function create_primitive(args: { kind: PrimitiveKind; name?: string; dims?: Dims; parentId?: string }): ToolResult {
     console.log("[Tool] create_primitive:", args);
     const before = idsOfObjects();
     const st = nowState();
     if (!st) return fail(["state_unavailable"]);
-    const kMap: Record<string, string> = { cube: "box", sphere: "sphere", plane: "plane", cylinder: "cylinder", cone: "cone" };
-    const kind = args?.kind as keyof typeof kMap;
-    if (!kind || !(kind in kMap)) return fail(["unsupported_kind"]);
+    if (!args?.kind || !(args.kind in PRIMITIVE_ADDERS)) return fail(["unsupported_kind"]);
 
-    const addObject = st.addObject as (kind: any, params?: any) => void;
-    const updateName = st.updateName as (id: string, name: string) => void;
-    addObject(kMap[kind] as any, toParams(kMap[kind] as any, args?.dims));
+    PRIMITIVE_ADDERS[args.kind](args.dims);
     const after = idsOfObjects();
     const d = diff(before, after);
     const newId = d.addedIds[0];
-    if (newId && args?.name && updateName) updateName(newId, args.name);
+    if (newId && args?.name) st.updateName(newId, args.name);
     const res = ok({ changes: d });
     console.log("[Tool] create_primitive diff:", d);
     return res;
 }
 
-function toParams(kind: "box" | "sphere" | "plane" | "cylinder" | "cone", dims: any) {
-    if (!dims) return undefined;
-    if (kind === "box") return { width: dims.x ?? 1, height: dims.y ?? 1, depth: dims.z ?? 1 };
-    if (kind === "sphere") return { radius: dims.radius ?? 0.5 };
-    if (kind === "plane") return { width: dims.x ?? 1, height: dims.y ?? 1 };
-    if (kind === "cylinder") return { radiusTop: dims.radius ?? 0.5, radiusBottom: dims.radius ?? 0.5, height: dims.height ?? 1 };
-    if (kind === "cone") return { radius: dims.radius ?? 0.5, height: dims.height ?? 1 };
-    return undefined;
-}
+const PRIMITIVE_ADDERS: Record<PrimitiveKind, (dims?: Dims) => void> = {
+    cube: (dims) => useEditor.getState().addObject("box", dims && { width: dims.x ?? 1, height: dims.y ?? 1, depth: dims.z ?? 1 }),
+    sphere: (dims) => useEditor.getState().addObject("sphere", dims && { radius: dims.radius ?? 0.5 }),
+    plane: (dims) => useEditor.getState().addObject("plane", dims && { width: dims.x ?? 1, height: dims.y ?? 1 }),
+    cylinder: (dims) => useEditor.getState().addObject("cylinder", dims && { radiusTop: dims.radius ?? 0.5, radiusBottom: dims.radius ?? 0.5, height: dims.height ?? 1 }),
+    cone: (dims) => useEditor.getState().addObject("cone", dims && { radius: dims.radius ?? 0.5, height: dims.height ?? 1 }),
+};
 
 export function select(args: { ids?: string[]; query?: { type?: string; nameContains?: string } }): ToolResult {
     console.log("[Tool] select:", args);
@@ -193,12 +190,11 @@ export function transform(args: { id: string; translate?: [number, number, numbe
     }
 
     const before = idsOfObjects();
-    const updateTransform = st.updateTransform as (id: string, partial: any) => void;
-    const partial: any = {};
+    const partial: TransformPartial = {};
     if (args?.translate) partial.position = { x: obj.position.x + args.translate[0], y: obj.position.y + args.translate[1], z: obj.position.z + args.translate[2] };
     if (args?.rotate) partial.rotation = { x: obj.rotation.x + args.rotate[0], y: obj.rotation.y + args.rotate[1], z: obj.rotation.z + args.rotate[2] };
     if (args?.scale) partial.scale = { x: obj.scale.x * args.scale[0], y: obj.scale.y * args.scale[1], z: obj.scale.z * args.scale[2] };
-    updateTransform(obj.id, partial);
+    st.updateTransform(obj.id, partial);
     const after = idsOfObjects();
     const d = diff(before, after, [obj.id]);
     console.log("[Tool] transform diff:", d);
@@ -250,7 +246,6 @@ export function assign_material(args: { id: string; materialId: string }): ToolR
     if (!st) return fail(["state_unavailable"]);
     const obj = (st.objects as SceneObject[]).find((o) => o.id === args?.id);
     if (!obj) return fail(["not_found"]);
-    const updateMaterial = st.updateMaterial as (id: string, partial: any) => void;
 
     let pbr: { baseColorHex?: string; metalness?: number; roughness?: number } | null = null;
     const reg = materialRegistry[args.materialId];
@@ -262,7 +257,7 @@ export function assign_material(args: { id: string; materialId: string }): ToolR
     }
     if (!pbr) return fail(["material_not_found"]);
 
-    updateMaterial(obj.id, {
+    st.updateMaterial(obj.id, {
         color: pbr.baseColorHex,
         metalness: typeof pbr.metalness === "number" ? pbr.metalness : undefined,
         roughness: typeof pbr.roughness === "number" ? pbr.roughness : undefined,
@@ -282,9 +277,9 @@ export async function export_glb(args: { ids?: string[]; embedTextures?: boolean
         const res = ok();
         console.log("[Tool] export_glb -> done");
         return res;
-    } catch (e: any) {
+    } catch (e) {
         console.error("[Tool] export_glb error", e);
-        return fail(["export_failed", String(e?.message || e)]);
+        return fail(["export_failed", e instanceof Error ? e.message : String(e)]);
     }
 }
 

@@ -43,6 +43,8 @@ const HiddenInput = styled.input`
 export function Topbar() {
     const undo = useEditor((s) => s.undo);
     const redo = useEditor((s) => s.redo);
+    const toggleInspector = useEditor((s) => s.toggleInspector);
+    const setShowChatPanel = useEditor((s) => s.setShowChatPanel);
     const setEditorMode = useEditor((s) => s.setEditorMode);
     const editorMode = useEditor((s) => s.editorMode);
     const clear = useEditor((s) => s.clear);
@@ -196,26 +198,12 @@ export function Topbar() {
                 <Btn onClick={undo}>Undo</Btn>
                 <Btn onClick={redo}>Redo</Btn>
                 <Btn
-                    onClick={() => {
-                        try {
-                            (useEditor as any).setState((s: any) => ({
-                                ...s,
-                                showInspector: !s.showInspector,
-                            }));
-                        } catch {}
-                    }}
+                    onClick={toggleInspector}
                 >
                     🔍
                 </Btn>
                 <Btn
-                    onClick={() => {
-                        try {
-                            (useEditor as any).setState((s: any) => ({
-                                ...s,
-                                showChatPanel: true,
-                            }));
-                        } catch {}
-                    }}
+                    onClick={() => setShowChatPanel(true)}
                 >
                     💬
                 </Btn>

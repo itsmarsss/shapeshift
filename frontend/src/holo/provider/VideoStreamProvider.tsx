@@ -1,24 +1,9 @@
-import React, {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { StreamStatus } from "../types/streamstatus";
-
-interface VideoStreamContextType {
-    videoRef: React.RefObject<HTMLVideoElement | null>;
-    getAvailableCameras: () => Promise<MediaDeviceInfo[]>;
-    captureFrame: () => Promise<ArrayBuffer | null>;
-    setActiveCamera: (cameraId: string) => void;
-    status: StreamStatus;
-    getStream: () => MediaStream | null;
-}
-
-const VideoStreamContext = createContext<VideoStreamContextType | null>(null);
+import {
+    VideoStreamContext,
+    type VideoStreamContextType,
+} from "./VideoStreamContext";
 
 export const VideoStreamProvider: React.FC<{ children: React.ReactNode }> = ({
     children,
@@ -32,8 +17,13 @@ export const VideoStreamProvider: React.FC<{ children: React.ReactNode }> = ({
         MediaDeviceInfo[]
     > => {
         try {
-            await navigator.mediaDevices.getUserMedia({ video: true });
-        } catch {}
+            const probe = await navigator.mediaDevices.getUserMedia({
+                video: true,
+            });
+            probe.getTracks().forEach((t) => t.stop());
+        } catch (error) {
+            console.warn("Camera permission not granted:", error);
+        }
         const devices = await navigator.mediaDevices.enumerateDevices();
         return devices.filter((d) => d.kind === "videoinput");
     }, []);
@@ -76,32 +66,6 @@ export const VideoStreamProvider: React.FC<{ children: React.ReactNode }> = ({
         [stopStream]
     );
 
-    const captureCanvasRef = useRef<HTMLCanvasElement | null>(null);
-    const captureFrame = async (): Promise<ArrayBuffer | null> => {
-        if (!videoRef.current) return null;
-        if (!captureCanvasRef.current)
-            captureCanvasRef.current = document.createElement("canvas");
-        const canvas = captureCanvasRef.current;
-        canvas.width = 640;
-        canvas.height = 360;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return null;
-        ctx.setTransform(-1, 0, 0, 1, canvas.width, 0);
-        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        return new Promise((resolve) => {
-            canvas.toBlob(
-                (blob) => {
-                    if (!blob) return resolve(null);
-                    blob.arrayBuffer()
-                        .then(resolve)
-                        .catch(() => resolve(null));
-                },
-                "image/jpeg",
-                0.5
-            );
-        });
-    };
-
     const setActiveCamera = useCallback(
         (id: string) => {
             console.log("setActiveCamera called with:", id);
@@ -126,12 +90,11 @@ export const VideoStreamProvider: React.FC<{ children: React.ReactNode }> = ({
         () => ({
             videoRef,
             getAvailableCameras,
-            captureFrame,
             setActiveCamera,
             status,
             getStream: () => streamRef.current,
         }),
-        [status, setActiveCamera, getAvailableCameras, captureFrame]
+        [status, setActiveCamera, getAvailableCameras]
     );
 
     return (
@@ -139,13 +102,4 @@ export const VideoStreamProvider: React.FC<{ children: React.ReactNode }> = ({
             {children}
         </VideoStreamContext.Provider>
     );
-};
-
-export const useVideoStream = () => {
-    const ctx = useContext(VideoStreamContext);
-    if (!ctx)
-        throw new Error(
-            "useVideoStream must be used within a VideoStreamProvider"
-        );
-    return ctx;
 };

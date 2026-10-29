@@ -1,11 +1,18 @@
 import { useEffect, useRef } from "react";
-import { WebSocketProvider, useWebSocket } from "../provider/WebSocketContext";
-import { ThreeDProvider } from "../provider/ThreeDContext";
+import {
+    FRAME_HEIGHT,
+    FRAME_WIDTH,
+    useHandTracker,
+} from "../provider/HandTrackerContext";
+import { HandTrackerProvider } from "../provider/HandTrackerProvider";
+import { ThreeDProvider } from "../provider/ThreeDProvider";
 import Editable3DObject from "./ThreeRenderer";
-import { useVideoStream } from "../provider/VideoStreamContext";
 import { useViewportActions } from "../../provider/ViewportContext";
 import useSkeleton from "../hooks/useSkeleton";
-import type { InteractionState } from "../objects/InteractionState";
+import type {
+    InteractionState,
+    InteractionStateRef,
+} from "../objects/InteractionState";
 
 function OverlayInner() {
     const {
@@ -15,16 +22,13 @@ function OverlayInner() {
         orbitRotate,
         orbitPan,
         orbitDolly,
-    } = useViewportActions() as any;
-    const { getConnectionStatus, getData, sendFrame, getAcknowledged } =
-        useWebSocket();
-    const { captureFrame } = useVideoStream();
+    } = useViewportActions();
+    const { getData } = useHandTracker();
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const viewportRef = useRef<HTMLDivElement>(null);
     const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
     const fpsRef = useRef<number>(0);
-    // no longer needed when using old-style loop
-    const interactionRef = useRef<InteractionState>({
+    const interactionRef: InteractionStateRef = useRef<InteractionState>({
         Left: null,
         Right: null,
         angleBetween: 0,
@@ -33,7 +37,6 @@ function OverlayInner() {
 
     const { processHands } = useSkeleton({
         overlayCanvasRef: canvasRef,
-        fpsRef,
         updateInteractionState: (s: InteractionState) => {
             interactionRef.current = s;
         },
@@ -42,14 +45,13 @@ function OverlayInner() {
     // Use the Three.js renderer's canvas for hand overlay
     useEffect(() => {
         const getRendererCanvas = () => {
-            const rendererCanvas = (interactionRef as any).canvasOverlayRef
-                ?.current;
+            const rendererCanvas = interactionRef.canvasOverlayRef?.current;
             if (rendererCanvas) {
                 canvasRef.current = rendererCanvas;
                 ctxRef.current = rendererCanvas.getContext("2d", {
                     alpha: true,
                     desynchronized: true,
-                } as any) as CanvasRenderingContext2D | null;
+                });
 
                 // Force initial size sync
                 const mount = rendererCanvas.parentElement;
@@ -78,11 +80,10 @@ function OverlayInner() {
         const canvas = canvasRef.current;
         if (!canvas) return;
         // desynchronized hint can reduce latency on some browsers/GPUs
-        ctxRef.current =
-            (canvas.getContext("2d", {
-                alpha: true,
-                desynchronized: true,
-            } as any) as CanvasRenderingContext2D | null) ?? null;
+        ctxRef.current = canvas.getContext("2d", {
+            alpha: true,
+            desynchronized: true,
+        });
     }, []);
 
     // Main loop: draw every frame; capture/send runs asynchronously when acked
@@ -91,36 +92,12 @@ function OverlayInner() {
         let prevL: { x: number; y: number } | null = null;
         let prevR: { x: number; y: number } | null = null;
         let prevDist: number | null = null;
-        const lastStatusRef = { value: "" } as { value: string };
-        const lastStatusUpdateRef = { value: 0 } as { value: number };
-        let capturing = false;
 
         // FPS counters
         const frameCountRef = { value: 0 } as { value: number };
         const lastTimeRef = { value: Date.now() } as { value: number };
 
         const tick = () => {
-            // Throttle status updates (no await)
-            const now = performance.now();
-            if (now - lastStatusUpdateRef.value > 250) {
-                const s = getConnectionStatus();
-                // Status tracking removed - video now integrated into chat panel
-                lastStatusRef.value = s;
-                lastStatusUpdateRef.value = now;
-            }
-
-            // If server ready, start an async capture/send without blocking the loop
-            if (getAcknowledged() && !capturing) {
-                capturing = true;
-                captureFrame()
-                    .then((frame) => {
-                        if (frame) sendFrame(frame);
-                    })
-                    .finally(() => {
-                        capturing = false;
-                    });
-            }
-
             const canvas = canvasRef.current;
             if (canvas) {
                 const ctx =
@@ -131,7 +108,7 @@ function OverlayInner() {
                 if (ctx) {
                     if (!ctxRef.current) ctxRef.current = ctx;
 
-                    const data = getData() as any;
+                    const data = getData();
                     if (
                         data &&
                         data.hands &&
@@ -139,10 +116,9 @@ function OverlayInner() {
                         canvas.height > 0
                     ) {
                         ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        // Use original video dimensions since hand landmarks are normalized to that
                         const size = {
-                            width: 640, // Original video width
-                            height: 360, // Original video height
+                            width: FRAME_WIDTH,
+                            height: FRAME_HEIGHT,
                         };
                         processHands(data.hands, size, ctx);
 
@@ -255,10 +231,6 @@ function OverlayInner() {
         raf = requestAnimationFrame(tick);
         return () => cancelAnimationFrame(raf);
     }, [
-        getConnectionStatus,
-        getAcknowledged,
-        captureFrame,
-        sendFrame,
         getData,
         processHands,
         startHandDrag,
@@ -293,7 +265,7 @@ function OverlayInner() {
             >
                 <ThreeDProvider>
                     <Editable3DObject
-                        interactionStateRef={interactionRef as any}
+                        interactionStateRef={interactionRef}
                     />
                 </ThreeDProvider>
             </div>
@@ -302,10 +274,9 @@ function OverlayInner() {
 }
 
 export default function HolohandsOverlay() {
-    const wsUrl = "ws://localhost:6969/ws"; // adjust if needed
     return (
-        <WebSocketProvider url={wsUrl}>
+        <HandTrackerProvider>
             <OverlayInner />
-        </WebSocketProvider>
+        </HandTrackerProvider>
     );
 }

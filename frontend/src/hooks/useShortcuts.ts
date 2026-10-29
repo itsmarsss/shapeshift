@@ -16,7 +16,7 @@ export function useShortcuts() {
       // Command/Ctrl + L to show chat panel
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l') {
         e.preventDefault()
-        try { (useEditor as any).setState((s: any) => ({ ...s, showChatPanel: true })); } catch {}
+        useEditor.getState().setShowChatPanel(true)
         return
       }
       

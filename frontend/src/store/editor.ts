@@ -199,13 +199,13 @@ const initialState: EditorState & {
 };
 
 // Allow nested partials for transform updates
-type TransformPartial = {
+export type TransformPartial = {
     position?: Partial<Vector3>;
     rotation?: Partial<Euler>;
     scale?: Partial<Vector3>;
 };
 
-interface EditorStore extends EditorState {
+export interface EditorStore extends EditorState {
     addObject: <K extends GeometryKind>(
         kind: K,
         params?: GeometryParamsMap[K]
