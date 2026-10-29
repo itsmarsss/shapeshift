@@ -5,6 +5,7 @@ import type * as THREE from "three";
 import { useScene } from "../scene/store";
 import { SceneMesh } from "./SceneMesh";
 import { EditOverlay } from "./EditOverlay";
+import { SnapshotBridge } from "./SnapshotBridge";
 import { HandControls } from "../hands/HandControls";
 import { useHandHover } from "../hands/tracker";
 
@@ -62,6 +63,7 @@ export function Viewport() {
                 shadow-normalBias={0.02}
             />
             <CameraControls makeDefault />
+            <SnapshotBridge />
             <HandControls />
 
             {objects.map((o) => (

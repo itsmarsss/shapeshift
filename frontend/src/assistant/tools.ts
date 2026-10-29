@@ -4,6 +4,7 @@
 import { z } from "zod";
 import { aiTools } from "../scene/aiTools";
 import { AI_COMMANDS, Command } from "../scene/schema";
+import { VIEWS, type View } from "../viewport/views";
 
 const AGENT_TOOLS = {
     inspect: {
@@ -16,6 +17,14 @@ const AGENT_TOOLS = {
     select: {
         description: "Select an object in the editor, or pass null to clear the selection.",
         args: z.object({ target: z.string().min(1).nullable().describe("Object id or exact name") }),
+    },
+    look: {
+        description:
+            "Take a picture of the viewport to check how the scene looks. Use it after building or rearranging something with several parts, then fix anything that looks wrong. Views other than current frame the targets, or the whole scene.",
+        args: z.object({
+            view: z.enum(VIEWS).optional().describe("Camera angle. Defaults to iso"),
+            targets: z.array(z.string().min(1)).max(50).optional().describe("Object ids or exact names to frame"),
+        }),
     },
     undo: {
         description: "Undo the user's most recent changes. Only use when the user asks to undo or go back.",
@@ -44,6 +53,7 @@ export type ToolRequest =
     | { kind: "command"; command: Command }
     | { kind: "inspect"; targets: string[] }
     | { kind: "select"; target: string | null }
+    | { kind: "look"; view: View; targets?: string[] }
     | { kind: "undo"; steps: number };
 
 export type ParsedTool = { ok: true; request: ToolRequest } | { ok: false; error: string };
@@ -78,6 +88,12 @@ export function parseToolCall(name: string, rawArgs: string): ParsedTool {
         case "select": {
             const parsed = AGENT_TOOLS.select.args.safeParse(args);
             return parsed.success ? { ok: true, request: { kind: "select", target: parsed.data.target } } : { ok: false, error: issues(parsed.error) };
+        }
+        case "look": {
+            const parsed = AGENT_TOOLS.look.args.safeParse(args);
+            return parsed.success
+                ? { ok: true, request: { kind: "look", view: parsed.data.view ?? "iso", targets: parsed.data.targets } }
+                : { ok: false, error: issues(parsed.error) };
         }
         case "undo": {
             const parsed = AGENT_TOOLS.undo.args.safeParse(args);

@@ -52,6 +52,33 @@ const Swatch = styled.span<{ $color: string }>`
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
 `;
 
+const Shot = styled.button<{ $open: boolean }>`
+    grid-column: 2 / 4;
+    margin: 4px 0 2px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--bg);
+    width: ${(p) => (p.$open ? "100%" : "120px")};
+    transition: width 0.15s ease;
+    cursor: zoom-${(p) => (p.$open ? "out" : "in")};
+
+    img {
+        display: block;
+        width: 100%;
+    }
+`;
+
+function Snapshot({ src, label }: { src: string; label: string }) {
+    const [open, setOpen] = useState(false);
+    return (
+        <Shot type="button" $open={open} onClick={() => setOpen((v) => !v)} title={open ? "Shrink" : "Enlarge"}>
+            <img src={src} alt={label} />
+        </Shot>
+    );
+}
+
 const More = styled.button`
     display: inline-flex;
     align-items: center;
@@ -83,6 +110,7 @@ export function ActivityList({ activities }: { activities: Activity[] }) {
                     <Label title={a.label}>{a.label}</Label>
                     {a.color ? <Swatch $color={a.color} title={a.color} /> : <span />}
                     {a.error && <ErrorText>{a.error}</ErrorText>}
+                    {a.image && <Snapshot src={a.image} label={a.label} />}
                 </Row>
             ))}
             {hidden > 0 && (

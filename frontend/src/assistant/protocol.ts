@@ -10,6 +10,7 @@ export const LIMITS = {
     promptChars: 4_000,
     sceneChars: 60_000,
     toolResultChars: 20_000,
+    imageChars: 600_000,
     toolCallsPerStep: 64,
     stepsPerTurn: 12,
 } as const;
@@ -43,6 +44,8 @@ export const WireMessage = z.discriminatedUnion("role", [
         tool_call_id: z.string().min(1).max(128),
         content: z.string().max(LIMITS.toolResultChars),
         is_error: z.boolean().optional(),
+        // Base64 JPEG snapshots of the viewport, for models that can see.
+        images: z.array(z.string().max(LIMITS.imageChars).regex(/^[A-Za-z0-9+/=]+$/)).max(4).optional(),
     }),
 ]);
 export type WireMessage = z.infer<typeof WireMessage>;
