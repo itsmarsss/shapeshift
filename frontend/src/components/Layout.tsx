@@ -25,7 +25,7 @@ export function Layout() {
     useShortcuts();
     const showChat = useUI((s) => s.showChat);
     return (
-        <Root style={{ "--chat-width": showChat ? "320px" : "0px" } as React.CSSProperties}>
+        <Root style={{ "--chat-width": showChat ? "360px" : "0px" } as React.CSSProperties}>
             <GlobalStyle />
             <Topbar />
             <Stage>
