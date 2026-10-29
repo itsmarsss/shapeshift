@@ -20,7 +20,7 @@ Try it at [shapeshift.hanzpo.com](https://shapeshift.hanzpo.com).
 
 ## Hand control
 
-Turn it on with the hand button in the top bar. Pinch an object to drag it, pinch empty space to orbit, and pinch with both hands to zoom and pan.
+Turn it on with the hand button in the top bar. Pinch an object with your right hand to drag it. Pinch with your left hand, or pinch empty space, to orbit. Pinch with both hands to zoom and pan.
 
 Hand tracking runs MediaPipe in a Web Worker, smooths landmarks with a One Euro filter, and detects pinches with a state machine that needs two frames to start or end a pinch. Add `?record` to the URL to record landmark streams or replay one. The gesture tests in `src/hands` replay recorded streams.
 

@@ -3,6 +3,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import type { CameraControls } from "@react-three/drei";
 import * as THREE from "three";
 import { useScene } from "../scene/store";
+import type { Handedness } from "./gestures";
 import { IntentTracker } from "./intents";
 import { live } from "./tracker";
 
@@ -13,6 +14,7 @@ type Drag =
 const ORBIT_SPEED = Math.PI * 1.5;
 const ZOOM_SPEED = 12;
 const PAN_SPEED = 6;
+const OBJECT_HAND: Handedness = "Right";
 
 export function HandControls() {
     const camera = useThree((s) => s.camera);
@@ -25,12 +27,13 @@ export function HandControls() {
 
     const aim = (x: number, y: number) => raycaster.current.setFromCamera(new THREE.Vector2(x * 2 - 1, -(y * 2 - 1)), camera);
 
-    function start(x: number, y: number) {
+    function start(handedness: Handedness, x: number, y: number) {
+        drag.current = { kind: "orbit" };
+        if (handedness !== OBJECT_HAND) return;
         const state = useScene.getState();
         aim(x, y);
         const ids = new Set(state.doc.objects.map((o) => o.id));
         const hit = raycaster.current.intersectObjects(scene.children, false).find((i) => ids.has(i.object.name));
-        drag.current = { kind: "orbit" };
         if (!hit || state.mode === "render") return;
         state.select(hit.object.name);
         if (state.mode !== "object") return;
@@ -65,7 +68,7 @@ export function HandControls() {
         if (live.hands === lastHands.current) return;
         lastHands.current = live.hands;
         for (const intent of intents.current.update(live.hands)) {
-            if (intent.type === "start") start(intent.x, intent.y);
+            if (intent.type === "start") start(intent.handedness, intent.x, intent.y);
             else if (intent.type === "move") move(intent.x, intent.y, intent.dx, intent.dy);
             else if (intent.type === "end") end();
             else if (controls) {

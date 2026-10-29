@@ -11,7 +11,7 @@ describe("intents", () => {
         const t = new IntentTracker();
         const first = t.update([hand("Right", true, 0.55, 0.5, 1, [0.5, 0.5])]);
         expect(first).toEqual([
-            { type: "start", x: 0.5, y: 0.5 },
+            { type: "start", handedness: "Right", x: 0.5, y: 0.5 },
             { type: "move", x: 0.55, y: 0.5, dx: expect.closeTo(0.05), dy: 0 },
         ]);
         expect(t.update([hand("Right", true, 0.6, 0.5, 1, [0.5, 0.5])])).toEqual([
@@ -44,6 +44,6 @@ describe("intents", () => {
         t.update([hand("Left", true, 0.3, 0.5, 1), hand("Right", true, 0.7, 0.5, 1)]);
         t.update([hand("Right", true, 0.7, 0.5, 1)]);
         t.update([hand("Right", false, 0.7, 0.5, 1)]);
-        expect(t.update([hand("Right", true, 0.6, 0.5, 2)])[0]).toEqual({ type: "start", x: 0.6, y: 0.5 });
+        expect(t.update([hand("Right", true, 0.6, 0.5, 2)])[0]).toEqual({ type: "start", handedness: "Right", x: 0.6, y: 0.5 });
     });
 });
