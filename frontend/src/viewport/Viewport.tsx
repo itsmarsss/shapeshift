@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { useCollab } from "../collab/session";
 import { Canvas, useThree } from "@react-three/fiber";
 import { CameraControls, Grid, Line, TransformControls } from "@react-three/drei";
 import type * as THREE from "three";
@@ -47,6 +48,9 @@ export function Viewport() {
     const selectedId = useScene((s) => s.selectedId);
     const handsOn = useHands((s) => s.status !== "off");
     const selectedIds = useScene(useShallow((s) => s.selectedIds));
+    const peers = useCollab((s) => s.peers);
+    const peerColors = new Map<string, string>();
+    for (const p of Object.values(peers)) for (const id of p.presence.selection) peerColors.set(id, p.color);
     const selectMany = useScene((s) => s.selectMany);
     const mode = useScene((s) => s.mode);
     const transformMode = useScene((s) => s.transformMode);
@@ -142,6 +146,7 @@ export function Viewport() {
                     object={o}
                     selected={selectedIds.includes(o.id)}
                     hovered={o.id === hoveredId}
+                    peerColor={peerColors.get(o.id)}
                     showSelection={mode === "object"}
                     onSelect={pick}
                     meshRef={o.id === selectedId ? setSelectedMesh : undefined}

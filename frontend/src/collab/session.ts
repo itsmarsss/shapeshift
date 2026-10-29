@@ -1,0 +1,269 @@
+import { create } from "zustand";
+import { nanoid } from "nanoid";
+import { diffDocs, isEmptyDiff } from "../scene/diff";
+import { useScene } from "../scene/store";
+import { parseSceneFile } from "../scene/io";
+import { diffToOps, opsToDiff, syncDiff } from "./ops";
+import { ROOM_ID, ROOM_LIMITS, type ClientMessage, type Ops, type Peer, type ServerMessage } from "./protocol";
+
+export type CollabStatus = "off" | "connecting" | "live" | "reconnecting" | "error";
+
+type CollabState = {
+    status: CollabStatus;
+    roomId: string | null;
+    you: Peer | null;
+    peers: Record<string, Peer>;
+    error: string | null;
+    name: string;
+    join: (roomId: string, options?: { seed?: boolean }) => void;
+    share: () => string;
+    // `restore` brings back the scene the user had before joining someone else's room.
+    leave: (options?: { restore?: boolean }) => void;
+    rename: (name: string) => void;
+};
+
+const NAME_KEY = "shapeshift-name";
+const BACKUP_KEY = "shapeshift-scene-solo";
+const PING_MS = 25_000;
+const RETRY_MS = [500, 1_000, 2_000, 4_000, 8_000];
+
+const ADJECTIVES = ["Amber", "Brisk", "Coral", "Dusky", "Golden", "Jade", "Lunar", "Misty", "Ruby", "Teal", "Velvet", "Witty"];
+const ANIMALS = ["Badger", "Crane", "Falcon", "Fox", "Gecko", "Heron", "Lynx", "Otter", "Panda", "Raven", "Seal", "Wren"];
+
+const pick = <T>(list: T[]) => list[Math.floor(Math.random() * list.length)];
+
+// A friendly name until the user picks one, kept so it stays the same.
+function storedName() {
+    try {
+        const saved = localStorage.getItem(NAME_KEY);
+        if (saved) return saved;
+        const name = `${pick(ADJECTIVES)} ${pick(ANIMALS)}`;
+        localStorage.setItem(NAME_KEY, name);
+        return name;
+    } catch {
+        return `${pick(ADJECTIVES)} ${pick(ANIMALS)}`;
+    }
+}
+
+export function roomLink(roomId: string) {
+    const url = new URL(location.href);
+    url.search = "";
+    url.searchParams.set("room", roomId);
+    return url.toString();
+}
+
+function setRoomInUrl(roomId: string | null) {
+    const url = new URL(location.href);
+    if (roomId) url.searchParams.set("room", roomId);
+    else url.searchParams.delete("room");
+    history.replaceState(null, "", url);
+}
+
+// The live connection. Kept outside React state because it changes on every
+// message.
+let socket: WebSocket | null = null;
+let attempt = 0;
+let retryTimer: ReturnType<typeof setTimeout> | undefined;
+let pingTimer: ReturnType<typeof setInterval> | undefined;
+let seedOnWelcome = false;
+let applyingRemote = false;
+// Sent but not yet confirmed. Resent after a reconnect; the server applies
+// them in order and the last write wins, so resending is safe.
+const pending = new Map<string, Ops>();
+let unsubscribers: (() => void)[] = [];
+
+function send(msg: ClientMessage) {
+    if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(msg));
+}
+
+function sendOps(ops: Ops) {
+    const id = nanoid(10);
+    pending.set(id, ops);
+    send({ type: "ops", id, ops });
+}
+
+function applyRemote(fn: () => void) {
+    applyingRemote = true;
+    try {
+        fn();
+    } finally {
+        applyingRemote = false;
+    }
+}
+
+function watchScene() {
+    unsubscribers.forEach((u) => u());
+    let presenceTimer: ReturnType<typeof setTimeout> | undefined;
+    unsubscribers = [
+        useScene.subscribe((state, prev) => {
+            if (state.doc !== prev.doc && !applyingRemote) {
+                const diff = diffDocs(prev.doc, state.doc);
+                if (!isEmptyDiff(diff)) sendOps(diffToOps(diff));
+            }
+            if (state.selectedIds !== prev.selectedIds) {
+                clearTimeout(presenceTimer);
+                presenceTimer = setTimeout(() => send({ type: "presence", presence: { selection: useScene.getState().selectedIds.slice(0, 200) } }), 60);
+            }
+        }),
+        () => clearTimeout(presenceTimer),
+    ];
+}
+
+export const useCollab = create<CollabState>()((set, get) => {
+    function handle(msg: ServerMessage) {
+        switch (msg.type) {
+            case "welcome": {
+                attempt = 0;
+                const scene = useScene.getState();
+                const roomEmpty = msg.objects.length === 0 && msg.lights.length === 0;
+                if (seedOnWelcome && roomEmpty) {
+                    // A new room starts with the sharer's scene.
+                    const diff = diffDocs({ ...scene.doc, objects: [], lights: [] }, scene.doc);
+                    if (!isEmptyDiff(diff)) sendOps(diffToOps(diff));
+                } else {
+                    applyRemote(() => {
+                        scene.applyRemote(syncDiff(scene.doc, msg.objects, msg.lights));
+                        // Edits made while offline aren't in the room's copy yet; keep them.
+                        for (const ops of pending.values()) useScene.getState().applyRemote(opsToDiff(ops));
+                    });
+                }
+                seedOnWelcome = false;
+                for (const [id, ops] of pending) send({ type: "ops", id, ops });
+                send({ type: "presence", presence: { selection: useScene.getState().selectedIds } });
+                set({ status: "live", you: msg.you, peers: Object.fromEntries(msg.peers.map((p) => [p.id, p])), error: null });
+                return;
+            }
+            case "ops":
+                applyRemote(() => useScene.getState().applyRemote(opsToDiff(msg.ops)));
+                return;
+            case "ack":
+                pending.delete(msg.id);
+                return;
+            case "peer":
+                set((s) => ({ peers: { ...s.peers, [msg.peer.id]: msg.peer } }));
+                return;
+            case "leave":
+                set((s) => {
+                    const peers = { ...s.peers };
+                    delete peers[msg.id];
+                    return { peers };
+                });
+                return;
+            case "error":
+                console.warn("Room:", msg.error);
+                set({ error: msg.error });
+                return;
+            case "pong":
+                return;
+        }
+    }
+
+    function connect() {
+        const { roomId, name } = get();
+        if (!roomId) return;
+        const proto = location.protocol === "https:" ? "wss:" : "ws:";
+        const ws = new WebSocket(`${proto}//${location.host}/api/rooms/${roomId}?name=${encodeURIComponent(name || "Guest")}`);
+        socket = ws;
+        ws.onmessage = (e) => {
+            if (socket !== ws) return;
+            try {
+                handle(JSON.parse(e.data) as ServerMessage);
+            } catch (err) {
+                console.warn("Bad room message", err);
+            }
+        };
+        ws.onclose = (e) => {
+            if (socket !== ws) return;
+            socket = null;
+            clearInterval(pingTimer);
+            if (!get().roomId) return;
+            if (e.code === 1008 || attempt >= RETRY_MS.length * 3) {
+                set({ status: "error", error: "Lost the connection to the room." });
+                return;
+            }
+            set({ status: "reconnecting" });
+            retryTimer = setTimeout(connect, RETRY_MS[Math.min(attempt++, RETRY_MS.length - 1)]);
+        };
+        clearInterval(pingTimer);
+        pingTimer = setInterval(() => send({ type: "ping" }), PING_MS);
+    }
+
+    return {
+        status: "off",
+        roomId: null,
+        you: null,
+        peers: {},
+        error: null,
+        name: storedName(),
+
+        join: (roomId, options = {}) => {
+            if (!ROOM_ID.test(roomId)) {
+                set({ status: "error", error: "That room link isn't valid." });
+                return;
+            }
+            get().leave();
+            try {
+                // Keep the solo scene so joining a room never loses it.
+                const solo = localStorage.getItem("shapeshift-scene");
+                if (solo && !options.seed) localStorage.setItem(BACKUP_KEY, solo);
+            } catch {
+                // Storage is optional.
+            }
+            seedOnWelcome = !!options.seed;
+            attempt = 0;
+            set({ status: "connecting", roomId, error: null, peers: {}, you: null });
+            setRoomInUrl(roomId);
+            watchScene();
+            connect();
+        },
+
+        share: () => {
+            const current = get().roomId;
+            if (current && get().status !== "error") return roomLink(current);
+            const roomId = nanoid(12).replace(/[^A-Za-z0-9_-]/g, "x");
+            get().join(roomId, { seed: true });
+            return roomLink(roomId);
+        },
+
+        leave: (options = {}) => {
+            clearTimeout(retryTimer);
+            clearInterval(pingTimer);
+            unsubscribers.forEach((u) => u());
+            unsubscribers = [];
+            pending.clear();
+            const ws = socket;
+            socket = null;
+            ws?.close(1000, "Left");
+            if (get().roomId) setRoomInUrl(null);
+            set({ status: "off", roomId: null, you: null, peers: {}, error: null });
+            if (options.restore) {
+                try {
+                    const solo = localStorage.getItem(BACKUP_KEY);
+                    const doc = solo ? parseSceneFile(solo) : null;
+                    if (doc) useScene.getState().load(doc);
+                    localStorage.removeItem(BACKUP_KEY);
+                } catch {
+                    // Nothing to restore.
+                }
+            }
+        },
+
+        rename: (raw) => {
+            const name = raw.trim().slice(0, ROOM_LIMITS.nameChars);
+            if (!name) return;
+            try {
+                localStorage.setItem(NAME_KEY, name);
+            } catch {
+                // Storage is optional.
+            }
+            set((s) => ({ name, you: s.you ? { ...s.you, name } : s.you }));
+            send({ type: "rename", name });
+        },
+    };
+});
+
+// Joins the room in the page URL, if there is one.
+export function joinRoomFromUrl() {
+    const room = new URL(location.href).searchParams.get("room");
+    if (room) useCollab.getState().join(room);
+}

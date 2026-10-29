@@ -19,6 +19,7 @@ import { useUI } from "../ui/store";
 import { useHands } from "../hands/tracker";
 import { useSettings } from "../settings/store";
 import { IconButton, Segment, Segmented } from "./ui";
+import { CollabBar } from "../collab/CollabBar";
 
 const Bar = styled.div`
     height: var(--topbar);
@@ -134,6 +135,7 @@ export function Topbar() {
                 ))}
             </Segmented>
             <Group $end>
+                <CollabBar />
                 <IconButton title="Undo" disabled={!canUndo} onClick={undo}>
                     <ArrowUUpLeft size={18} />
                 </IconButton>
