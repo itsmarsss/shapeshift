@@ -35,10 +35,10 @@ function CameraSettings() {
 
 function Axes() {
     return (
-        <>
+        <group userData={{ grid: true }}>
             <Line points={[[-500, 0.002, 0], [500, 0.002, 0]]} color="#e5484d" lineWidth={1.5} />
             <Line points={[[0, 0.002, -500], [0, 0.002, 500]]} color="#4f7cff" lineWidth={1.5} />
-        </>
+        </group>
     );
 }
 
@@ -160,6 +160,7 @@ export function Viewport() {
 
             {editing && settings.showGrid && (
                 <Grid
+                    userData={{ grid: true }}
                     infiniteGrid
                     fadeDistance={60}
                     cellSize={settings.gridCell}
