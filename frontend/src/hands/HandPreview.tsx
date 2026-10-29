@@ -45,6 +45,20 @@ const Overlay = styled.div`
     font-size: 12px;
 `;
 
+const Legend = styled.div`
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px 8px;
+    padding: 6px 6px 2px;
+    color: var(--text-faint);
+    font-size: 11px;
+
+    b {
+        color: var(--text-muted);
+        font-weight: 500;
+    }
+`;
+
 const DevTools = styled.div`
     position: absolute;
     top: 6px;
@@ -151,6 +165,16 @@ export function HandPreview() {
                     </DevTools>
                 )}
             </Frame>
+            {status === "running" && (
+                <Legend>
+                    <b>Thumb + middle</b>
+                    <span>Talk to the assistant</span>
+                    <b>Thumb + ring</b>
+                    <span>Next mode</span>
+                    <b>Thumb + pinky</b>
+                    <span>Undo</span>
+                </Legend>
+            )}
         </Box>
     );
 }
