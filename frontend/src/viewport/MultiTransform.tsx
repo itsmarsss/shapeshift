@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { groupPivot } from "../scene/commands";
 import type { Command, SceneObject, Vec3 } from "../scene/schema";
 import { useScene } from "../scene/store";
+import { transformCommand } from "../scene/autokey";
 
 type Start = { pivot: THREE.Matrix4; members: { id: string; matrix: THREE.Matrix4 }[] };
 
@@ -63,13 +64,11 @@ export function MultiTransform({ objects, gizmoBusy }: { objects: SceneObject[];
                         const commands: Command[] = s.members.map(({ id, matrix }) => {
                             delta.clone().multiply(matrix).decompose(position, quaternion, scale);
                             const rotation = new THREE.Euler().setFromQuaternion(quaternion);
-                            return {
-                                type: "transform",
-                                target: id,
+                            return transformCommand(id, {
                                 position: position.toArray() as Vec3,
                                 rotation: [rotation.x, rotation.y, rotation.z],
                                 scale: scale.toArray() as Vec3,
-                            };
+                            });
                         });
                         useScene.getState().run(commands, { coalesce: "gizmo:selection", select: false });
                     }}

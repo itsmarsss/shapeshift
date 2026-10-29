@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useTimeline } from "../scene/timeline";
+import { transformCommand } from "../scene/autokey";
 import type { Pose } from "../scene/animation";
 import type { Light, SceneObject } from "../scene/schema";
 import { useShallow } from "zustand/react/shallow";
@@ -232,20 +233,15 @@ export function Viewport() {
                     onObjectChange={() => {
                         const m = selectedMesh;
                         if (selectedLight) {
-                            run(
-                                { type: "transform", target: selectedId, position: [m.position.x, m.position.y, m.position.z] },
-                                { coalesce: `gizmo:${selectedId}` }
-                            );
+                            run(transformCommand(selectedId, { position: [m.position.x, m.position.y, m.position.z] }), { coalesce: `gizmo:${selectedId}` });
                             return;
                         }
                         run(
-                            {
-                                type: "transform",
-                                target: selectedId,
+                            transformCommand(selectedId, {
                                 position: [m.position.x, m.position.y, m.position.z],
                                 rotation: [m.rotation.x, m.rotation.y, m.rotation.z],
                                 scale: [m.scale.x, m.scale.y, m.scale.z],
-                            },
+                            }),
                             { coalesce: `gizmo:${selectedId}` }
                         );
                     }}
