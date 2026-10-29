@@ -4,7 +4,7 @@ import { diffDocs, isEmptyDiff } from "../scene/diff";
 import { useScene } from "../scene/store";
 import { parseSceneFile } from "../scene/io";
 import { diffToOps, opsToDiff, syncDiff } from "./ops";
-import { ROOM_ID, ROOM_LIMITS, type ClientMessage, type Ops, type Peer, type ServerMessage, type SharedTurn } from "./protocol";
+import { ROOM_ID, ROOM_LIMITS, type ClientMessage, type Ops, type Peer, type ServerMessage, type SharedTurn, type VersionMeta } from "./protocol";
 
 export type CollabStatus = "off" | "connecting" | "live" | "reconnecting" | "error";
 
@@ -15,6 +15,11 @@ type CollabState = {
     peers: Record<string, Peer>;
     error: string | null;
     name: string;
+    versions: VersionMeta[];
+    restoring: string | null;
+    saveVersion: (label?: string) => void;
+    listVersions: () => void;
+    restoreVersion: (id: string) => void;
     join: (roomId: string, options?: { seed?: boolean }) => void;
     share: () => string;
     // `restore` brings back the scene the user had before joining someone else's room.
@@ -169,12 +174,24 @@ export const useCollab = create<CollabState>()((set, get) => {
                 for (const [id, ops] of pending) send({ type: "ops", id, ops });
                 sendPresence();
                 set({ status: "live", you: msg.you, peers: Object.fromEntries(msg.peers.map((p) => [p.id, p])), error: null });
+                send({ type: "listVersions" });
                 publishChat(msg.chat ?? [], true);
                 return;
             }
             case "chat":
                 publishChat([msg.turn], false);
                 return;
+            case "versions":
+                set({ versions: msg.versions });
+                return;
+            case "version": {
+                if (get().restoring !== msg.id) return;
+                const scene = useScene.getState();
+                // A normal, undoable local edit, so it syncs to everyone.
+                scene.replaceDoc({ ...scene.doc, objects: msg.objects, lights: msg.lights });
+                set({ restoring: null });
+                return;
+            }
             case "ops":
                 applyRemote(() => useScene.getState().applyRemote(opsToDiff(msg.ops)));
                 return;
@@ -237,6 +254,15 @@ export const useCollab = create<CollabState>()((set, get) => {
         peers: {},
         error: null,
         name: storedName(),
+        versions: [],
+        restoring: null,
+
+        saveVersion: (label) => send({ type: "saveVersion", ...(label?.trim() ? { label: label.trim().slice(0, 60) } : {}) }),
+        listVersions: () => send({ type: "listVersions" }),
+        restoreVersion: (id) => {
+            set({ restoring: id });
+            send({ type: "getVersion", id });
+        },
 
         join: (roomId, options = {}) => {
             if (!ROOM_ID.test(roomId)) {
@@ -277,7 +303,7 @@ export const useCollab = create<CollabState>()((set, get) => {
             socket = null;
             ws?.close(1000, "Left");
             if (get().roomId) setRoomInUrl(null);
-            set({ status: "off", roomId: null, you: null, peers: {}, error: null });
+            set({ status: "off", roomId: null, you: null, peers: {}, error: null, versions: [], restoring: null });
             publishChat([], true);
             if (options.restore) {
                 try {

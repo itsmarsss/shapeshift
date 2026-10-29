@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { emptyOps, ClientMessage, type Ops } from "../src/collab/protocol";
-import { RoomState } from "./roomState";
+import { RoomState, VersionList } from "./roomState";
 import type { SceneObject } from "../src/scene/schema";
 
 const box = (id: string, x = 0): SceneObject => ({
@@ -85,5 +85,36 @@ describe("room chat", () => {
         expect(room.chat).toHaveLength(40);
         expect(room.chat[0].id).toBe("t5");
         expect(dropped).toEqual(["t0", "t1", "t2", "t3", "t4"]);
+    });
+});
+
+describe("room versions", () => {
+    const data = { objects: [box("a")], lights: [] };
+
+    it("saves versions and refuses empty or oversized ones", () => {
+        const list = new VersionList();
+        expect(list.add(data, { label: "First", at: 1, by: "Ann", auto: false }, "v1").ok).toBe(true);
+        expect(list.versions[0]).toMatchObject({ id: "v1", objects: 1, lights: 0 });
+        expect(list.add({ objects: [], lights: [] }, { label: "x", at: 2, by: "Ann", auto: false }, "v2").ok).toBe(false);
+        const huge = { objects: Array.from({ length: 2000 }, (_, i) => ({ ...box(`b${i}`), geometry: { type: "mesh" as const, positions: Array(300).fill(1.2345), indices: [] } })), lights: [] };
+        expect(list.add(huge, { label: "x", at: 3, by: "Ann", auto: false }, "v3").ok).toBe(false);
+    });
+
+    it("drops the oldest automatic versions first", () => {
+        const list = new VersionList();
+        list.add(data, { label: "Kept", at: 0, by: "Ann", auto: false }, "named");
+        for (let i = 0; i < 31; i++) list.add(data, { label: "Auto", at: i + 1, by: "room", auto: true }, `auto${i}`);
+        expect(list.versions).toHaveLength(30);
+        expect(list.versions[0].id).toBe("named");
+        expect(list.versions.some((v) => v.id === "auto0")).toBe(false);
+    });
+
+    it("saves an automatic version only after changes and not too often", () => {
+        const list = new VersionList();
+        expect(list.autoDue(0, 0, 0)).toBe(false);
+        expect(list.autoDue(10 * 60_000, 3, 0)).toBe(true);
+        list.add(data, { label: "Auto", at: 10 * 60_000, by: "room", auto: true }, "a");
+        expect(list.autoDue(11 * 60_000, 5, 3)).toBe(false);
+        expect(list.autoDue(21 * 60_000, 5, 3)).toBe(true);
     });
 });

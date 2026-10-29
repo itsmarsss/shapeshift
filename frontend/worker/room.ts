@@ -1,7 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
-import { ClientMessage, PEER_COLORS, ROOM_LIMITS, type Ops, type Peer, type ServerMessage, type SharedTurn } from "../src/collab/protocol";
+import { ClientMessage, PEER_COLORS, ROOM_LIMITS, type Ops, type Peer, type ServerMessage, type SharedTurn, type VersionMeta } from "../src/collab/protocol";
 import type { Light, SceneObject } from "../src/scene/schema";
-import { RoomState } from "./roomState";
+import { RoomState, VersionList, type VersionData } from "./roomState";
 
 // Per connection, refilled continuously. Generous enough for gizmo drags.
 const MESSAGES_PER_SECOND = 40;
@@ -13,12 +13,15 @@ type Bucket = { tokens: number; at: number };
 // so an idle room costs nothing. The scene is stored one entity per key.
 export class Room extends DurableObject<Env> {
     private state = new RoomState();
+    private versions = new VersionList();
+    // The scene version the newest saved version was taken at.
+    private versionedAt = 0;
     private buckets = new Map<string, Bucket>();
 
     constructor(ctx: DurableObjectState, env: Env) {
         super(ctx, env);
         ctx.blockConcurrencyWhile(async () => {
-            const [objects, lights, objectOrder, lightOrder, version, chat, chatOrder] = await Promise.all([
+            const [objects, lights, objectOrder, lightOrder, version, chat, chatOrder, versions, versionedAt] = await Promise.all([
                 ctx.storage.list<SceneObject>({ prefix: "o:" }),
                 ctx.storage.list<Light>({ prefix: "l:" }),
                 ctx.storage.get<string[]>("order:o"),
@@ -26,7 +29,11 @@ export class Room extends DurableObject<Env> {
                 ctx.storage.get<number>("version"),
                 ctx.storage.list<SharedTurn>({ prefix: "c:" }),
                 ctx.storage.get<string[]>("order:c"),
+                ctx.storage.get<VersionMeta[]>("versions"),
+                ctx.storage.get<number>("versionedAt"),
             ]);
+            this.versions = new VersionList(versions ?? []);
+            this.versionedAt = versionedAt ?? 0;
             const ordered = <T>(map: Map<string, T>, prefix: string, order: string[] = []) =>
                 order.flatMap((id) => (map.has(prefix + id) ? [map.get(prefix + id)!] : []));
             this.state = new RoomState(
@@ -83,12 +90,26 @@ export class Room extends DurableObject<Env> {
 
         switch (msg.type) {
             case "ops": {
+                // Keep a copy of the scene from before a burst of edits.
+                if (this.versions.autoDue(Date.now(), this.state.version, this.versionedAt)) await this.saveVersion("Automatic save", "Room", true);
                 const result = this.state.apply(msg.ops);
                 if (!result.ok) return this.send(ws, { type: "error", error: result.error });
                 await this.persist(msg.ops);
                 this.send(ws, { type: "ack", id: msg.id, version: result.version });
                 this.broadcast({ type: "ops", from: peer.id, ops: msg.ops, version: result.version }, ws);
                 return;
+            }
+            case "saveVersion": {
+                const error = await this.saveVersion(msg.label || "Saved version", peer.name, false);
+                if (error) this.send(ws, { type: "error", error });
+                return;
+            }
+            case "listVersions":
+                return this.send(ws, { type: "versions", versions: this.versions.versions });
+            case "getVersion": {
+                const data = await this.ctx.storage.get<VersionData>(`v:${msg.id}`);
+                if (!data) return this.send(ws, { type: "error", error: "That version is gone" });
+                return this.send(ws, { type: "version", id: msg.id, objects: data.objects, lights: data.lights });
             }
             case "chat": {
                 const result = this.state.recordTurn(msg.turn, peer.id);
@@ -141,6 +162,19 @@ export class Room extends DurableObject<Env> {
         const deletes = [...ops.objects.remove.map((id) => `o:${id}`), ...ops.lights.remove.map((id) => `l:${id}`)];
         await this.ctx.storage.put(puts);
         if (deletes.length) await this.ctx.storage.delete(deletes);
+    }
+
+    // Saves the current scene as a version and tells everyone. Returns an error message on failure.
+    private async saveVersion(label: string, by: string, auto: boolean): Promise<string | null> {
+        const data: VersionData = { objects: this.state.objects, lights: this.state.lights };
+        const id = crypto.randomUUID().slice(0, 12);
+        const result = this.versions.add(data, { label, at: Date.now(), by, auto }, id);
+        if (!result.ok) return result.error;
+        this.versionedAt = this.state.version;
+        await this.ctx.storage.put({ [`v:${id}`]: data, versions: this.versions.versions, versionedAt: this.versionedAt });
+        if (result.dropped.length) await this.ctx.storage.delete(result.dropped.map((d) => `v:${d}`));
+        this.broadcast({ type: "versions", versions: this.versions.versions });
+        return null;
     }
 
     private take(id: string) {

@@ -43,6 +43,8 @@ export type SceneState = {
     // Applies changes made by someone else in a shared room. They don't go
     // into this user's undo history.
     applyRemote: (diff: DocDiff) => void;
+    // Swaps in a whole document as one undoable step, such as restoring a version.
+    replaceDoc: (doc: SceneDoc) => void;
     select: (id: string | null, options?: { toggle?: boolean }) => void;
     selectMany: (ids: string[]) => void;
     setMode: (mode: EditorMode) => void;
@@ -140,6 +142,13 @@ export const useScene = create<SceneState>()((set, get) => ({
         });
     },
 
+    replaceDoc: (next) => {
+        const state = get();
+        const diff = diffDocs(state.doc, next);
+        if (isEmptyDiff(diff)) return;
+        const doc = applyDiff(state.doc, diff, "after");
+        set({ doc, past: [...state.past, diff].slice(-HISTORY_LIMIT), future: [], openCoalesce: null, ...pruneSelection(doc, state.selectedIds) });
+    },
     applyRemote: (diff) => {
         if (isEmptyDiff(diff)) return;
         const { doc, selectedIds } = get();

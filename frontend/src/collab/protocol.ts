@@ -12,6 +12,9 @@ export const ROOM_LIMITS = {
     messageBytes: 1_000_000,
     nameChars: 32,
     chatTurns: 40,
+    versions: 30,
+    versionChars: 1_800_000,
+    autoVersionMs: 10 * 60_000,
     chatTurnChars: 48_000,
 } as const;
 
@@ -67,7 +70,12 @@ export const SharedTurn = z.object({
 });
 export type SharedTurn = z.infer<typeof SharedTurn>;
 
+export type VersionMeta = { id: string; label: string; at: number; by: string; objects: number; lights: number; auto: boolean };
+
 export const ClientMessage = z.discriminatedUnion("type", [
+    z.object({ type: z.literal("saveVersion"), label: z.string().trim().max(60).optional() }),
+    z.object({ type: z.literal("listVersions") }),
+    z.object({ type: z.literal("getVersion"), id: z.string().min(1).max(32) }),
     z.object({ type: z.literal("chat"), turn: SharedTurn }),
     z.object({ type: z.literal("ops"), id: z.string().min(1).max(64), ops: Ops }),
     z.object({ type: z.literal("presence"), presence: Presence }),
@@ -81,6 +89,8 @@ export type Peer = { id: string; name: string; color: string; presence: Presence
 export type ServerMessage =
     | { type: "welcome"; you: Peer; peers: Peer[]; objects: SceneObject[]; lights: Light[]; version: number; chat: SharedTurn[] }
     | { type: "chat"; turn: SharedTurn }
+    | { type: "versions"; versions: VersionMeta[] }
+    | { type: "version"; id: string; objects: SceneObject[]; lights: Light[] }
     | { type: "ops"; from: string; ops: Ops; version: number }
     | { type: "ack"; id: string; version: number }
     | { type: "peer"; peer: Peer }
