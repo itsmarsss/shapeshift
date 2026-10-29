@@ -6,3 +6,4 @@ old/
 .env.local
 dist/
 .wrangler/
+.dev.vars
