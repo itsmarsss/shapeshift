@@ -48,7 +48,7 @@ const box = (id: string, x = 0): SceneObject => ({
 });
 
 const peer = { id: "me", name: "Me", color: "#f76b15", presence: { selection: [] } };
-const welcome = (objects: SceneObject[] = []): ServerMessage => ({ type: "welcome", you: peer, peers: [], objects, lights: [], version: 1 });
+const welcome = (objects: SceneObject[] = []): ServerMessage => ({ type: "welcome", you: peer, peers: [], objects, lights: [], version: 1, chat: [] });
 
 let session: typeof import("./session");
 let useScene: typeof Store.useScene;

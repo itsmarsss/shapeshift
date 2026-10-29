@@ -6,6 +6,8 @@ import { newTurnContext, type Activity, type TurnContext } from "./executor";
 import type { AgentInfo, WireMessage } from "./protocol";
 import { AgentError, fetchAgentInfo, httpTransport, type Transport } from "./transport";
 import { loadChat, saveChat } from "./persist";
+import { onRoomChat, sendChatTurn, useCollab } from "../collab/session";
+import type { SharedTurn } from "../collab/protocol";
 
 type HistoryEntry = SceneState["past"][number];
 
@@ -17,6 +19,10 @@ export type TurnStatus = "running" | "done" | "error" | "stopped";
 
 export type Turn = {
     id: string;
+    // Who asked, when the turn happened in a shared room.
+    author?: SharedTurn["author"];
+    // Asked by someone else in the room; shown read-only.
+    remote?: boolean;
     prompt: string;
     // Thumbnails of the pictures attached to the prompt.
     attachments?: string[];
@@ -132,7 +138,7 @@ export const useAssistant = create<AssistantState>()((set, get) => {
             patchTurn(turnId, (t) => ({ writing: null, finishedAt: Date.now(), entry: entry ?? t.entry }));
             controller = null;
             set({ running: false });
-            saveChat({ conversation, turns: get().turns });
+            saveChat({ conversation, turns: get().turns.filter((t) => !t.remote) });
         }
     }
 
@@ -146,11 +152,14 @@ export const useAssistant = create<AssistantState>()((set, get) => {
             if (!prompt || get().running) return;
             const id = nanoid(8);
             context = newTurnContext(`assistant:${id}`);
+            const collab = useCollab.getState();
+            const author = collab.status === "live" && collab.you ? { id: collab.you.id, name: collab.name || collab.you.name, color: collab.you.color } : undefined;
             set((s) => ({
                 turns: [
                     ...s.turns,
                     {
                         id,
+                        ...(author ? { author } : {}),
                         prompt,
                         ...(attachments.length ? { attachments: attachments.map((a) => a.thumbnail) } : {}),
                         items: [],
@@ -164,7 +173,8 @@ export const useAssistant = create<AssistantState>()((set, get) => {
         },
 
         retry: () => {
-            const last = get().turns[get().turns.length - 1];
+            const local = get().turns.filter((t) => !t.remote);
+            const last = local[local.length - 1];
             if (!last || last.status !== "error" || get().running || !context) return;
             patchTurn(last.id, () => ({ status: "running", error: undefined }));
             void drive(last.id);
@@ -207,3 +217,80 @@ export const useAssistant = create<AssistantState>()((set, get) => {
 export function resetConversationForTests() {
     useAssistant.getState().reset();
 }
+
+// Shared rooms: send this user's turns as they change, and show everyone
+// else's.
+
+function toShared(t: Turn): SharedTurn | null {
+    if (!t.author) return null;
+    return {
+        id: t.id,
+        author: t.author,
+        prompt: t.prompt,
+        items: t.items.map((item) =>
+            item.kind === "text"
+                ? item
+                : { kind: "activity", activities: item.activities.map((a) => ({ id: a.id, label: a.label, ok: a.ok, error: a.error, color: a.color, changed: a.changed, target: a.target })) }
+        ),
+        status: t.status,
+        note: t.note,
+        error: t.error?.message,
+        writing: t.writing,
+        startedAt: t.startedAt,
+        finishedAt: t.finishedAt,
+    };
+}
+
+function fromShared(t: SharedTurn): Turn {
+    return {
+        id: t.id,
+        author: t.author,
+        remote: true,
+        prompt: t.prompt,
+        items: t.items,
+        status: t.status,
+        note: t.note,
+        error: t.error ? { message: t.error, retryable: false } : undefined,
+        writing: t.writing ?? null,
+        startedAt: t.startedAt,
+        finishedAt: t.finishedAt,
+    };
+}
+
+const SHARE_MS = 150;
+const shareTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+useAssistant.subscribe((state, prev) => {
+    if (state.turns === prev.turns) return;
+    const before = new Map(prev.turns.map((t) => [t.id, t]));
+    for (const turn of state.turns) {
+        if (turn.remote || !turn.author || before.get(turn.id) === turn) continue;
+        // Throttle streaming updates, but always send the final state.
+        const done = turn.status !== "running";
+        clearTimeout(shareTimers.get(turn.id));
+        const flush = () => {
+            shareTimers.delete(turn.id);
+            const latest = useAssistant.getState().turns.find((t) => t.id === turn.id);
+            const shared = latest && toShared(latest);
+            if (shared) sendChatTurn(shared);
+        };
+        if (done) flush();
+        else shareTimers.set(turn.id, setTimeout(flush, SHARE_MS));
+    }
+});
+
+onRoomChat((incoming, replace) => {
+    const you = useCollab.getState().you?.id;
+    useAssistant.setState((s) => {
+        let turns = replace ? s.turns.filter((t) => !t.remote) : s.turns.slice();
+        for (const shared of incoming) {
+            if (shared.author.id === you) continue;
+            const at = turns.findIndex((t) => t.id === shared.id);
+            if (at >= 0) {
+                if (turns[at].remote) turns[at] = fromShared(shared);
+            } else turns.push(fromShared(shared));
+        }
+        turns = turns.sort((a, b) => a.startedAt - b.startedAt);
+        return { turns };
+    });
+});

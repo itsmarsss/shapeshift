@@ -1,4 +1,4 @@
-import { ROOM_LIMITS, type Ops } from "../src/collab/protocol";
+import { ROOM_LIMITS, type Ops, type SharedTurn } from "../src/collab/protocol";
 import type { Light, SceneObject } from "../src/scene/schema";
 
 type Entity = { id: string };
@@ -20,11 +20,29 @@ export class RoomState {
     objects: SceneObject[];
     lights: Light[];
     version: number;
+    chat: SharedTurn[];
 
-    constructor(objects: SceneObject[] = [], lights: Light[] = [], version = 0) {
+    constructor(objects: SceneObject[] = [], lights: Light[] = [], version = 0, chat: SharedTurn[] = []) {
         this.objects = objects;
         this.lights = lights;
         this.version = version;
+        this.chat = chat;
+    }
+
+    // Adds or updates a turn, keeping the newest ones. Only its author can
+    // change a turn. Returns the turns that fell off the end.
+    recordTurn(turn: SharedTurn, authorId: string): { ok: true; dropped: string[] } | { ok: false; error: string } {
+        if (turn.author.id !== authorId) return { ok: false, error: "That turn belongs to someone else" };
+        if (JSON.stringify(turn).length > ROOM_LIMITS.chatTurnChars) return { ok: false, error: "That turn is too long to share" };
+        const at = this.chat.findIndex((t) => t.id === turn.id);
+        if (at >= 0) {
+            if (this.chat[at].author.id !== authorId) return { ok: false, error: "That turn belongs to someone else" };
+            this.chat[at] = turn;
+            return { ok: true, dropped: [] };
+        }
+        this.chat.push(turn);
+        const dropped = this.chat.splice(0, Math.max(0, this.chat.length - ROOM_LIMITS.chatTurns)).map((t) => t.id);
+        return { ok: true, dropped };
     }
 
     apply(ops: Ops): { ok: true; version: number } | { ok: false; error: string } {

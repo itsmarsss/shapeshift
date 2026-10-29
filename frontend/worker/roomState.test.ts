@@ -54,3 +54,36 @@ describe("room state", () => {
         expect(ClientMessage.safeParse({ type: "rename", name: "   " }).success).toBe(false);
     });
 });
+
+describe("room chat", () => {
+    const turn = (id: string, authorId = "ann") => ({
+        id,
+        author: { id: authorId, name: "Ann", color: "#f76b15" },
+        prompt: "build a chair",
+        items: [],
+        status: "running" as const,
+        startedAt: 1,
+    });
+
+    it("records and updates turns, and only the author can change one", () => {
+        const room = new RoomState();
+        expect(room.recordTurn(turn("t1"), "ann").ok).toBe(true);
+        expect(room.recordTurn({ ...turn("t1"), status: "done" }, "ann").ok).toBe(true);
+        expect(room.chat).toHaveLength(1);
+        expect(room.chat[0].status).toBe("done");
+        expect(room.recordTurn(turn("t1", "bob"), "bob").ok).toBe(false);
+        expect(room.recordTurn(turn("t2", "ann"), "bob").ok).toBe(false);
+    });
+
+    it("keeps only the newest turns", () => {
+        const room = new RoomState();
+        let dropped: string[] = [];
+        for (let i = 0; i < 45; i++) {
+            const r = room.recordTurn(turn(`t${i}`), "ann");
+            if (r.ok) dropped = dropped.concat(r.dropped);
+        }
+        expect(room.chat).toHaveLength(40);
+        expect(room.chat[0].id).toBe("t5");
+        expect(dropped).toEqual(["t0", "t1", "t2", "t3", "t4"]);
+    });
+});

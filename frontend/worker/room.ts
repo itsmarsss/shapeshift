@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { ClientMessage, PEER_COLORS, ROOM_LIMITS, type Ops, type Peer, type ServerMessage } from "../src/collab/protocol";
+import { ClientMessage, PEER_COLORS, ROOM_LIMITS, type Ops, type Peer, type ServerMessage, type SharedTurn } from "../src/collab/protocol";
 import type { Light, SceneObject } from "../src/scene/schema";
 import { RoomState } from "./roomState";
 
@@ -18,16 +18,23 @@ export class Room extends DurableObject<Env> {
     constructor(ctx: DurableObjectState, env: Env) {
         super(ctx, env);
         ctx.blockConcurrencyWhile(async () => {
-            const [objects, lights, objectOrder, lightOrder, version] = await Promise.all([
+            const [objects, lights, objectOrder, lightOrder, version, chat, chatOrder] = await Promise.all([
                 ctx.storage.list<SceneObject>({ prefix: "o:" }),
                 ctx.storage.list<Light>({ prefix: "l:" }),
                 ctx.storage.get<string[]>("order:o"),
                 ctx.storage.get<string[]>("order:l"),
                 ctx.storage.get<number>("version"),
+                ctx.storage.list<SharedTurn>({ prefix: "c:" }),
+                ctx.storage.get<string[]>("order:c"),
             ]);
             const ordered = <T>(map: Map<string, T>, prefix: string, order: string[] = []) =>
                 order.flatMap((id) => (map.has(prefix + id) ? [map.get(prefix + id)!] : []));
-            this.state = new RoomState(ordered(objects, "o:", objectOrder), ordered(lights, "l:", lightOrder), version ?? 0);
+            this.state = new RoomState(
+                ordered(objects, "o:", objectOrder),
+                ordered(lights, "l:", lightOrder),
+                version ?? 0,
+                ordered(chat, "c:", chatOrder)
+            );
         });
     }
 
@@ -52,6 +59,7 @@ export class Room extends DurableObject<Env> {
             objects: this.state.objects,
             lights: this.state.lights,
             version: this.state.version,
+            chat: this.state.chat,
         });
         this.broadcast({ type: "peer", peer }, server);
         return new Response(null, { status: 101, webSocket: client });
@@ -80,6 +88,14 @@ export class Room extends DurableObject<Env> {
                 await this.persist(msg.ops);
                 this.send(ws, { type: "ack", id: msg.id, version: result.version });
                 this.broadcast({ type: "ops", from: peer.id, ops: msg.ops, version: result.version }, ws);
+                return;
+            }
+            case "chat": {
+                const result = this.state.recordTurn(msg.turn, peer.id);
+                if (!result.ok) return this.send(ws, { type: "error", error: result.error });
+                await this.ctx.storage.put({ [`c:${msg.turn.id}`]: msg.turn, "order:c": this.state.chat.map((t) => t.id) });
+                if (result.dropped.length) await this.ctx.storage.delete(result.dropped.map((id) => `c:${id}`));
+                this.broadcast({ type: "chat", turn: msg.turn }, ws);
                 return;
             }
             case "presence":
