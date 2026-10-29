@@ -4,6 +4,7 @@ import { CameraControls, Grid, Line, TransformControls } from "@react-three/drei
 import type * as THREE from "three";
 import { useScene } from "../scene/store";
 import { SceneMesh } from "./SceneMesh";
+import { SceneLight } from "./SceneLight";
 import { EditOverlay } from "./EditOverlay";
 import { SnapshotBridge } from "./SnapshotBridge";
 import { HandControls } from "../hands/HandControls";
@@ -22,6 +23,7 @@ function Axes() {
 
 export function Viewport() {
     const objects = useScene((s) => s.doc.objects);
+    const lights = useScene((s) => s.doc.lights);
     const selectedId = useScene((s) => s.selectedId);
     const mode = useScene((s) => s.mode);
     const transformMode = useScene((s) => s.transformMode);
@@ -35,6 +37,9 @@ export function Viewport() {
 
     const editing = mode !== "render";
     const selectedObject = objects.find((o) => o.id === selectedId);
+    const selectedLight = lights.find((l) => l.id === selectedId);
+    // The built-in key light only shows until the scene has lights of its own.
+    const studio = lights.length === 0;
 
     return (
         <Canvas
@@ -49,19 +54,31 @@ export function Viewport() {
         >
             <color attach="background" args={[BACKGROUND]} />
             <fog attach="fog" args={[BACKGROUND, 25, 90]} />
-            <hemisphereLight args={["#ffffff", "#30333a", 0.7]} />
-            <directionalLight
-                position={[-5, 10, 3]}
-                intensity={1.8}
-                castShadow
-                shadow-mapSize={[2048, 2048]}
-                shadow-camera-left={-12}
-                shadow-camera-right={12}
-                shadow-camera-top={12}
-                shadow-camera-bottom={-12}
-                shadow-bias={-0.0005}
-                shadow-normalBias={0.02}
-            />
+            <hemisphereLight args={["#ffffff", "#30333a", studio ? 0.7 : 0.35]} />
+            {studio && (
+                <directionalLight
+                    position={[-5, 10, 3]}
+                    intensity={1.8}
+                    castShadow
+                    shadow-mapSize={[2048, 2048]}
+                    shadow-camera-left={-12}
+                    shadow-camera-right={12}
+                    shadow-camera-top={12}
+                    shadow-camera-bottom={-12}
+                    shadow-bias={-0.0005}
+                    shadow-normalBias={0.02}
+                />
+            )}
+            {lights.map((l) => (
+                <SceneLight
+                    key={l.id}
+                    light={l}
+                    selected={l.id === selectedId}
+                    showMarker={editing}
+                    onSelect={select}
+                    markerRef={l.id === selectedId ? setSelectedMesh : undefined}
+                />
+            ))}
             <CameraControls makeDefault />
             <SnapshotBridge />
             <HandControls />
@@ -104,7 +121,7 @@ export function Viewport() {
             {mode === "object" && selectedId && selectedMesh && (
                 <TransformControls
                     object={selectedMesh}
-                    mode={transformMode}
+                    mode={selectedLight ? "translate" : transformMode}
                     translationSnap={snap.enabled ? snap.translate : null}
                     rotationSnap={snap.enabled ? snap.rotate : null}
                     scaleSnap={snap.enabled ? snap.scale : null}
@@ -119,6 +136,13 @@ export function Viewport() {
                     }}
                     onObjectChange={() => {
                         const m = selectedMesh;
+                        if (selectedLight) {
+                            run(
+                                { type: "transform", target: selectedId, position: [m.position.x, m.position.y, m.position.z] },
+                                { coalesce: `gizmo:${selectedId}` }
+                            );
+                            return;
+                        }
                         run(
                             {
                                 type: "transform",
