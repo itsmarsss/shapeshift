@@ -1,4 +1,3 @@
-import * as THREE from "three";
 import { nanoid } from "nanoid";
 import { useEditor } from "../store/editor";
 import type { SceneObject } from "../types";

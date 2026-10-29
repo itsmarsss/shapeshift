@@ -1,4 +1,4 @@
-import { Coords } from "./coords";
+import type { Coords } from "./coords";
 
 interface InteractionState {
     Left: InteractionStateHand | null;

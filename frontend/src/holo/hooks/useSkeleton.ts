@@ -9,7 +9,6 @@ interface ImageSize {
 
 export default function useSkeleton({
     overlayCanvasRef,
-    fpsRef,
     updateInteractionState,
 }: {
     overlayCanvasRef: React.RefObject<HTMLCanvasElement | null>;
