@@ -158,14 +158,14 @@ export const useCollab = create<CollabState>()((set, get) => {
             case "welcome": {
                 attempt = 0;
                 const scene = useScene.getState();
-                const roomEmpty = msg.objects.length === 0 && msg.lights.length === 0;
+                const roomEmpty = msg.objects.length === 0 && msg.lights.length === 0 && (msg.environment ?? "none") === "none";
                 if (seedOnWelcome && roomEmpty) {
                     // A new room starts with the sharer's scene.
-                    const diff = diffDocs({ ...scene.doc, objects: [], lights: [] }, scene.doc);
+                    const diff = diffDocs({ ...scene.doc, objects: [], lights: [], environment: "none" }, scene.doc);
                     if (!isEmptyDiff(diff)) sendOps(diffToOps(diff));
                 } else {
                     applyRemote(() => {
-                        scene.applyRemote(syncDiff(scene.doc, msg.objects, msg.lights));
+                        scene.applyRemote(syncDiff(scene.doc, msg.objects, msg.lights, msg.environment ?? "none"));
                         // Edits made while offline aren't in the room's copy yet; keep them.
                         for (const ops of pending.values()) useScene.getState().applyRemote(opsToDiff(ops));
                     });

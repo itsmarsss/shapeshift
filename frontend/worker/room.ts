@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import { ClientMessage, PEER_COLORS, ROOM_LIMITS, type Ops, type Peer, type ServerMessage, type SharedTurn, type VersionMeta } from "../src/collab/protocol";
-import type { Light, SceneObject } from "../src/scene/schema";
+import type { Environment, Light, SceneObject } from "../src/scene/schema";
 import { RoomState, VersionList, type VersionData } from "./roomState";
 
 // Per connection, refilled continuously. Generous enough for gizmo drags.
@@ -21,7 +21,7 @@ export class Room extends DurableObject<Env> {
     constructor(ctx: DurableObjectState, env: Env) {
         super(ctx, env);
         ctx.blockConcurrencyWhile(async () => {
-            const [objects, lights, objectOrder, lightOrder, version, chat, chatOrder, versions, versionedAt] = await Promise.all([
+            const [objects, lights, objectOrder, lightOrder, version, chat, chatOrder, versions, versionedAt, environment] = await Promise.all([
                 ctx.storage.list<SceneObject>({ prefix: "o:" }),
                 ctx.storage.list<Light>({ prefix: "l:" }),
                 ctx.storage.get<string[]>("order:o"),
@@ -31,6 +31,7 @@ export class Room extends DurableObject<Env> {
                 ctx.storage.get<string[]>("order:c"),
                 ctx.storage.get<VersionMeta[]>("versions"),
                 ctx.storage.get<number>("versionedAt"),
+                ctx.storage.get<Environment>("env"),
             ]);
             this.versions = new VersionList(versions ?? []);
             this.versionedAt = versionedAt ?? 0;
@@ -42,6 +43,7 @@ export class Room extends DurableObject<Env> {
                 version ?? 0,
                 ordered(chat, "c:", chatOrder)
             );
+            this.state.environment = environment ?? "none";
         });
     }
 
@@ -65,6 +67,7 @@ export class Room extends DurableObject<Env> {
             peers: sockets.flatMap((ws) => this.peerOf(ws) ?? []),
             objects: this.state.objects,
             lights: this.state.lights,
+            environment: this.state.environment,
             version: this.state.version,
             chat: this.state.chat,
         });
@@ -157,6 +160,7 @@ export class Room extends DurableObject<Env> {
             "order:o": this.state.objects.map((o) => o.id),
             "order:l": this.state.lights.map((l) => l.id),
         };
+        if (ops.environment) puts.env = ops.environment;
         for (const { entity } of ops.objects.upsert) puts[`o:${entity.id}`] = entity;
         for (const { entity } of ops.lights.upsert) puts[`l:${entity.id}`] = entity;
         const deletes = [...ops.objects.remove.map((id) => `o:${id}`), ...ops.lights.remove.map((id) => `l:${id}`)];

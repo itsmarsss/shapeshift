@@ -30,8 +30,15 @@ export const Material = z.object({
     metalness: z.number().min(0).max(1),
     roughness: z.number().min(0).max(1),
     opacity: z.number().min(0).max(1),
+    emissive: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Use a hex color like #ff8800").optional().describe("Glow color"),
+    emissiveIntensity: z.number().min(0).max(20).optional().describe("Glow strength, 0 for none, around 1 to 4 for neon"),
+    transmission: z.number().min(0).max(1).optional().describe("How much light passes through, 1 for clear glass"),
 });
 export type Material = z.infer<typeof Material>;
+
+export const ENVIRONMENTS = ["none", "studio", "sunset", "city", "night"] as const;
+export const Environment = z.enum(ENVIRONMENTS);
+export type Environment = z.infer<typeof Environment>;
 
 export const SceneObject = z.object({
     id: z.string(),
@@ -70,6 +77,7 @@ export const SceneDoc = z.object({
     version: z.literal(2),
     objects: z.array(SceneObject),
     lights: z.array(Light).default([]),
+    environment: Environment.default("none"),
 });
 export type SceneDoc = z.infer<typeof SceneDoc>;
 
@@ -104,7 +112,11 @@ export const Command = z.discriminatedUnion("type", [
         metalness: Material.shape.metalness.optional(),
         roughness: Material.shape.roughness.optional(),
         opacity: Material.shape.opacity.optional(),
+        emissive: Material.shape.emissive,
+        emissiveIntensity: Material.shape.emissiveIntensity,
+        transmission: Material.shape.transmission,
     }),
+    z.object({ type: z.literal("environment"), preset: Environment.describe("Image-based lighting around the scene. none uses plain lights only") }),
     z.object({ type: z.literal("rename"), target: Target, name: z.string().min(1) }),
     z.object({ type: z.literal("geometry"), target: Target, geometry: Geometry }),
     z.object({
@@ -144,5 +156,5 @@ export const Command = z.discriminatedUnion("type", [
     z.object({ type: z.literal("clear") }),
 ]);
 
-export const AI_COMMANDS = ["add", "remove", "duplicate", "transform", "material", "rename", "boolean", "addLight", "updateLight", "group", "ungroup"] as const;
+export const AI_COMMANDS = ["add", "remove", "duplicate", "transform", "material", "rename", "boolean", "addLight", "updateLight", "group", "ungroup", "environment"] as const;
 export type Command = z.infer<typeof Command>;

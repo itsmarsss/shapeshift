@@ -1,7 +1,7 @@
 // Messages between the editor and a shared room (worker/room.ts). Shared by
 // both sides so they can't drift apart.
 import { z } from "zod";
-import { Light, SceneObject, Vec3 } from "../scene/schema";
+import { Environment, Light, SceneObject, Vec3 } from "../scene/schema";
 
 export const ROOM_ID = /^[A-Za-z0-9_-]{8,40}$/;
 
@@ -25,6 +25,7 @@ const Upsert = <T extends z.ZodType>(entity: T) => z.object({ entity, index: z.n
 export const Ops = z.object({
     objects: z.object({ upsert: z.array(Upsert(SceneObject)).max(ROOM_LIMITS.objects), remove: z.array(z.string()).max(ROOM_LIMITS.objects) }),
     lights: z.object({ upsert: z.array(Upsert(Light)).max(ROOM_LIMITS.lights), remove: z.array(z.string()).max(ROOM_LIMITS.lights) }),
+    environment: Environment.optional(),
 });
 export type Ops = z.infer<typeof Ops>;
 
@@ -87,7 +88,7 @@ export type ClientMessage = z.infer<typeof ClientMessage>;
 export type Peer = { id: string; name: string; color: string; presence: Presence };
 
 export type ServerMessage =
-    | { type: "welcome"; you: Peer; peers: Peer[]; objects: SceneObject[]; lights: Light[]; version: number; chat: SharedTurn[] }
+    | { type: "welcome"; you: Peer; peers: Peer[]; objects: SceneObject[]; lights: Light[]; environment?: Environment; version: number; chat: SharedTurn[] }
     | { type: "chat"; turn: SharedTurn }
     | { type: "versions"; versions: VersionMeta[] }
     | { type: "version"; id: string; objects: SceneObject[]; lights: Light[] }
