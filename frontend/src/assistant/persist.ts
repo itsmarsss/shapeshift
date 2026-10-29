@@ -14,6 +14,7 @@ const SavedActivity = z.object({
     color: z.string().optional(),
     image: z.string().optional(),
     changed: z.boolean().optional(),
+    target: z.string().optional(),
 });
 
 const SavedTurn = z.object({

@@ -17,6 +17,8 @@ export type Activity = {
     image?: string;
     // True when this call changed the scene, as opposed to reading it.
     changed?: boolean;
+    // The object the call was about, so the chat can select it.
+    target?: string;
 };
 
 export type ToolMessage = Extract<WireMessage, { role: "tool" }>;
@@ -93,7 +95,7 @@ function runCommand(original: Command, ctx: TurnContext): Outcome {
     if (cmd.type === "add" && cmd.name && result.created[0]) ctx.aliases.set(cmd.name.toLowerCase(), result.created[0]);
 
     return {
-        activity: { label, ok: true, color: commandColor(cmd), changed: true },
+        activity: { label, ok: true, color: commandColor(cmd), changed: true, target: touched[0] },
         result: { ok: true, ...(objects.length ? { objects } : {}) },
         isError: false,
     };
@@ -106,7 +108,11 @@ function runInspect(targets: string[], ctx: TurnContext): Outcome {
     const missing = targets.filter((_, i) => !found[i]);
     const names = objects.map((o) => o.name);
     return {
-        activity: { label: `Inspected ${names.length === 1 ? names[0] : `${names.length} objects`}`, ok: objects.length > 0 },
+        activity: {
+            label: `Inspected ${names.length === 1 ? names[0] : `${names.length} objects`}`,
+            ok: objects.length > 0,
+            target: objects.length === 1 ? objects[0].id : undefined,
+        },
         result: { objects, ...(missing.length ? { missing } : {}) },
         isError: objects.length === 0,
     };
