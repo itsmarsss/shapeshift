@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Canvas } from "@react-three/fiber";
 import { CameraControls, Grid, Line, TransformControls } from "@react-three/drei";
@@ -9,7 +9,7 @@ import { SceneLight } from "./SceneLight";
 import { MultiTransform } from "./MultiTransform";
 import { EditOverlay } from "./EditOverlay";
 import { SnapshotBridge } from "./SnapshotBridge";
-import { HandControls } from "../hands/HandControls";
+import { useHands } from "../hands/tracker";
 import { useHandHover } from "../hands/tracker";
 
 const BACKGROUND = "#0d0e10";
@@ -23,10 +23,13 @@ function Axes() {
     );
 }
 
+const HandControls = lazy(() => import("../hands/HandControls").then((m) => ({ default: m.HandControls })));
+
 export function Viewport() {
     const objects = useScene((s) => s.doc.objects);
     const lights = useScene((s) => s.doc.lights);
     const selectedId = useScene((s) => s.selectedId);
+    const handsOn = useHands((s) => s.status !== "off");
     const selectedIds = useScene(useShallow((s) => s.selectedIds));
     const selectMany = useScene((s) => s.selectMany);
     const mode = useScene((s) => s.mode);
@@ -98,7 +101,11 @@ export function Viewport() {
             ))}
             <CameraControls makeDefault />
             <SnapshotBridge />
-            <HandControls />
+            {handsOn && (
+                <Suspense fallback={null}>
+                    <HandControls />
+                </Suspense>
+            )}
 
             {objects.map((o) => (
                 <SceneMesh
