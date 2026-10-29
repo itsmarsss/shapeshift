@@ -143,7 +143,7 @@ function TurnHistoryButton({ turn }: { turn: Turn }) {
 export function TurnView({ turn, last }: { turn: Turn; last: boolean }) {
     const retry = useAssistant((s) => s.retry);
     const running = useAssistant((s) => s.running);
-    const changes = turn.items.reduce((n, item) => n + (item.kind === "activity" ? item.activities.filter((a) => a.ok).length : 0), 0);
+    const changes = turn.items.reduce((n, item) => n + (item.kind === "activity" ? item.activities.filter((a) => a.changed).length : 0), 0);
 
     return (
         <Root>

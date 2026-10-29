@@ -15,6 +15,8 @@ export type Activity = {
     error?: string;
     color?: string;
     image?: string;
+    // True when this call changed the scene, as opposed to reading it.
+    changed?: boolean;
 };
 
 export type ToolMessage = Extract<WireMessage, { role: "tool" }>;
@@ -91,7 +93,7 @@ function runCommand(original: Command, ctx: TurnContext): Outcome {
     if (cmd.type === "add" && cmd.name && result.created[0]) ctx.aliases.set(cmd.name.toLowerCase(), result.created[0]);
 
     return {
-        activity: { label, ok: true, color: commandColor(cmd) },
+        activity: { label, ok: true, color: commandColor(cmd), changed: true },
         result: { ok: true, ...(objects.length ? { objects } : {}) },
         isError: false,
     };
@@ -161,7 +163,7 @@ function runUndo(steps: number, ctx: TurnContext): Outcome {
     if (available > 0) ctx.changed = true;
     const { doc, selectedId } = useScene.getState();
     return {
-        activity: { label: available ? `Undid ${available === 1 ? "the last change" : `${available} changes`}` : "Nothing to undo", ok: available > 0 },
+        activity: { label: available ? `Undid ${available === 1 ? "the last change" : `${available} changes`}` : "Nothing to undo", ok: available > 0, changed: available > 0 },
         result: { undone: available, scene: describeScene(doc, selectedId) },
         isError: false,
     };
