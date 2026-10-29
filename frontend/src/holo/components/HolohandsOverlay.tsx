@@ -2,14 +2,17 @@ import { useEffect, useRef } from "react";
 import {
     FRAME_HEIGHT,
     FRAME_WIDTH,
-    HandTrackerProvider,
     useHandTracker,
 } from "../provider/HandTrackerContext";
-import { ThreeDProvider } from "../provider/ThreeDContext";
+import { HandTrackerProvider } from "../provider/HandTrackerProvider";
+import { ThreeDProvider } from "../provider/ThreeDProvider";
 import Editable3DObject from "./ThreeRenderer";
 import { useViewportActions } from "../../provider/ViewportContext";
 import useSkeleton from "../hooks/useSkeleton";
-import type { InteractionState } from "../objects/InteractionState";
+import type {
+    InteractionState,
+    InteractionStateRef,
+} from "../objects/InteractionState";
 
 function OverlayInner() {
     const {
@@ -19,14 +22,13 @@ function OverlayInner() {
         orbitRotate,
         orbitPan,
         orbitDolly,
-    } = useViewportActions() as any;
+    } = useViewportActions();
     const { getData } = useHandTracker();
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const viewportRef = useRef<HTMLDivElement>(null);
     const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
     const fpsRef = useRef<number>(0);
-    // no longer needed when using old-style loop
-    const interactionRef = useRef<InteractionState>({
+    const interactionRef: InteractionStateRef = useRef<InteractionState>({
         Left: null,
         Right: null,
         angleBetween: 0,
@@ -35,7 +37,6 @@ function OverlayInner() {
 
     const { processHands } = useSkeleton({
         overlayCanvasRef: canvasRef,
-        fpsRef,
         updateInteractionState: (s: InteractionState) => {
             interactionRef.current = s;
         },
@@ -44,14 +45,13 @@ function OverlayInner() {
     // Use the Three.js renderer's canvas for hand overlay
     useEffect(() => {
         const getRendererCanvas = () => {
-            const rendererCanvas = (interactionRef as any).canvasOverlayRef
-                ?.current;
+            const rendererCanvas = interactionRef.canvasOverlayRef?.current;
             if (rendererCanvas) {
                 canvasRef.current = rendererCanvas;
                 ctxRef.current = rendererCanvas.getContext("2d", {
                     alpha: true,
                     desynchronized: true,
-                } as any) as CanvasRenderingContext2D | null;
+                });
 
                 // Force initial size sync
                 const mount = rendererCanvas.parentElement;
@@ -80,11 +80,10 @@ function OverlayInner() {
         const canvas = canvasRef.current;
         if (!canvas) return;
         // desynchronized hint can reduce latency on some browsers/GPUs
-        ctxRef.current =
-            (canvas.getContext("2d", {
-                alpha: true,
-                desynchronized: true,
-            } as any) as CanvasRenderingContext2D | null) ?? null;
+        ctxRef.current = canvas.getContext("2d", {
+            alpha: true,
+            desynchronized: true,
+        });
     }, []);
 
     // Main loop: draw every frame; capture/send runs asynchronously when acked
@@ -266,7 +265,7 @@ function OverlayInner() {
             >
                 <ThreeDProvider>
                     <Editable3DObject
-                        interactionStateRef={interactionRef as any}
+                        interactionStateRef={interactionRef}
                     />
                 </ThreeDProvider>
             </div>

@@ -1,6 +1,9 @@
 import * as THREE from "three";
-import type { InteractionState } from "../objects/InteractionState";
-import { useEffect, useRef } from "react";
+import type {
+    InteractionState,
+    InteractionStateRef,
+} from "../objects/InteractionState";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import type { Coords } from "../objects/coords";
 import { DEFAULT_COORDS } from "../objects/coords";
 import React from "react";
@@ -10,7 +13,7 @@ import type { EditorMode, SceneObject } from "../../types";
 import { serializeGeometry, deserializeGeometry } from "../../utils/geometry";
 
 interface Editable3DObjectProps {
-    interactionStateRef: React.RefObject<InteractionState>;
+    interactionStateRef: InteractionStateRef;
 }
 
 function Editable3DObject({
@@ -86,6 +89,12 @@ function Editable3DObject({
         createShape,
     } = useThreeD();
 
+    const cursorHandlersRef = useRef<{
+        cursorDown: typeof cursorDown;
+        cursorMove: typeof cursorMove;
+        cursorUp: typeof cursorUp;
+    } | null>(null);
+
     const editorObjects = useEditor((s) => s.objects);
     const selectedId = useEditor((s) => s.selectedId);
     const select = useEditor((s) => s.select);
@@ -133,12 +142,9 @@ function Editable3DObject({
     // Pass canvas ref to parent for hand overlay and sync sizing
     useEffect(() => {
         if (interactionState.current && canvasOverlayRef.current) {
-            const overlayRefContainer = interactionState as unknown as {
-                canvasOverlayRef?: React.RefObject<HTMLCanvasElement | null>;
-            };
-            overlayRefContainer.canvasOverlayRef = canvasOverlayRef;
+            interactionState.canvasOverlayRef = canvasOverlayRef;
         }
-    }, []);
+    }, [interactionState]);
 
     // Sync canvas dimensions with renderer
     useEffect(() => {
@@ -438,13 +444,13 @@ function Editable3DObject({
                     lastMousePosition.current["rightHand"].y ===
                         DEFAULT_COORDS.y
                 ) {
-                    cursorDown(
+                    cursorHandlersRef.current?.cursorDown(
                         rightHand.cursor.coords.x,
                         rightHand.cursor.coords.y,
                         "rightHand"
                     );
                 } else {
-                    cursorMove(
+                    cursorHandlersRef.current?.cursorMove(
                         rightHand.cursor.coords.x,
                         rightHand.cursor.coords.y,
                         "rightHand"
@@ -457,7 +463,7 @@ function Editable3DObject({
                 lastMousePosition.current["rightHand"].x !== DEFAULT_COORDS.x ||
                 lastMousePosition.current["rightHand"].y !== DEFAULT_COORDS.y
             ) {
-                cursorUp();
+                cursorHandlersRef.current?.cursorUp();
                 lastMousePosition.current["rightHand"] = DEFAULT_COORDS;
             }
 
@@ -468,13 +474,13 @@ function Editable3DObject({
                         DEFAULT_COORDS.x &&
                     lastMousePosition.current["leftHand"].y === DEFAULT_COORDS.y
                 ) {
-                    cursorDown(
+                    cursorHandlersRef.current?.cursorDown(
                         leftHand.cursor.coords.x,
                         leftHand.cursor.coords.y,
                         "leftHand"
                     );
                 } else {
-                    cursorMove(
+                    cursorHandlersRef.current?.cursorMove(
                         leftHand.cursor.coords.x,
                         leftHand.cursor.coords.y,
                         "leftHand"
@@ -487,7 +493,7 @@ function Editable3DObject({
                 lastMousePosition.current["leftHand"].x !== DEFAULT_COORDS.x ||
                 lastMousePosition.current["leftHand"].y !== DEFAULT_COORDS.y
             ) {
-                cursorUp();
+                cursorHandlersRef.current?.cursorUp();
                 lastMousePosition.current["leftHand"] = DEFAULT_COORDS;
             }
         };
@@ -499,16 +505,27 @@ function Editable3DObject({
             cameraRef.current!.aspect = width / height;
             cameraRef.current!.updateProjectionMatrix();
         });
-        resizeObserver.observe(mountRef.current);
+        const mount = mountRef.current;
+        const renderer = rendererRef.current!;
+        resizeObserver.observe(mount);
 
         return () => {
             resizeObserver.disconnect();
-            rendererRef.current!.dispose();
-            if (mountRef.current) {
-                mountRef.current.removeChild(rendererRef.current!.domElement);
-            }
+            renderer.dispose();
+            mount.removeChild(renderer.domElement);
         };
-    }, []);
+    }, [
+        cameraRef,
+        cornerMarkersRef,
+        mainGroupRef,
+        objectsRef,
+        renderScene,
+        rendererRef,
+        resetCameraRef,
+        sceneRef,
+        setupScene,
+        zoomRef,
+    ]);
 
     // Build primitive geometry for non-editable primitives
     function buildGeometryForObject(o: SceneObject): THREE.BufferGeometry {
@@ -654,18 +671,18 @@ function Editable3DObject({
         createSphere,
         registerObject,
         unregisterObject,
+        createShape,
     ]);
 
     useEffect(() => {
         const interval = setInterval(() => {
             interactionStateRef.current = interactionState.current;
-            // console.log("Interaction state:", interactionStateRef.current);
         }, 33);
 
         return () => {
             clearInterval(interval);
         };
-    }, []);
+    }, [interactionState]);
 
     // This ref holds the previous distance between the two hand cursors.
     const previousPinchDistanceRef = useRef<number | null>(null);
@@ -1158,6 +1175,10 @@ function Editable3DObject({
         initialHandDepthRef.current.rightHand = null;
     };
 
+    useLayoutEffect(() => {
+        cursorHandlersRef.current = { cursorDown, cursorMove, cursorUp };
+    });
+
     // ────────────────────────────────────────────────────────────────
     // Mouse event listeners for marker dragging and scene rotation.
     // ────────────────────────────────────────────────────────────────
@@ -1178,7 +1199,7 @@ function Editable3DObject({
                 lastRightPositionRef.current = { x: e.clientX, y: e.clientY };
             } else if (e.button === 0) {
                 // Left-click
-                cursorDown(e.clientX, e.clientY, "mouse");
+                cursorHandlersRef.current?.cursorDown(e.clientX, e.clientY, "mouse");
             }
         };
 
@@ -1200,7 +1221,7 @@ function Editable3DObject({
                     };
                 }
             } else {
-                cursorMove(e.clientX, e.clientY, "mouse");
+                cursorHandlersRef.current?.cursorMove(e.clientX, e.clientY, "mouse");
             }
         };
 
@@ -1210,7 +1231,7 @@ function Editable3DObject({
                 lastRightPositionRef.current = null;
                 e.preventDefault();
             } else {
-                cursorUp();
+                cursorHandlersRef.current?.cursorUp();
             }
         };
 
@@ -1243,7 +1264,7 @@ function Editable3DObject({
             element.removeEventListener("mouseleave", onMouseUp);
             element.removeEventListener("wheel", onWheel);
         };
-    }, []);
+    }, [cameraRef, mainGroupRef]);
 
     return (
         <div

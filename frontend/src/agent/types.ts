@@ -1,3 +1,5 @@
+import type * as Tools from "./tools";
+
 export type SceneEntityType = "mesh" | "light" | "camera" | "empty";
 
 export type SceneSnapshot = {
@@ -44,26 +46,28 @@ export type ToolResult = {
     diagnostics?: string[];
     snapshot?: SceneSnapshot;
     changes?: Diff;
-    payload?: any;
+    payload?: { ids?: string[]; id?: string };
+};
+
+type ToolArgs = {
+    get_scene_summary: Record<string, never>;
+    find: Parameters<typeof Tools.find>[0];
+    get_selection: Record<string, never>;
+    create_primitive: Parameters<typeof Tools.create_primitive>[0];
+    select: Parameters<typeof Tools.select>[0];
+    transform: Parameters<typeof Tools.transform>[0];
+    duplicate: Parameters<typeof Tools.duplicate>[0];
+    delete: Parameters<typeof Tools.del>[0];
+    create_material: Parameters<typeof Tools.create_material>[0];
+    assign_material: Parameters<typeof Tools.assign_material>[0];
+    export_glb: Parameters<typeof Tools.export_glb>[0];
+    image_to_3d: Parameters<typeof Tools.image_to_3d>[0];
+    update_name: Parameters<typeof Tools.update_name>[0];
 };
 
 export type ToolInvocation = {
-    name:
-        | "get_scene_summary"
-        | "find"
-        | "get_selection"
-        | "create_primitive"
-        | "select"
-        | "transform"
-        | "duplicate"
-        | "delete"
-        | "create_material"
-        | "assign_material"
-        | "export_glb"
-        | "image_to_3d"
-        | "update_name"; // small extension for rename
-    args: any;
-};
+    [K in keyof ToolArgs]: { name: K; args: ToolArgs[K] };
+}[keyof ToolArgs];
 
 export type StepResult = {
     tool: ToolInvocation;

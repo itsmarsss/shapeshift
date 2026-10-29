@@ -176,26 +176,11 @@ function meshToSceneObject(mesh: THREE.Mesh): SceneObject | null {
         | THREE.MeshStandardMaterial
         | THREE.MeshPhysicalMaterial
         | undefined;
-    const color =
-        material && "color" in material && (material as any).color
-            ? ((material as any).color as THREE.Color)
-            : new THREE.Color("#9aa7ff");
-    const metalness =
-        material && "metalness" in material
-            ? Number((material as any).metalness ?? 0.1)
-            : 0.1;
-    const roughness =
-        material && "roughness" in material
-            ? Number((material as any).roughness ?? 0.8)
-            : 0.8;
-    const opacity =
-        material && "opacity" in material
-            ? Number((material as any).opacity ?? 1)
-            : 1;
-    const transparent =
-        material && "transparent" in material
-            ? Boolean((material as any).transparent ?? false)
-            : false;
+    const color = material?.color ?? new THREE.Color("#9aa7ff");
+    const metalness = material?.metalness ?? 0.1;
+    const roughness = material?.roughness ?? 0.8;
+    const opacity = material?.opacity ?? 1;
+    const transparent = material?.transparent ?? false;
 
     return {
         id: nanoid(8),

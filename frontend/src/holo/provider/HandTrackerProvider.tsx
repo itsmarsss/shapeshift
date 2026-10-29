@@ -1,31 +1,24 @@
-import { createContext, useContext, useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 import { FilesetResolver, HandLandmarker } from "@mediapipe/tasks-vision";
 import { useVideoStream } from "./VideoStreamContext";
 import type { Hand } from "../objects/hand";
+import {
+    FRAME_HEIGHT,
+    FRAME_WIDTH,
+    HandTrackerContext,
+    type HandData,
+} from "./HandTrackerContext";
 
 const WASM_URL =
     "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.0/wasm";
 const MODEL_URL =
     "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
 
-export const FRAME_WIDTH = 640;
-export const FRAME_HEIGHT = 360;
-
 const CONNECTIONS = HandLandmarker.HAND_CONNECTIONS.map((c) => [
     c.start,
     c.end,
 ]);
-
-interface HandData {
-    hands: Hand[];
-}
-
-interface HandTrackerContextType {
-    getData: () => HandData | null;
-}
-
-const HandTrackerContext = createContext<HandTrackerContextType | null>(null);
 
 export const HandTrackerProvider = ({ children }: { children: ReactNode }) => {
     const { videoRef } = useVideoStream();
@@ -97,7 +90,7 @@ export const HandTrackerProvider = ({ children }: { children: ReactNode }) => {
         };
     }, [videoRef]);
 
-    const value = useMemo<HandTrackerContextType>(
+    const value = useMemo(
         () => ({ getData: () => dataRef.current }),
         []
     );
@@ -107,13 +100,4 @@ export const HandTrackerProvider = ({ children }: { children: ReactNode }) => {
             {children}
         </HandTrackerContext.Provider>
     );
-};
-
-export const useHandTracker = () => {
-    const ctx = useContext(HandTrackerContext);
-    if (!ctx)
-        throw new Error(
-            "useHandTracker must be used within a HandTrackerProvider"
-        );
-    return ctx;
 };

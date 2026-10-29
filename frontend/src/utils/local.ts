@@ -29,6 +29,8 @@ export function loadScene(): SavedScene | null {
         },
       }
     }
-  } catch {}
+  } catch {
+    return null
+  }
   return null
 }
