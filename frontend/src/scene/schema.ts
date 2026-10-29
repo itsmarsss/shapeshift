@@ -75,6 +75,15 @@ export const Command = z.discriminatedUnion("type", [
     }),
     z.object({ type: z.literal("rename"), target: Target, name: z.string().min(1) }),
     z.object({ type: z.literal("geometry"), target: Target, geometry: Geometry }),
+    z.object({
+        type: z.literal("boolean"),
+        operation: z.enum(["union", "subtract", "intersect"]),
+        target: Target.describe("First object, kept and replaced by the result"),
+        tool: Target.describe("Second object, removed after the operation"),
+    }),
+    z.object({ type: z.literal("insert"), objects: z.array(SceneObject) }),
     z.object({ type: z.literal("clear") }),
 ]);
+
+export const AI_COMMANDS = ["add", "remove", "duplicate", "transform", "material", "rename", "boolean"] as const;
 export type Command = z.infer<typeof Command>;

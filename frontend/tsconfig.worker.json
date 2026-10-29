@@ -19,5 +19,5 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["worker"]
+  "include": ["worker", "src/scene/aiTools.ts", "src/scene/schema.ts"]
 }

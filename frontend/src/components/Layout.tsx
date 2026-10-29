@@ -4,16 +4,11 @@ import { GlobalStyle } from "./ui";
 import Topbar from "./Topbar";
 import Toolbar from "./Toolbar";
 import Inspector from "./Inspector";
-import { useShortcuts } from "../hooks/useShortcuts";
 import BooleanPanel from "./BooleanPanel";
-import HolohandsOverlay from "../holo/components/HolohandsOverlay";
-import Viewport from "./Viewport";
 import ChatPanel from "./ChatPanel";
-import { useEditor } from "../store/editor";
-import VideoStream from "./VideoStream";
-import { VideoStreamProvider } from "../holo/provider/VideoStreamProvider";
-import AgentTimeline from "./AgentTimeline";
-import { useAgentTimeline } from "../store/agentTimeline";
+import { Viewport } from "../viewport/Viewport";
+import { useShortcuts } from "../hooks/useShortcuts";
+import { useUI } from "../ui/store";
 
 const Root = styled.div`
     position: relative;
@@ -21,26 +16,26 @@ const Root = styled.div`
     height: 100vh;
 `;
 
+const Stage = styled.div`
+    position: absolute;
+    inset: var(--topbar) 0 0 0;
+`;
+
 export function Layout() {
     useShortcuts();
-    const showChat = useEditor((s) => s.showChatPanel);
-    const editorMode = useEditor((s) => s.editorMode);
-    const steps = useAgentTimeline((s) => s.steps);
-    const showTimeline = useAgentTimeline((s) => s.showTimeline);
+    const showChat = useUI((s) => s.showChat);
     return (
-        <VideoStreamProvider>
-            <Root style={{ "--chat-width": showChat ? "320px" : "0px" } as React.CSSProperties}>
-                <GlobalStyle />
-                <Topbar />
-                {editorMode === "render" ? <Viewport /> : <HolohandsOverlay />}
-                <Toolbar />
-                <Inspector />
-                <BooleanPanel />
-                {showTimeline ? <AgentTimeline steps={steps} /> : null}
-                {showChat ? <ChatPanel /> : null}
-                <VideoStream />
-            </Root>
-        </VideoStreamProvider>
+        <Root style={{ "--chat-width": showChat ? "320px" : "0px" } as React.CSSProperties}>
+            <GlobalStyle />
+            <Topbar />
+            <Stage>
+                <Viewport />
+            </Stage>
+            <Toolbar />
+            <Inspector />
+            <BooleanPanel />
+            <ChatPanel />
+        </Root>
     );
 }
 

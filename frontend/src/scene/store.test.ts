@@ -11,6 +11,7 @@ describe("commands", () => {
         s().run({ type: "add", primitive: "box" });
         s().run({ type: "add", primitive: "box" });
         expect(s().doc.objects.map((o) => o.name)).toEqual(["Box", "Box 2"]);
+        expect(s().doc.objects[1].position).not.toEqual(s().doc.objects[0].position);
         expect(s().selectedId).toBe(s().doc.objects[1].id);
     });
 
@@ -68,7 +69,7 @@ describe("history", () => {
     });
 
     it("coalesces a drag into one step until it ends", () => {
-        s().run({ type: "add", primitive: "box" });
+        s().run({ type: "add", primitive: "box", position: [0, 0, 0] });
         for (let x = 1; x <= 5; x++) s().run({ type: "transform", target: "Box", position: [x, 0, 0] }, { coalesce: "drag" });
         s().endCoalesce();
         s().run({ type: "transform", target: "Box", position: [9, 0, 0] }, { coalesce: "drag" });
@@ -97,5 +98,29 @@ describe("schema", () => {
     it("round-trips a document", () => {
         s().run({ type: "add", primitive: "torus" });
         expect(SceneDoc.parse(JSON.parse(JSON.stringify(s().doc)))).toEqual(s().doc);
+    });
+});
+
+describe("booleans and insert", () => {
+    it("subtracts one object from another and removes the tool", () => {
+        s().run({ type: "add", primitive: "box", position: [0, 0, 0] });
+        s().run({ type: "add", primitive: "sphere", position: [0.5, 0, 0] });
+        const [r] = s().run({ type: "boolean", operation: "subtract", target: "Box", tool: "Sphere" });
+        expect(r.ok).toBe(true);
+        expect(s().doc.objects).toHaveLength(1);
+        const g = s().doc.objects[0].geometry;
+        expect(g.type).toBe("mesh");
+        if (g.type === "mesh") expect(g.indices.length % 3).toBe(0);
+        s().undo();
+        expect(s().doc.objects.map((o) => o.geometry.type)).toEqual(["box", "sphere"]);
+    });
+
+    it("inserts objects with fresh ids", () => {
+        s().run({ type: "add", primitive: "box" });
+        const copy = structuredClone(s().doc.objects[0]);
+        s().run({ type: "insert", objects: [copy] });
+        const ids = s().doc.objects.map((o) => o.id);
+        expect(new Set(ids).size).toBe(2);
+        expect(s().doc.objects[1].name).toBe("Box 2");
     });
 });

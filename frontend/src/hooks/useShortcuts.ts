@@ -1,42 +1,41 @@
-import { useEffect } from 'react'
-import { useEditor } from '../store/editor'
+import { useEffect } from "react";
+import { useScene } from "../scene/store";
+
+const TRANSFORM_KEYS = { w: "translate", e: "rotate", r: "scale" } as const;
+
+function isTyping(target: EventTarget | null) {
+    const el = target as HTMLElement | null;
+    return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
+}
 
 export function useShortcuts() {
-  const add = useEditor(s => s.addObject)
-  const del = useEditor(s => s.deleteSelected)
-  const dup = useEditor(s => s.duplicateSelected)
-  const undo = useEditor(s => s.undo)
-  const redo = useEditor(s => s.redo)
-  const setMode = useEditor(s => s.setMode)
+    useEffect(() => {
+        function onKeyDown(e: KeyboardEvent) {
+            if (isTyping(e.target)) return;
+            const s = useScene.getState();
+            const mod = e.metaKey || e.ctrlKey;
+            const key = e.key.toLowerCase();
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.target && (e.target as HTMLElement).tagName === 'INPUT') return
-      
-      // Command/Ctrl + L to show chat panel
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l') {
-        e.preventDefault()
-        useEditor.getState().setShowChatPanel(true)
-        return
-      }
-      
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-        e.preventDefault()
-        if (e.shiftKey) redo(); else undo();
-        return
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
-        e.preventDefault(); dup(); return
-      }
-      if (e.key === 'Delete' || e.key === 'Backspace') { del(); return }
-      if (e.key.toLowerCase() === 'g') { setMode('translate'); return }
-      if (e.key.toLowerCase() === 'r') { setMode('rotate'); return }
-      if (e.key.toLowerCase() === 's') { setMode('scale'); return }
-      if (e.key.toLowerCase() === '1') { add('box'); return }
-      if (e.key.toLowerCase() === '2') { add('sphere'); return }
-      if (e.key.toLowerCase() === '3') { add('cylinder'); return }
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [add, del, dup, undo, redo, setMode])
+            if (mod && key === "z") {
+                e.preventDefault();
+                if (e.shiftKey) s.redo();
+                else s.undo();
+            } else if (mod && key === "y") {
+                e.preventDefault();
+                s.redo();
+            } else if (mod && key === "d" && s.selectedId) {
+                e.preventDefault();
+                s.run({ type: "duplicate", target: s.selectedId });
+            } else if ((key === "delete" || key === "backspace") && s.selectedId) {
+                e.preventDefault();
+                s.run({ type: "remove", target: s.selectedId });
+            } else if (key === "escape") {
+                s.select(null);
+            } else if (!mod && key in TRANSFORM_KEYS) {
+                s.setTransformMode(TRANSFORM_KEYS[key as keyof typeof TRANSFORM_KEYS]);
+            }
+        }
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, []);
 }
