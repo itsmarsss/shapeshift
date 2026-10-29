@@ -2,6 +2,7 @@ import { useState } from "react";
 import styled from "styled-components";
 import { CaretDown, Check, WarningCircle } from "@phosphor-icons/react";
 import type { Activity } from "../../assistant/executor";
+import { useScene } from "../../scene/store";
 
 const COLLAPSED = 5;
 
@@ -32,9 +33,26 @@ const Row = styled.li<{ $ok: boolean }>`
 
 const Label = styled.span`
     min-width: 0;
+    text-align: left;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+`;
+
+const LinkLabel = styled(Label).attrs({ as: "button" })`
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+
+    &:hover {
+        color: var(--text);
+        text-decoration: underline;
+        text-decoration-color: var(--border-strong);
+        text-underline-offset: 2px;
+    }
 `;
 
 const ErrorText = styled.div`
@@ -101,13 +119,22 @@ export function ActivityList({ activities }: { activities: Activity[] }) {
     // Failures stay visible when the list is collapsed.
     const shown = open || activities.length <= COLLAPSED + 1 ? activities : [...activities.filter((a) => a.ok).slice(0, COLLAPSED), ...failed];
     const hidden = activities.length - shown.length;
+    const objectIds = useScene((s) => s.doc.objects.map((o) => o.id).join(" "));
+    const select = useScene((s) => s.select);
+    const exists = (id?: string) => !!id && objectIds.split(" ").includes(id);
 
     return (
         <List>
             {shown.map((a) => (
                 <Row key={a.id} $ok={a.ok}>
                     {a.ok ? <Check size={12} weight="bold" /> : <WarningCircle size={13} weight="fill" />}
-                    <Label title={a.label}>{a.label}</Label>
+                    {exists(a.target) ? (
+                        <LinkLabel type="button" title={`Select · ${a.label}`} onClick={() => select(a.target!)}>
+                            {a.label}
+                        </LinkLabel>
+                    ) : (
+                        <Label title={a.label}>{a.label}</Label>
+                    )}
                     {a.color ? <Swatch $color={a.color} title={a.color} /> : <span />}
                     {a.error && <ErrorText>{a.error}</ErrorText>}
                     {a.image && <Snapshot src={a.image} label={a.label} />}
