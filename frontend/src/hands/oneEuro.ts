@@ -2,7 +2,7 @@ export class OneEuroFilter {
     private x: number | null = null;
     private dx = 0;
     private t = 0;
-    private minCutoff: number;
+    minCutoff: number;
     private beta: number;
     private dCutoff: number;
 

@@ -4,6 +4,7 @@ import { CameraSlash, CircleNotch, Play, Record, Stop } from "@phosphor-icons/re
 import { download } from "../scene/io";
 import { live, recording, replay, useHands, type Recording } from "./tracker";
 import { IconButton } from "../components/ui";
+import { useSettings } from "../settings/store";
 
 const Box = styled.div`
     position: absolute;
@@ -82,6 +83,7 @@ export function HandPreview() {
     const error = useHands((s) => s.error);
     const canvas = useRef<HTMLCanvasElement>(null);
     const [rec, setRec] = useState(false);
+    const showPreview = useSettings((s) => s.showHandPreview);
     const fileRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -99,7 +101,7 @@ export function HandPreview() {
             if (live.video) ctx.drawImage(live.video, 0, 0, c.width, c.height);
             ctx.strokeStyle = "rgba(236, 236, 238, 0.7)";
             ctx.lineWidth = 2;
-            for (const hand of live.frames) {
+            for (const hand of useSettings.getState().showSkeleton ? live.frames : []) {
                 const l = hand.landmarks;
                 ctx.beginPath();
                 for (const [a, b] of BONES) {
@@ -114,7 +116,7 @@ export function HandPreview() {
         return () => cancelAnimationFrame(raf);
     }, []);
 
-    if (status === "off") return null;
+    if (status === "off" || (!showPreview && status === "running")) return null;
 
     function toggleRecording() {
         if (rec) {

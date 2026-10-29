@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { GestureTracker, type HandFrame, type HandState } from "./gestures";
 import type { WorkerMessage } from "./handWorker";
+import { tuning } from "./gestures";
+import { useSettings } from "../settings/store";
 
 export type HandStatus = "off" | "starting" | "running" | "error";
 
@@ -44,6 +46,14 @@ export function replay(frames: Recording) {
     requestAnimationFrame(step);
 }
 
+const applyTuning = () => {
+    const s = useSettings.getState();
+    tuning.sensitivity = s.pinchSensitivity;
+    tuning.smoothing = s.handSmoothing;
+};
+applyTuning();
+useSettings.subscribe(applyTuning);
+
 let stream: MediaStream | null = null;
 let worker: Worker | null = null;
 let stopLoop: (() => void) | null = null;
@@ -73,8 +83,13 @@ export const useHands = create<HandStore>()((set, get) => ({
         set({ status: "starting", error: null });
 
         try {
+            const cameraId = useSettings.getState().cameraId;
             stream = await navigator.mediaDevices.getUserMedia({
-                video: { width: { ideal: 640 }, height: { ideal: 360 }, facingMode: "user" },
+                video: {
+                    width: { ideal: 640 },
+                    height: { ideal: 360 },
+                    ...(cameraId ? { deviceId: { ideal: cameraId } } : { facingMode: "user" }),
+                },
             });
         } catch {
             teardown();

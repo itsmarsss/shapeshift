@@ -247,6 +247,7 @@ export const Composer = forwardRef<ComposerHandle, { extra?: React.ReactNode; pl
                 value={text}
                 maxLength={LIMITS.promptChars}
                 aria-label="Message the assistant"
+                data-chat-input
                 placeholder={voice.listening ? "Listening…" : placeholderOverride ?? (selected ? `Change ${selected.name}…` : "Describe a change or something to build…")}
                 onChange={(e) => setText(e.target.value)}
                 onPaste={(e) => {

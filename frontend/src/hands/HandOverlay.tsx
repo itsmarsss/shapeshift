@@ -17,7 +17,7 @@ const Cursor = styled.div`
     height: 18px;
     margin: -9px 0 0 -9px;
     border-radius: 50%;
-    border: 2px solid rgba(236, 236, 238, 0.85);
+    border: 2px solid var(--cursor);
     display: none;
 
     &[data-pinching="true"] {

@@ -8,6 +8,7 @@ import { IntentTracker } from "./intents";
 import { live, useHandHover } from "./tracker";
 import { editableMesh } from "../scene/geometry";
 import { nearestVertex, objectMatrix, useEditSelection } from "../viewport/editSelection";
+import { useSettings } from "../settings/store";
 
 type Drag =
     | { kind: "object"; id: string; plane: THREE.Plane; offset: THREE.Vector3 }
@@ -17,7 +18,7 @@ type Drag =
 const ORBIT_SPEED = Math.PI * 1.5;
 const ZOOM_SPEED = 12;
 const PAN_SPEED = 6;
-const OBJECT_HAND: Handedness = "Right";
+const objectHand = (): Handedness => useSettings.getState().handObject;
 const VERTEX_RADIUS = 0.06;
 
 export function HandControls() {
@@ -48,7 +49,7 @@ export function HandControls() {
     }
 
     function hover() {
-        const h = live.hands.find((hand) => hand.handedness === OBJECT_HAND && !hand.pinching);
+        const h = live.hands.find((hand) => hand.handedness === objectHand() && !hand.pinching);
         const idle = h && useScene.getState().mode !== "render" && !drag.current;
         const vertex = idle ? vertexAt(h.x, h.y) : null;
         const id = idle && !vertex ? pick(h.x, h.y)?.object.name ?? null : null;
@@ -59,7 +60,7 @@ export function HandControls() {
 
     function start(handedness: Handedness, x: number, y: number) {
         drag.current = { kind: "orbit" };
-        if (handedness !== OBJECT_HAND) return;
+        if (handedness !== objectHand()) return;
         const vertex = vertexAt(x, y);
         if (vertex) {
             const mesh = editableMesh(vertex.object.geometry);
@@ -88,7 +89,8 @@ export function HandControls() {
     function move(x: number, y: number, dx: number, dy: number) {
         const d = drag.current;
         if (d?.kind === "orbit") {
-            controls?.rotate(-dx * ORBIT_SPEED, -dy * ORBIT_SPEED, false);
+            const speed = ORBIT_SPEED * useSettings.getState().handOrbitSpeed;
+            controls?.rotate(-dx * speed, -dy * speed, false);
             return;
         }
         if (d?.kind === "vertex") {
@@ -129,7 +131,7 @@ export function HandControls() {
             else if (intent.type === "move") move(intent.x, intent.y, intent.dx, intent.dy);
             else if (intent.type === "end") end();
             else if (controls) {
-                controls.dolly(intent.zoom * ZOOM_SPEED, false);
+                controls.dolly(intent.zoom * ZOOM_SPEED * useSettings.getState().handZoomSpeed, false);
                 controls.truck(-intent.panX * PAN_SPEED, -intent.panY * PAN_SPEED, false);
             }
         }

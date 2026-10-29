@@ -1,6 +1,6 @@
-import { lazy, Suspense, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import { CameraControls, Grid, Line, TransformControls } from "@react-three/drei";
 import type * as THREE from "three";
 import { useScene } from "../scene/store";
@@ -11,8 +11,24 @@ import { EditOverlay } from "./EditOverlay";
 import { SnapshotBridge } from "./SnapshotBridge";
 import { useHands } from "../hands/tracker";
 import { useHandHover } from "../hands/tracker";
+import { DPR, useSettings } from "../settings/store";
+import { SCENE_COLORS, useResolvedTheme } from "../settings/theme";
 
-const BACKGROUND = "#0d0e10";
+function CameraSettings() {
+    const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
+    const setDpr = useThree((s) => s.setDpr);
+    const fov = useSettings((s) => s.fov);
+    const quality = useSettings((s) => s.quality);
+    useEffect(() => {
+        camera.fov = fov;
+        camera.updateProjectionMatrix();
+    }, [camera, fov]);
+    useEffect(() => {
+        const [min, max] = DPR[quality];
+        setDpr(Math.min(max, Math.max(min, window.devicePixelRatio)));
+    }, [setDpr, quality]);
+    return null;
+}
 
 function Axes() {
     return (
@@ -42,6 +58,9 @@ export function Viewport() {
     const [selectedMesh, setSelectedMesh] = useState<THREE.Mesh | null>(null);
     const gizmoBusy = useRef(false);
 
+    const settings = useSettings();
+    const colors = SCENE_COLORS[useResolvedTheme()];
+    const shadows = mode === "render" && settings.shadows;
     const editing = mode !== "render";
     const selectedObject = objects.find((o) => o.id === selectedId);
     const selectedLight = lights.find((l) => l.id === selectedId);
@@ -64,22 +83,22 @@ export function Viewport() {
     return (
         <Canvas
             shadows
-            dpr={[1, 2]}
-            camera={{ position: [4, 3.5, 6], fov: 45, near: 0.05, far: 500 }}
+            dpr={DPR[settings.quality]}
+            camera={{ position: [4, 3.5, 6], fov: settings.fov, near: 0.05, far: 500 }}
             raycaster={{ params: { Points: { threshold: 0.08 } } as THREE.RaycasterParameters }}
             onPointerMissed={() => {
                 if (!gizmoBusy.current) select(null);
             }}
             style={{ position: "absolute", inset: 0 }}
         >
-            <color attach="background" args={[BACKGROUND]} />
-            <fog attach="fog" args={[BACKGROUND, 25, 90]} />
-            <hemisphereLight args={["#ffffff", "#30333a", studio ? 0.7 : 0.35]} />
+            <color attach="background" args={[colors.background]} />
+            <fog attach="fog" args={[colors.background, 25, 90]} />
+            <hemisphereLight args={["#ffffff", colors.ground, studio ? 0.7 : 0.35]} />
             {studio && (
                 <directionalLight
                     position={[-5, 10, 3]}
                     intensity={1.8}
-                    castShadow
+                    castShadow={shadows}
                     shadow-mapSize={[2048, 2048]}
                     shadow-camera-left={-12}
                     shadow-camera-right={12}
@@ -99,7 +118,14 @@ export function Viewport() {
                     markerRef={l.id === selectedId ? setSelectedMesh : undefined}
                 />
             ))}
-            <CameraControls makeDefault />
+            <CameraControls
+                makeDefault
+                azimuthRotateSpeed={settings.orbitSpeed}
+                polarRotateSpeed={settings.orbitSpeed}
+                dollySpeed={settings.zoomSpeed}
+                dollyToCursor={settings.zoomToCursor}
+            />
+            <CameraSettings />
             <SnapshotBridge />
             {handsOn && (
                 <Suspense fallback={null}>
@@ -119,21 +145,20 @@ export function Viewport() {
                 />
             ))}
 
-            {editing ? (
-                <>
-                    <Grid
-                        infiniteGrid
-                        fadeDistance={60}
-                        cellSize={0.5}
-                        sectionSize={2}
-                        cellThickness={0.6}
-                        sectionThickness={1}
-                        cellColor="#24262b"
-                        sectionColor="#34373e"
-                    />
-                    <Axes />
-                </>
-            ) : (
+            {editing && settings.showGrid && (
+                <Grid
+                    infiniteGrid
+                    fadeDistance={60}
+                    cellSize={settings.gridCell}
+                    sectionSize={settings.gridCell * 4}
+                    cellThickness={0.6}
+                    sectionThickness={1}
+                    cellColor={colors.cell}
+                    sectionColor={colors.section}
+                />
+            )}
+            {editing && settings.showAxes && <Axes />}
+            {shadows && (
                 <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
                     <planeGeometry args={[200, 200]} />
                     <shadowMaterial opacity={0.35} />

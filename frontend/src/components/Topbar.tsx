@@ -8,6 +8,7 @@ import {
     FilePlus,
     FloppyDisk,
     FolderOpen,
+    GearSix,
     Hand,
     SlidersHorizontal,
     TrayArrowDown,
@@ -16,6 +17,7 @@ import { useScene, type EditorMode } from "../scene/store";
 import { exportGLB, importModel, parseSceneFile, saveSceneFile } from "../scene/io";
 import { useUI } from "../ui/store";
 import { useHands } from "../hands/tracker";
+import { useSettings } from "../settings/store";
 import { IconButton, Segment, Segmented } from "./ui";
 
 const Bar = styled.div`
@@ -68,6 +70,7 @@ export function Topbar() {
     const showChat = useUI((s) => s.showChat);
     const setShowInspector = useUI((s) => s.setShowInspector);
     const setShowChat = useUI((s) => s.setShowChat);
+    const setShowSettings = useUI((s) => s.setShowSettings);
     const handStatus = useHands((s) => s.status);
     const setHands = useHands((s) => s.setEnabled);
     const openRef = useRef<HTMLInputElement>(null);
@@ -98,7 +101,13 @@ export function Topbar() {
         <Bar>
             <Group>
                 <Brand>ShapeShift</Brand>
-                <IconButton title="New scene" onClick={() => run({ type: "clear" })}>
+                <IconButton
+                    title="New scene"
+                    onClick={() => {
+                        const empty = useScene.getState().doc.objects.length === 0;
+                        if (empty || !useSettings.getState().confirmNew || confirm("Start a new scene? You can undo this.")) run({ type: "clear" });
+                    }}
+                >
                     <FilePlus size={18} />
                 </IconButton>
                 <IconButton title="Open scene" onClick={() => openRef.current?.click()}>
@@ -144,6 +153,9 @@ export function Topbar() {
                 </IconButton>
                 <IconButton title="Assistant" $active={showChat} onClick={() => setShowChat(!showChat)}>
                     <ChatCircle size={18} />
+                </IconButton>
+                <IconButton title="Settings (⌘,)" onClick={() => setShowSettings(true)}>
+                    <GearSix size={18} />
                 </IconButton>
             </Group>
         </Bar>
