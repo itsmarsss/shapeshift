@@ -19,6 +19,10 @@
       "simple": { "limit": 60, "period": 60 }
     }
   ],
+  "durable_objects": {
+    "bindings": [{ "name": "ROOMS", "class_name": "Room" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
   "vars": {
     "AGENT_MODEL": "claude-opus-5-5",
     "AGENT_EFFORT": "medium"
