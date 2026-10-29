@@ -6,7 +6,7 @@ import { DEFAULT_COORDS } from "../objects/coords";
 import React from "react";
 import { useThreeD } from "../provider/ThreeDContext";
 import { useEditor } from "../../store/editor";
-import type { EditorState, SceneObject } from "../../types";
+import type { EditorMode, SceneObject } from "../../types";
 import { serializeGeometry, deserializeGeometry } from "../../utils/geometry";
 
 interface Editable3DObjectProps {
@@ -94,13 +94,10 @@ function Editable3DObject({
     const updateTransform = useEditor((s) => s.updateTransform);
     const updateGeometryStore = useEditor((s) => s.updateGeometry);
     const snap = useEditor((s) => s.snap);
-    const editorMode = useEditor(
-        (s: EditorState & { editorMode?: "object" | "edit" }) =>
-            s.editorMode ?? "object"
-    );
+    const editorMode = useEditor((s) => s.editorMode ?? "object");
 
     // Keep latest editorMode and selectedId in refs to avoid stale closures in long-lived handlers/loops
-    const editorModeRef = useRef<"object" | "edit">(editorMode);
+    const editorModeRef = useRef<EditorMode>(editorMode);
     const selectedIdRef = useRef<string | null>(selectedId);
     const snapRef = useRef(snap);
     useEffect(() => {
