@@ -1,96 +1,160 @@
-import { AI_COMMANDS, Command, type SceneDoc } from "../scene/schema";
+// How the assistant sees the scene, and how its actions are described back to
+// the user.
+import * as THREE from "three";
 import { findObject } from "../scene/commands";
+import type { Command, Geometry, SceneDoc, SceneObject, Vec3 } from "../scene/schema";
 
-export type ToolCall = { function?: { name?: string; arguments?: string } };
+const round = (v: number) => {
+    const r = Math.round(v * 1000) / 1000;
+    return Object.is(r, -0) ? 0 : r;
+};
+const fmt = (v: readonly number[]) => `[${v.map(round).join(", ")}]`;
 
-const DEG = 180 / Math.PI;
-const fmt = (v: number[]) => `[${v.map((n) => Math.round(n * 100) / 100).join(", ")}]`;
-
-function size(o: SceneDoc["objects"][number]): string {
-    const g = o.geometry;
+function size(g: Geometry): string {
     switch (g.type) {
         case "box":
-            return `${g.width}x${g.height}x${g.depth}`;
+            return `${round(g.width)}x${round(g.height)}x${round(g.depth)}`;
         case "sphere":
-            return `radius ${g.radius}`;
+            return `radius ${round(g.radius)}`;
         case "cylinder":
-            return `radius ${Math.max(g.radiusTop, g.radiusBottom)}, height ${g.height}`;
+            return g.radiusTop === g.radiusBottom
+                ? `radius ${round(g.radiusTop)}, height ${round(g.height)}`
+                : `radiusTop ${round(g.radiusTop)}, radiusBottom ${round(g.radiusBottom)}, height ${round(g.height)}`;
         case "cone":
-            return `radius ${g.radius}, height ${g.height}`;
+            return `radius ${round(g.radius)}, height ${round(g.height)}`;
         case "torus":
-            return `radius ${g.radius}, tube ${g.tube}`;
+            return `radius ${round(g.radius)}, tube ${round(g.tube)}`;
         case "plane":
-            return `${g.width}x${g.height}`;
+            return `${round(g.width)}x${round(g.height)}`;
         case "mesh":
-            return `${g.indices.length / 3} triangles`;
+            return `${Math.floor(g.indices.length / 3)} triangles`;
     }
 }
 
-export function describeScene(doc: SceneDoc, selectedId: string | null): string {
-    const lines = doc.objects.map((o) =>
-        [
-            `"${o.name}"`,
-            `${o.geometry.type} ${size(o)}`,
-            `at ${fmt(o.position)}`,
-            `rotation ${fmt(o.rotation.map((r) => r * DEG))} degrees`,
-            `scale ${fmt(o.scale)}`,
-            o.material.color,
-            o.id === selectedId ? "(selected)" : "",
-        ]
-            .filter(Boolean)
-            .join(", ")
+const meshBoxes = new WeakMap<Geometry, THREE.Box3>();
+
+function localBox(g: Geometry): THREE.Box3 {
+    const box = new THREE.Box3();
+    switch (g.type) {
+        case "box":
+            return box.set(new THREE.Vector3(-g.width / 2, -g.height / 2, -g.depth / 2), new THREE.Vector3(g.width / 2, g.height / 2, g.depth / 2));
+        case "sphere":
+            return box.set(new THREE.Vector3(-g.radius, -g.radius, -g.radius), new THREE.Vector3(g.radius, g.radius, g.radius));
+        case "cylinder": {
+            const r = Math.max(g.radiusTop, g.radiusBottom);
+            return box.set(new THREE.Vector3(-r, -g.height / 2, -r), new THREE.Vector3(r, g.height / 2, r));
+        }
+        case "cone":
+            return box.set(new THREE.Vector3(-g.radius, -g.height / 2, -g.radius), new THREE.Vector3(g.radius, g.height / 2, g.radius));
+        case "torus": {
+            const r = g.radius + g.tube;
+            return box.set(new THREE.Vector3(-r, -r, -g.tube), new THREE.Vector3(r, r, g.tube));
+        }
+        case "plane":
+            return box.set(new THREE.Vector3(-g.width / 2, -g.height / 2, 0), new THREE.Vector3(g.width / 2, g.height / 2, 0));
+        case "mesh": {
+            let cached = meshBoxes.get(g);
+            if (!cached) {
+                cached = new THREE.Box3().setFromArray(g.positions);
+                meshBoxes.set(g, cached);
+            }
+            return box.copy(cached);
+        }
+    }
+}
+
+export function worldBounds(o: SceneObject): { min: Vec3; max: Vec3 } {
+    const box = localBox(o.geometry);
+    if (box.isEmpty()) return { min: o.position, max: o.position };
+    const matrix = new THREE.Matrix4().compose(
+        new THREE.Vector3(...o.position),
+        new THREE.Quaternion().setFromEuler(new THREE.Euler(...o.rotation)),
+        new THREE.Vector3(...o.scale)
     );
+    box.applyMatrix4(matrix);
+    return { min: box.min.toArray(), max: box.max.toArray() };
+}
+
+export function describeObject(o: SceneObject, selectedId: string | null = null): string {
+    const b = worldBounds(o);
+    const m = o.material;
+    return [
+        `"${o.name}" id=${o.id}`,
+        `${o.geometry.type} ${size(o.geometry)}`,
+        `at ${fmt(o.position)}`,
+        o.rotation.some((r) => r !== 0) ? `rotation ${fmt(o.rotation)}` : null,
+        o.scale.some((s) => s !== 1) ? `scale ${fmt(o.scale)}` : null,
+        [m.color, m.metalness ? `metalness ${round(m.metalness)}` : null, m.roughness !== 0.6 ? `roughness ${round(m.roughness)}` : null, m.opacity < 1 ? `opacity ${round(m.opacity)}` : null]
+            .filter(Boolean)
+            .join(" "),
+        `bounds ${fmt(b.min)} to ${fmt(b.max)}`,
+        o.id === selectedId ? "(selected)" : null,
+    ]
+        .filter(Boolean)
+        .join(", ");
+}
+
+const SCENE_OBJECT_LIMIT = 200;
+
+export function describeScene(doc: SceneDoc, selectedId: string | null): string {
+    if (!doc.objects.length) return "The scene is empty.";
+    const listed = doc.objects.slice(0, SCENE_OBJECT_LIMIT);
+    const selected = doc.objects.find((o) => o.id === selectedId);
+    if (selected && !listed.includes(selected)) listed.push(selected);
+    const lines = listed.map((o) => describeObject(o, selectedId));
+    if (doc.objects.length > listed.length) lines.push(`…and ${doc.objects.length - listed.length} more objects. Use inspect to read them.`);
+    if (!selected) lines.push("Nothing is selected.");
     return lines.join("\n");
 }
 
-export function toCommands(calls: ToolCall[]): { commands: Command[]; errors: string[] } {
-    const commands: Command[] = [];
-    const errors: string[] = [];
-    for (const call of calls) {
-        const name = call.function?.name ?? "";
-        if (!(AI_COMMANDS as readonly string[]).includes(name)) {
-            errors.push(`Unknown action "${name}"`);
-            continue;
-        }
-        let args: unknown = {};
-        try {
-            args = JSON.parse(call.function?.arguments || "{}");
-        } catch {
-            errors.push(`Couldn't read the arguments for ${name}`);
-            continue;
-        }
-        const parsed = Command.safeParse({ ...(args as object), type: name });
-        if (parsed.success) commands.push(parsed.data);
-        else errors.push(`Invalid ${name}: ${parsed.error.issues[0]?.message ?? "bad arguments"}`);
-    }
-    return { commands, errors };
+export function inspectObject(o: SceneObject) {
+    const b = worldBounds(o);
+    const geometry = o.geometry.type === "mesh" ? { type: "mesh", triangles: Math.floor(o.geometry.indices.length / 3) } : o.geometry;
+    return {
+        id: o.id,
+        name: o.name,
+        geometry,
+        position: o.position.map(round),
+        rotation: o.rotation.map(round),
+        scale: o.scale.map(round),
+        material: o.material,
+        bounds: { min: b.min.map(round), max: b.max.map(round) },
+    };
 }
+
+// Short labels for the activity list in the chat panel.
+
+const DEG = 180 / Math.PI;
 
 export function describeCommand(cmd: Command, doc: SceneDoc): string {
     const name = "target" in cmd ? findObject(doc, cmd.target)?.name ?? cmd.target : "";
     switch (cmd.type) {
         case "add":
-            return `added ${cmd.name ?? `a ${cmd.primitive}`}`;
+            return `Added ${cmd.name ?? `a ${cmd.primitive}`}`;
         case "remove":
-            return `removed ${name}`;
+            return `Removed ${name}`;
         case "duplicate":
-            return `duplicated ${name}`;
-        case "transform":
-            return `moved ${name}`;
+            return `Duplicated ${name}`;
+        case "transform": {
+            const what = [cmd.position && "moved", cmd.rotation && "rotated", cmd.scale && "scaled"].filter(Boolean) as string[];
+            const verb = what.length ? what.join(" and ") : "transformed";
+            const detail = cmd.rotation && !cmd.position && !cmd.scale ? ` ${fmt(cmd.rotation.map((r) => r * DEG))}°` : "";
+            return `${verb.charAt(0).toUpperCase()}${verb.slice(1)} ${name}${detail}`;
+        }
         case "material":
-            return `restyled ${name}`;
+            return `Restyled ${name}`;
         case "rename":
-            return `renamed ${name} to ${cmd.name}`;
-        case "boolean":
-            return `combined ${name} with ${cmd.tool}`;
-        default:
-            return cmd.type;
+            return `Renamed ${name} to ${cmd.name}`;
+        case "geometry":
+            return `Reshaped ${name}`;
+        case "boolean": {
+            const tool = findObject(doc, cmd.tool)?.name ?? cmd.tool;
+            const verb = { union: "Merged", subtract: "Cut", intersect: "Intersected" }[cmd.operation];
+            return cmd.operation === "subtract" ? `Cut ${tool} out of ${name}` : `${verb} ${name} with ${tool}`;
+        }
+        case "insert":
+            return `Inserted ${cmd.objects.length} objects`;
+        case "clear":
+            return "Cleared the scene";
     }
-}
-
-export function summarize(commands: Command[], doc: SceneDoc): string {
-    if (!commands.length) return "";
-    const parts = commands.map((c) => describeCommand(c, doc));
-    const text = parts.join(", ");
-    return text.charAt(0).toUpperCase() + text.slice(1) + ".";
 }

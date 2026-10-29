@@ -1,8 +1,8 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import { PaperPlaneRight, X } from "@phosphor-icons/react";
 import { selectSelected, useScene } from "../scene/store";
-import { describeScene, summarize, toCommands, type ToolCall } from "../assistant/assistant";
+import { useAssistant } from "../assistant/store";
 import { useUI } from "../ui/store";
 import { IconButton, Input, Panel, PanelHeader, PanelTitle } from "./ui";
 
@@ -70,53 +70,21 @@ const Form = styled.form`
 
 const EXAMPLES = ["Add a red sphere", "Make it twice as wide", "Build a table with four legs"];
 
-type Msg = { role: "user" | "assistant"; content: string };
-
 export function ChatPanel() {
     const show = useUI((s) => s.showChat);
     const setShow = useUI((s) => s.setShowChat);
     const selected = useScene(selectSelected);
-    const [messages, setMessages] = useState<Msg[]>([]);
+    const turns = useAssistant((s) => s.turns);
+    const busy = useAssistant((s) => s.running);
+    const send = useAssistant((s) => s.send);
     const [input, setInput] = useState("");
-    const [busy, setBusy] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
+    useEffect(() => {
+        scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+    }, [turns]);
+
     if (!show) return null;
-
-    function append(msg: Msg) {
-        setMessages((prev) => [...prev, msg]);
-        queueMicrotask(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }));
-    }
-
-    async function send(text: string) {
-        const content = text.trim();
-        if (!content || busy) return;
-        const history = [...messages, { role: "user" as const, content }];
-        append({ role: "user", content });
-        setBusy(true);
-        try {
-            const { doc, selectedId, run } = useScene.getState();
-            const res = await fetch("/api/chat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ messages: history, scene: describeScene(doc, selectedId) }),
-            });
-            if (res.status === 429) return append({ role: "assistant", content: "Too many requests. Wait a minute and try again." });
-            if (!res.ok) return append({ role: "assistant", content: "The assistant is unavailable right now." });
-            const data = await res.json();
-            const message = data?.choices?.[0]?.message ?? {};
-            const { commands, errors } = toCommands((message.tool_calls ?? []) as ToolCall[]);
-            const results = commands.length ? run(commands) : [];
-            const failed = results.flatMap((r) => (r.ok ? [] : [r.error]));
-            const done = summarize(commands.filter((_, i) => results[i]?.ok), doc);
-            const reply = [String(message.content ?? "").trim() || done, ...errors, ...failed].filter(Boolean).join("\n");
-            append({ role: "assistant", content: reply || "I couldn't turn that into an edit." });
-        } catch {
-            append({ role: "assistant", content: "The assistant is unavailable right now." });
-        } finally {
-            setBusy(false);
-        }
-    }
 
     return (
         <Root>
@@ -127,7 +95,7 @@ export function ChatPanel() {
                 </IconButton>
             </PanelHeader>
             <Messages ref={scrollRef}>
-                {messages.length === 0 && (
+                {turns.length === 0 && (
                     <Examples>
                         {EXAMPLES.map((ex) => (
                             <Example key={ex} onClick={() => send(ex)}>
@@ -136,10 +104,16 @@ export function ChatPanel() {
                         ))}
                     </Examples>
                 )}
-                {messages.map((m, i) => (
-                    <Message key={i} $role={m.role}>
-                        {m.content}
-                    </Message>
+                {turns.map((t) => (
+                    <div key={t.id} style={{ display: "contents" }}>
+                        <Message $role="user">{t.prompt}</Message>
+                        {t.items.map((item, i) => (
+                            <Message key={i} $role="assistant">
+                                {item.kind === "text" ? item.text : item.activities.map((a) => a.label + (a.error ? ` (${a.error})` : "")).join("\n")}
+                            </Message>
+                        ))}
+                        {t.error && <Message $role="assistant">{t.error.message}</Message>}
+                    </div>
                 ))}
                 {busy && <Pending>Thinking…</Pending>}
             </Messages>
