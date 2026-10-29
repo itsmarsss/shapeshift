@@ -6,6 +6,7 @@ import { useScene } from "../scene/store";
 import { SceneMesh } from "./SceneMesh";
 import { EditOverlay } from "./EditOverlay";
 import { HandControls } from "../hands/HandControls";
+import { useHandHover } from "../hands/tracker";
 
 const BACKGROUND = "#0d0e10";
 
@@ -27,6 +28,7 @@ export function Viewport() {
     const select = useScene((s) => s.select);
     const run = useScene((s) => s.run);
     const endCoalesce = useScene((s) => s.endCoalesce);
+    const hoveredId = useHandHover((s) => s.hoveredId);
     const [selectedMesh, setSelectedMesh] = useState<THREE.Mesh | null>(null);
     const gizmoBusy = useRef(false);
 
@@ -67,6 +69,7 @@ export function Viewport() {
                     key={o.id}
                     object={o}
                     selected={o.id === selectedId}
+                    hovered={o.id === hoveredId}
                     showSelection={mode === "object"}
                     onSelect={select}
                     meshRef={o.id === selectedId ? setSelectedMesh : undefined}

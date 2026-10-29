@@ -43,6 +43,12 @@ function replay(seq: (number[] | null)[]) {
 }
 
 describe("recorded stream", () => {
+    it("labels hands from the subject's point of view", () => {
+        const right = frames[0].hands.find((h) => h.handedness === "Right")!.landmarks;
+        const left = frames[0].hands.find((h) => h.handedness === "Left")!.landmarks;
+        expect(right[1]).toBeLessThan(left[1]);
+    });
+
     it("never pinches with two open hands", () => {
         const tracker = new GestureTracker();
         for (const f of frames) {

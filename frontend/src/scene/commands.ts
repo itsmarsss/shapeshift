@@ -1,4 +1,5 @@
 import type { Command, Geometry, Material, Primitive, SceneDoc, SceneObject, Vec3 } from "./schema";
+import { current, isDraft } from "immer";
 import { booleanGeometry } from "./geometry";
 
 export const DEFAULT_GEOMETRY: Record<Primitive, Geometry> = {
@@ -74,6 +75,9 @@ export function uniqueName(doc: SceneDoc, base: string): string {
     }
 }
 
+// Commands run inside Immer, where structuredClone can't copy a draft.
+const copy = <T>(value: T): T => structuredClone(isDraft(value) ? current(value) : value);
+
 const add = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const mul = (a: Vec3, b: Vec3): Vec3 => [a[0] * b[0], a[1] * b[1], a[2] * b[2]];
 
@@ -142,7 +146,7 @@ export function applyCommand(doc: SceneDoc, cmd: Command, newId: () => string): 
         case "duplicate": {
             const id = newId();
             doc.objects.push({
-                ...structuredClone(obj),
+                ...copy(obj),
                 id,
                 name: uniqueName(doc, obj.name),
                 position: add(obj.position, cmd.offset ?? [0.5, 0, 0.5]),
