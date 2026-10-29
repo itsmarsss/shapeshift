@@ -179,6 +179,9 @@ function applyToGroup(doc: SceneDoc, group: string, members: SceneObject[], cmd:
                 if (cmd.metalness !== undefined) o.material.metalness = cmd.metalness;
                 if (cmd.roughness !== undefined) o.material.roughness = cmd.roughness;
                 if (cmd.opacity !== undefined) o.material.opacity = cmd.opacity;
+            if (cmd.emissive !== undefined) o.material.emissive = cmd.emissive;
+            if (cmd.emissiveIntensity !== undefined) o.material.emissiveIntensity = cmd.emissiveIntensity;
+            if (cmd.transmission !== undefined) o.material.transmission = cmd.transmission;
             }
             return { ok: true, created: [] };
         case "rename":
@@ -262,6 +265,11 @@ export function applyCommand(doc: SceneDoc, cmd: Command, newId: () => string): 
         return { ok: true, created: [] };
     }
 
+    if (cmd.type === "environment") {
+        doc.environment = cmd.preset;
+        return { ok: true, created: [] };
+    }
+
     if (cmd.type === "clear") {
         doc.objects = [];
         doc.lights = [];
@@ -327,6 +335,9 @@ export function applyCommand(doc: SceneDoc, cmd: Command, newId: () => string): 
             if (cmd.metalness !== undefined) obj.material.metalness = cmd.metalness;
             if (cmd.roughness !== undefined) obj.material.roughness = cmd.roughness;
             if (cmd.opacity !== undefined) obj.material.opacity = cmd.opacity;
+            if (cmd.emissive !== undefined) obj.material.emissive = cmd.emissive;
+            if (cmd.emissiveIntensity !== undefined) obj.material.emissiveIntensity = cmd.emissiveIntensity;
+            if (cmd.transmission !== undefined) obj.material.transmission = cmd.transmission;
             return { ok: true, created: [] };
         case "rename":
             obj.name = cmd.name;

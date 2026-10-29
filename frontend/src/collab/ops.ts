@@ -11,7 +11,7 @@ function toOps<T extends { id: string }>(changes: EntityChange<T>[]) {
 }
 
 export function diffToOps(diff: DocDiff): Ops {
-    return { objects: toOps(diff.objects), lights: toOps(diff.lights) };
+    return { objects: toOps(diff.objects), lights: toOps(diff.lights), ...(diff.environment ? { environment: diff.environment.after } : {}) };
 }
 
 function toChanges<T extends { id: string }>(part: { upsert: { entity: T; index?: number }[]; remove: string[] }): EntityChange<T>[] {
@@ -21,17 +21,22 @@ function toChanges<T extends { id: string }>(part: { upsert: { entity: T; index?
     ];
 }
 
+// The environment's previous value doesn't matter when applying, only the new one.
 export function opsToDiff(ops: Ops): DocDiff {
-    return { objects: toChanges<SceneObject>(ops.objects), lights: toChanges<Light>(ops.lights) };
+    return {
+        objects: toChanges<SceneObject>(ops.objects),
+        lights: toChanges<Light>(ops.lights),
+        ...(ops.environment ? { environment: { before: ops.environment, after: ops.environment } } : {}),
+    };
 }
 
 export function isEmptyOps(ops: Ops) {
-    return !ops.objects.upsert.length && !ops.objects.remove.length && !ops.lights.upsert.length && !ops.lights.remove.length;
+    return !ops.objects.upsert.length && !ops.objects.remove.length && !ops.lights.upsert.length && !ops.lights.remove.length && !ops.environment;
 }
 
 // Everything needed to turn `local` into the room's copy of the scene.
-export function syncDiff(local: SceneDoc, objects: SceneObject[], lights: Light[]): DocDiff {
-    return diffDocs(local, { ...local, objects, lights });
+export function syncDiff(local: SceneDoc, objects: SceneObject[], lights: Light[], environment: SceneDoc["environment"] = local.environment): DocDiff {
+    return diffDocs(local, { ...local, objects, lights, environment });
 }
 
 export { emptyOps };

@@ -9,6 +9,7 @@ import { SceneMesh } from "./SceneMesh";
 import { SceneLight } from "./SceneLight";
 import { MultiTransform } from "./MultiTransform";
 import { PeerCursors } from "./PeerCursors";
+import { SceneEnvironment } from "./SceneEnvironment";
 import { EditOverlay } from "./EditOverlay";
 import { SnapshotBridge } from "./SnapshotBridge";
 import { useHands } from "../hands/tracker";
@@ -34,10 +35,10 @@ function CameraSettings() {
 
 function Axes() {
     return (
-        <>
+        <group userData={{ grid: true }}>
             <Line points={[[-500, 0.002, 0], [500, 0.002, 0]]} color="#e5484d" lineWidth={1.5} />
             <Line points={[[0, 0.002, -500], [0, 0.002, 500]]} color="#4f7cff" lineWidth={1.5} />
-        </>
+        </group>
     );
 }
 
@@ -46,6 +47,7 @@ const HandControls = lazy(() => import("../hands/HandControls").then((m) => ({ d
 export function Viewport() {
     const objects = useScene((s) => s.doc.objects);
     const lights = useScene((s) => s.doc.lights);
+    const environment = useScene((s) => s.doc.environment);
     const selectedId = useScene((s) => s.selectedId);
     const handsOn = useHands((s) => s.status !== "off");
     const selectedIds = useScene(useShallow((s) => s.selectedIds));
@@ -134,6 +136,7 @@ export function Viewport() {
                 dollyToCursor={settings.zoomToCursor}
             />
             <CameraSettings />
+            <SceneEnvironment preset={environment} />
             <SnapshotBridge />
             <PeerCursors />
             {handsOn && (
@@ -157,6 +160,7 @@ export function Viewport() {
 
             {editing && settings.showGrid && (
                 <Grid
+                    userData={{ grid: true }}
                     infiniteGrid
                     fadeDistance={60}
                     cellSize={settings.gridCell}

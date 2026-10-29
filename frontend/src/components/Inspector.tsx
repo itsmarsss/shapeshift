@@ -4,7 +4,7 @@ import { Copy, SelectionPlus, SelectionSlash, Trash, X } from "@phosphor-icons/r
 import { useShallow } from "zustand/react/shallow";
 import { selectSelected, selectSelectedLight, selectSelectedObjects, useScene } from "../scene/store";
 import { duplicateSelection, groupSelection, removeSelection, ungroupSelection } from "../scene/selection";
-import type { Command, Light, Vec3 } from "../scene/schema";
+import { ENVIRONMENTS, type Command, type Environment, type Light, type Vec3 } from "../scene/schema";
 import { useUI } from "../ui/store";
 import { UNIT_SCALE, useSettings } from "../settings/store";
 import { Button, Divider, FieldLabel, IconButton, Input, Panel, PanelHeader, PanelTitle, Select } from "./ui";
@@ -303,6 +303,58 @@ function SelectionSection({ count, groups }: { count: number; groups: string[] }
     );
 }
 
+const Presets = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 8px;
+`;
+
+const Preset = styled.button<{ $swatch: string }>`
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 24px;
+    padding: 0 8px 0 5px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+
+    &::before {
+        content: "";
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: ${(p) => p.$swatch};
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+    }
+    &:hover {
+        color: var(--text);
+        border-color: var(--border-strong);
+    }
+`;
+
+type MaterialFields = Omit<Extract<Command, { type: "material" }>, "type" | "target">;
+
+const MATERIAL_PRESETS: { name: string; swatch: string; material: MaterialFields }[] = [
+    { name: "Plastic", swatch: "#e5484d", material: { metalness: 0, roughness: 0.45, transmission: 0, emissiveIntensity: 0, opacity: 1 } },
+    { name: "Matte", swatch: "#8e9099", material: { metalness: 0, roughness: 0.95, transmission: 0, emissiveIntensity: 0, opacity: 1 } },
+    { name: "Gold", swatch: "linear-gradient(135deg,#fff1b0,#d4a017)", material: { color: "#d4a017", metalness: 1, roughness: 0.25, transmission: 0, emissiveIntensity: 0, opacity: 1 } },
+    { name: "Chrome", swatch: "linear-gradient(135deg,#ffffff,#6b6f78)", material: { color: "#d9dce1", metalness: 1, roughness: 0.05, transmission: 0, emissiveIntensity: 0, opacity: 1 } },
+    { name: "Glass", swatch: "linear-gradient(135deg,#e8f4ff,#9cc9ff)", material: { color: "#ffffff", metalness: 0, roughness: 0.05, transmission: 1, emissiveIntensity: 0, opacity: 1 } },
+    { name: "Neon", swatch: "#ff4fd8", material: { color: "#ff4fd8", emissive: "#ff4fd8", emissiveIntensity: 3, metalness: 0, roughness: 0.4, transmission: 0, opacity: 1 } },
+];
+
+const ENVIRONMENT_LABELS: Record<Environment, string> = {
+    none: "None (plain lights)",
+    studio: "Studio",
+    sunset: "Sunset",
+    city: "City",
+    night: "Night",
+};
+
 export function Inspector() {
     const show = useUI((s) => s.showInspector);
     const setShow = useUI((s) => s.setShowInspector);
@@ -314,6 +366,7 @@ export function Inspector() {
     const groups = [...new Set(selectedObjects.flatMap((o) => (o.group ? [o.group] : [])))];
     const lights = useScene((s) => s.doc.lights);
     const select = useScene((s) => s.select);
+    const environment = useScene((s) => s.doc.environment);
     const run = useScene((s) => s.run);
     const endCoalesce = useScene((s) => s.endCoalesce);
     const snap = useScene((s) => s.snap);
@@ -452,6 +505,51 @@ export function Inspector() {
                                     />
                                 </Sub>
                             </Grid>
+                            <Presets>
+                                {MATERIAL_PRESETS.map((p) => (
+                                    <Preset
+                                        key={p.name}
+                                        title={p.name}
+                                        $swatch={p.swatch}
+                                        onClick={() => run({ type: "material", target: selected.id, ...p.material })}
+                                    >
+                                        {p.name}
+                                    </Preset>
+                                ))}
+                            </Presets>
+                            <Grid $cols={2} style={{ marginTop: 8 }}>
+                                <Sub>
+                                    Glow color
+                                    <Input
+                                        type="color"
+                                        value={selected.material.emissive ?? selected.material.color}
+                                        onChange={(e) => edit("emissive", { type: "material", target: selected.id, emissive: e.target.value })}
+                                        onBlur={endCoalesce}
+                                    />
+                                </Sub>
+                                <Sub>
+                                    Glow
+                                    <NumberInput
+                                        value={selected.material.emissiveIntensity ?? 0}
+                                        step={0.25}
+                                        min={0}
+                                        max={20}
+                                        onCommit={endCoalesce}
+                                        onChange={(emissiveIntensity) => edit("glow", { type: "material", target: selected.id, emissiveIntensity })}
+                                    />
+                                </Sub>
+                                <Sub>
+                                    Glass
+                                    <NumberInput
+                                        value={selected.material.transmission ?? 0}
+                                        step={0.05}
+                                        min={0}
+                                        max={1}
+                                        onCommit={endCoalesce}
+                                        onChange={(transmission) => edit("glass", { type: "material", target: selected.id, transmission })}
+                                    />
+                                </Sub>
+                            </Grid>
                         </div>
                         <Actions>
                             <Button onClick={() => run({ type: "duplicate", target: selected.id })}>
@@ -467,6 +565,21 @@ export function Inspector() {
                 )}
 
                 <Divider />
+
+                <div>
+                    <FieldLabel>Environment</FieldLabel>
+                    <Select
+                        value={environment}
+                        onChange={(e) => run({ type: "environment", preset: e.target.value as Environment })}
+                        title="Lighting that shiny surfaces and glass reflect"
+                    >
+                        {ENVIRONMENTS.map((env) => (
+                            <option key={env} value={env}>
+                                {ENVIRONMENT_LABELS[env]}
+                            </option>
+                        ))}
+                    </Select>
+                </div>
 
                 <div>
                     <Check>

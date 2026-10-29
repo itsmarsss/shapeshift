@@ -85,7 +85,14 @@ export function describeObject(o: SceneObject, selectedId: string | null = null)
         `at ${fmt(o.position)}`,
         o.rotation.some((r) => r !== 0) ? `rotation ${fmt(o.rotation)}` : null,
         o.scale.some((s) => s !== 1) ? `scale ${fmt(o.scale)}` : null,
-        [m.color, m.metalness ? `metalness ${round(m.metalness)}` : null, m.roughness !== 0.6 ? `roughness ${round(m.roughness)}` : null, m.opacity < 1 ? `opacity ${round(m.opacity)}` : null]
+        [
+            m.color,
+            m.metalness ? `metalness ${round(m.metalness)}` : null,
+            m.roughness !== 0.6 ? `roughness ${round(m.roughness)}` : null,
+            m.opacity < 1 ? `opacity ${round(m.opacity)}` : null,
+            m.emissiveIntensity ? `glows ${m.emissive ?? m.color} at ${round(m.emissiveIntensity)}` : null,
+            m.transmission ? `transmission ${round(m.transmission)}` : null,
+        ]
             .filter(Boolean)
             .join(" "),
         `bounds ${fmt(b.min)} to ${fmt(b.max)}`,
@@ -116,6 +123,7 @@ export function describeScene(doc: SceneDoc, selectedId: string | null, selected
     const lights = doc.lights.length
         ? doc.lights.map((l) => describeLight(l, selectedId))
         : ["No lights yet, so the editor's default studio lighting is on."];
+    if (doc.environment !== "none") lights.push(`Environment lighting: ${doc.environment}.`);
     if (!doc.objects.length) return ["The scene has no objects.", ...lights].join("\n");
     const listed = doc.objects.slice(0, SCENE_OBJECT_LIMIT);
     const selected = doc.objects.find((o) => o.id === selectedId);
@@ -177,6 +185,8 @@ export function describeCommand(cmd: Command, doc: SceneDoc): string {
             return `Grouped ${cmd.targets.length === 1 ? cmd.targets[0] : `${cmd.targets.length} objects`} as ${cmd.name}`;
         case "ungroup":
             return `Ungrouped ${name}`;
+        case "environment":
+            return cmd.preset === "none" ? "Turned off the environment lighting" : `Set the ${cmd.preset} environment`;
         case "addLight":
             return `Added ${cmd.name ?? `a ${cmd.light} light`}`;
         case "updateLight":

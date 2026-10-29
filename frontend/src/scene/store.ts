@@ -52,7 +52,7 @@ export type SceneState = {
     setSnap: (snap: Partial<Snap>) => void;
 };
 
-export const emptyDoc = (): SceneDoc => ({ version: 2, objects: [], lights: [] });
+export const emptyDoc = (): SceneDoc => ({ version: 2, objects: [], lights: [], environment: "none" });
 
 const HISTORY_LIMIT = 200;
 

@@ -4,6 +4,7 @@ import {
     ArrowUUpLeft,
     ArrowUUpRight,
     ChatCircle,
+    Camera,
     Export,
     FilePlus,
     FloppyDisk,
@@ -14,7 +15,8 @@ import {
     TrayArrowDown,
 } from "@phosphor-icons/react";
 import { useScene, type EditorMode } from "../scene/store";
-import { exportGLB, importModel, parseSceneFile, saveSceneFile } from "../scene/io";
+import { download, exportGLB, importModel, parseSceneFile, saveSceneFile } from "../scene/io";
+import { takeSnapshot } from "../viewport/snapshot";
 import { useUI } from "../ui/store";
 import { useHands } from "../hands/tracker";
 import { useSettings } from "../settings/store";
@@ -57,6 +59,15 @@ const MODES: { mode: EditorMode; label: string }[] = [
     { mode: "edit", label: "Edit" },
     { mode: "render", label: "Render" },
 ];
+
+// Renders the current view at twice the screen's resolution, without editor
+// overlays, and downloads it as a PNG.
+async function saveImage() {
+    const shot = takeSnapshot({ view: "current", format: "png", supersample: 2, maxSize: 4096, clean: true });
+    if (!shot) return;
+    const blob = await (await fetch(shot.dataUrl)).blob();
+    download(blob, "shapeshift.png", "image/png");
+}
 
 export function Topbar() {
     const run = useScene((s) => s.run);
@@ -120,6 +131,9 @@ export function Topbar() {
                 <Sep />
                 <IconButton title="Import model" onClick={() => importRef.current?.click()}>
                     <TrayArrowDown size={18} />
+                </IconButton>
+                <IconButton title="Save an image of the view" onClick={saveImage}>
+                    <Camera size={18} />
                 </IconButton>
                 <IconButton title="Export as GLB" onClick={() => exportGLB(useScene.getState().doc)}>
                     <Export size={18} />

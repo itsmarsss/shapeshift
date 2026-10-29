@@ -3,7 +3,16 @@ import type { View } from "./views";
 
 export type { View };
 
-export type SnapshotOptions = { view: View; targets?: string[]; maxSize?: number };
+export type SnapshotOptions = {
+    view: View;
+    targets?: string[];
+    maxSize?: number;
+    format?: "jpeg" | "png";
+    // Renders at this many times the screen's resolution for a sharper image.
+    supersample?: number;
+    // Also hides the grid and axis lines, for a finished render.
+    clean?: boolean;
+};
 export type Snapshot = { dataUrl: string; width: number; height: number };
 
 export type Taker = (options: SnapshotOptions) => Snapshot | null;

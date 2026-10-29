@@ -30,12 +30,15 @@ export function toThreeScene(doc: SceneDoc): THREE.Scene {
     for (const o of doc.objects) {
         const mesh = new THREE.Mesh(
             buildGeometry(o.geometry),
-            new THREE.MeshStandardMaterial({
+            new THREE.MeshPhysicalMaterial({
                 color: o.material.color,
                 metalness: o.material.metalness,
                 roughness: o.material.roughness,
                 opacity: o.material.opacity,
                 transparent: o.material.opacity < 1,
+                emissive: o.material.emissive ?? o.material.color,
+                emissiveIntensity: o.material.emissiveIntensity ?? 0,
+                transmission: o.material.transmission ?? 0,
             })
         );
         mesh.name = o.name;

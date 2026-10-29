@@ -271,3 +271,21 @@ describe("selection", () => {
         expect(s().selectedIds).toEqual([s().doc.objects[0].id]);
     });
 });
+
+describe("materials and environment", () => {
+    it("sets glow and glass, and undoes environment changes", () => {
+        s().run({ type: "add", primitive: "sphere", name: "Bulb" });
+        s().run({ type: "material", target: "Bulb", emissive: "#ffcc66", emissiveIntensity: 3, transmission: 0.5 });
+        expect(s().doc.objects[0].material).toMatchObject({ emissive: "#ffcc66", emissiveIntensity: 3, transmission: 0.5 });
+        s().run({ type: "environment", preset: "sunset" });
+        expect(s().doc.environment).toBe("sunset");
+        s().undo();
+        expect(s().doc.environment).toBe("none");
+        s().redo();
+        expect(s().doc.environment).toBe("sunset");
+    });
+
+    it("loads scenes saved before materials could glow", () => {
+        expect(SceneDoc.parse({ version: 2, objects: [] }).environment).toBe("none");
+    });
+});

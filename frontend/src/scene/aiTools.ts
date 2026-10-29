@@ -6,7 +6,8 @@ const DESCRIPTIONS: Record<(typeof AI_COMMANDS)[number], string> = {
     remove: "Delete an object.",
     duplicate: "Copy an object, offset by `offset` (default [0.5, 0, 0.5]).",
     transform: "Set position, rotation (radians) and scale. With relative: true, position and rotation are added and scale is multiplied.",
-    material: "Change color (#rrggbb), metalness, roughness or opacity (all 0 to 1).",
+    environment: "Set the lighting environment that metals, glass and shiny surfaces reflect: studio, sunset, city or night. none turns it off.",
+    material: "Change color (#rrggbb), metalness, roughness or opacity (all 0 to 1). emissive and emissiveIntensity make it glow; transmission 1 with low roughness makes clear glass.",
     rename: "Rename an object.",
     addLight:
         "Add a light. point shines in every direction, spot shines a cone from position toward aim, directional is sunlight from the direction of position toward aim.",

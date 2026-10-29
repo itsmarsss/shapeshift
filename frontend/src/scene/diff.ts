@@ -1,16 +1,20 @@
-import type { Light, SceneDoc, SceneObject } from "./schema";
+import type { Environment, Light, SceneDoc, SceneObject } from "./schema";
 
 // A change to one object or light, by id. `before` is missing for something
 // that was added and `after` for something that was removed. Working per
 // entity instead of per array index means changes still apply correctly after
 // other changes, including other people's, have shifted the arrays.
 export type EntityChange<T> = { id: string; before?: T; after?: T; index: number };
-export type DocDiff = { objects: EntityChange<SceneObject>[]; lights: EntityChange<Light>[] };
+export type DocDiff = {
+    objects: EntityChange<SceneObject>[];
+    lights: EntityChange<Light>[];
+    environment?: { before: Environment; after: Environment };
+};
 
 export const emptyDiff = (): DocDiff => ({ objects: [], lights: [] });
 
 export function isEmptyDiff(d: DocDiff) {
-    return d.objects.length === 0 && d.lights.length === 0;
+    return d.objects.length === 0 && d.lights.length === 0 && !d.environment;
 }
 
 function diffList<T extends { id: string }>(prev: T[], next: T[]): EntityChange<T>[] {
@@ -29,7 +33,11 @@ function diffList<T extends { id: string }>(prev: T[], next: T[]): EntityChange<
 }
 
 export function diffDocs(prev: SceneDoc, next: SceneDoc): DocDiff {
-    return { objects: diffList(prev.objects, next.objects), lights: diffList(prev.lights, next.lights) };
+    return {
+        objects: diffList(prev.objects, next.objects),
+        lights: diffList(prev.lights, next.lights),
+        ...(prev.environment !== next.environment ? { environment: { before: prev.environment, after: next.environment } } : {}),
+    };
 }
 
 function applyList<T extends { id: string }>(list: T[], changes: EntityChange<T>[], side: "before" | "after"): T[] {
@@ -56,7 +64,12 @@ function applyList<T extends { id: string }>(list: T[], changes: EntityChange<T>
 // Sets every changed entity to its `before` or `after` state.
 export function applyDiff(doc: SceneDoc, diff: DocDiff, side: "before" | "after"): SceneDoc {
     if (isEmptyDiff(diff)) return doc;
-    return { ...doc, objects: applyList(doc.objects, diff.objects, side), lights: applyList(doc.lights, diff.lights, side) };
+    return {
+        ...doc,
+        objects: applyList(doc.objects, diff.objects, side),
+        lights: applyList(doc.lights, diff.lights, side),
+        ...(diff.environment ? { environment: diff.environment[side] } : {}),
+    };
 }
 
 function mergeList<T>(a: EntityChange<T>[], b: EntityChange<T>[]): EntityChange<T>[] {
@@ -72,5 +85,11 @@ function mergeList<T>(a: EntityChange<T>[], b: EntityChange<T>[]): EntityChange<
 
 // One diff that does `a` then `b`.
 export function mergeDiffs(a: DocDiff, b: DocDiff): DocDiff {
-    return { objects: mergeList(a.objects, b.objects), lights: mergeList(a.lights, b.lights) };
+    const environment =
+        a.environment && b.environment ? { before: a.environment.before, after: b.environment.after } : (a.environment ?? b.environment);
+    return {
+        objects: mergeList(a.objects, b.objects),
+        lights: mergeList(a.lights, b.lights),
+        ...(environment && environment.before !== environment.after ? { environment } : {}),
+    };
 }

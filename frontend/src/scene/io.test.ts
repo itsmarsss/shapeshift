@@ -7,6 +7,7 @@ describe("export", () => {
         const scene = toThreeScene({
             version: 2,
             objects: [],
+            environment: "none",
             lights: [{ id: "l", name: "Key", type: "spot", position: [0, 5, 0], aim: [0, 0, 0], color: "#ffffff", intensity: 40, distance: 0, angle: 0.5 }],
         });
         const light = scene.getObjectByName("Key") as THREE.SpotLight;

@@ -11,13 +11,15 @@ export function SnapshotBridge() {
     const camera = useThree((s) => s.camera);
 
     useEffect(() => {
-        setSnapshotTaker(({ view, targets, maxSize = 768 }) => {
+        setSnapshotTaker(({ view, targets, maxSize = 768, format = "jpeg", supersample = 1, clean = false }) => {
             const canvas = gl.domElement;
+            const pixelRatio = gl.getPixelRatio();
+            if (supersample > 1) gl.setPixelRatio(pixelRatio * supersample);
             const aspect = canvas.width / Math.max(1, canvas.height);
             const shot = view === "current" ? camera : framedCamera(scene, view, aspect, targets);
             const hidden: THREE.Object3D[] = [];
             scene.traverse((o) => {
-                if (o.visible && isHelper(o)) {
+                if (o.visible && (isHelper(o) || (clean && o.userData.grid === true))) {
                     o.visible = false;
                     hidden.push(o);
                 }
@@ -28,12 +30,17 @@ export function SnapshotBridge() {
                 const out = document.createElement("canvas");
                 out.width = Math.round(canvas.width * scale);
                 out.height = Math.round(canvas.height * scale);
-                out.getContext("2d")?.drawImage(canvas, 0, 0, out.width, out.height);
-                return { dataUrl: out.toDataURL("image/jpeg", 0.82), width: out.width, height: out.height };
+                const ctx = out.getContext("2d");
+                if (ctx) {
+                    ctx.imageSmoothingQuality = "high";
+                    ctx.drawImage(canvas, 0, 0, out.width, out.height);
+                }
+                return { dataUrl: out.toDataURL(`image/${format}`, 0.9), width: out.width, height: out.height };
             } catch {
                 return null;
             } finally {
                 for (const o of hidden) o.visible = true;
+                if (supersample > 1) gl.setPixelRatio(pixelRatio);
                 gl.render(scene, camera);
             }
         });

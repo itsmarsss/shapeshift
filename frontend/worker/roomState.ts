@@ -1,5 +1,5 @@
 import { ROOM_LIMITS, type Ops, type SharedTurn, type VersionMeta } from "../src/collab/protocol";
-import type { Light, SceneObject } from "../src/scene/schema";
+import type { Environment, Light, SceneObject } from "../src/scene/schema";
 
 type Entity = { id: string };
 
@@ -58,6 +58,7 @@ export class RoomState {
     lights: Light[];
     version: number;
     chat: SharedTurn[];
+    environment: Environment = "none";
 
     constructor(objects: SceneObject[] = [], lights: Light[] = [], version = 0, chat: SharedTurn[] = []) {
         this.objects = objects;
@@ -89,6 +90,7 @@ export class RoomState {
         if (lights.length > ROOM_LIMITS.lights) return { ok: false, error: `A shared scene can hold ${ROOM_LIMITS.lights} lights` };
         this.objects = objects;
         this.lights = lights;
+        if (ops.environment) this.environment = ops.environment;
         this.version++;
         return { ok: true, version: this.version };
     }
