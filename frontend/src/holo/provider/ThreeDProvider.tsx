@@ -54,6 +54,8 @@ export const ThreeDProvider: React.FC<{ children: React.ReactNode }> = ({
         cameraRef.current.lookAt(0, 0, 0);
 
         const gridHelper = new THREE.GridHelper(400, 400, 0x34363c, 0x26282d);
+        (gridHelper.material as THREE.LineBasicMaterial).depthWrite = false;
+        gridHelper.renderOrder = -1;
         mainGroupRef.current.add(gridHelper);
         sceneRef.current.fog = new THREE.Fog(0x0d0e10, 15, 60);
 
