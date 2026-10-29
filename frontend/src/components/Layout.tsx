@@ -1,3 +1,5 @@
+import { Timeline, TIMELINE_HEIGHT } from "./timeline/Timeline";
+import { useTimeline } from "../scene/timeline";
 import { lazy, Suspense, useEffect, type CSSProperties } from "react";
 import styled from "styled-components";
 import { GlobalStyle } from "./ui";
@@ -32,12 +34,21 @@ export function Layout() {
     const showChat = useUI((s) => s.showChat);
     const handsOn = useHands((s) => s.status !== "off");
     const showSettings = useUI((s) => s.showSettings);
+    const timelineOpen = useTimeline((s) => s.open);
     const theme = useResolvedTheme();
     useEffect(() => {
         document.documentElement.dataset.theme = theme;
     }, [theme]);
     return (
-        <Root style={{ "--chat-width": showChat ? "360px" : "0px" } as CSSProperties}>
+        <Root
+            style={
+                {
+                    "--chat-width": showChat ? "360px" : "0px",
+                    // Panels along the bottom sit above the timeline when it's open.
+                    "--bottom-offset": timelineOpen ? `${TIMELINE_HEIGHT + 12}px` : "0px",
+                } as CSSProperties
+            }
+        >
             <GlobalStyle />
             <Topbar />
             <Stage>
@@ -46,6 +57,7 @@ export function Layout() {
             <Toolbar />
             <Inspector />
             <BooleanPanel />
+            <Timeline />
             <Suspense fallback={null}>
                 <ChatPanel />
                 {handsOn && <HandUI />}

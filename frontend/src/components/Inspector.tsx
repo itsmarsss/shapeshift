@@ -15,7 +15,7 @@ const Root = styled(Panel)`
     top: calc(var(--topbar) + var(--gap));
     left: calc(var(--gap) * 2 + 46px);
     width: 272px;
-    max-height: calc(100% - var(--topbar) - var(--gap) * 2);
+    max-height: calc(100% - var(--topbar) - var(--gap) * 2 - var(--bottom-offset, 0px));
     z-index: 30;
 `;
 

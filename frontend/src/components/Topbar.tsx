@@ -6,6 +6,7 @@ import {
     ChatCircle,
     Camera,
     Export,
+    FilmStrip,
     FilePlus,
     FloppyDisk,
     FolderOpen,
@@ -22,6 +23,7 @@ import { useHands } from "../hands/tracker";
 import { useSettings } from "../settings/store";
 import { IconButton, Segment, Segmented } from "./ui";
 import { CollabBar } from "../collab/CollabBar";
+import { useTimeline } from "../scene/timeline";
 
 const Bar = styled.div`
     height: var(--topbar);
@@ -70,6 +72,8 @@ async function saveImage() {
 }
 
 export function Topbar() {
+    const timelineOpen = useTimeline((s) => s.open);
+    const setTimelineOpen = useTimeline((s) => s.setOpen);
     const run = useScene((s) => s.run);
     const load = useScene((s) => s.load);
     const undo = useScene((s) => s.undo);
@@ -157,6 +161,9 @@ export function Topbar() {
                     <ArrowUUpRight size={18} />
                 </IconButton>
                 <Sep />
+                <IconButton title="Animation timeline" $active={timelineOpen} onClick={() => setTimelineOpen(!timelineOpen)}>
+                    <FilmStrip size={18} />
+                </IconButton>
                 <IconButton
                     title={handStatus === "off" ? "Turn on hand control" : "Turn off hand control"}
                     $active={handStatus !== "off"}
