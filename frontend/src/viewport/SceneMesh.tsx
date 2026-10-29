@@ -19,7 +19,8 @@ type Props = {
 export const SceneMesh = memo(function SceneMesh({ object, selected, hovered, peerColor, showSelection, onSelect, meshRef }: Props) {
     const geometry = useMemo(() => buildGeometry(object.geometry), [object.geometry]);
     useEffect(() => () => geometry.dispose(), [geometry]);
-    const { color, metalness, roughness, opacity } = object.material;
+    const { color, metalness, roughness, opacity, emissive, emissiveIntensity = 0, transmission = 0 } = object.material;
+    const glow = { emissive: emissive ?? color, emissiveIntensity };
 
     return (
         <mesh
@@ -36,13 +37,22 @@ export const SceneMesh = memo(function SceneMesh({ object, selected, hovered, pe
                 onSelect(object.id, e.nativeEvent);
             }}
         >
-            <meshStandardMaterial
-                color={color}
-                metalness={metalness}
-                roughness={roughness}
-                opacity={opacity}
-                transparent={opacity < 1}
-            />
+            {transmission > 0 ? (
+                // Physical materials cost more, so only glass gets one.
+                <meshPhysicalMaterial
+                    color={color}
+                    metalness={metalness}
+                    roughness={roughness}
+                    opacity={opacity}
+                    transparent={opacity < 1}
+                    transmission={transmission}
+                    thickness={0.5}
+                    ior={1.5}
+                    {...glow}
+                />
+            ) : (
+                <meshStandardMaterial color={color} metalness={metalness} roughness={roughness} opacity={opacity} transparent={opacity < 1} {...glow} />
+            )}
             {selected && showSelection && <Edges threshold={20} color="#4f7cff" />}
             {peerColor && !selected && <Edges threshold={20} color={peerColor} lineWidth={2} />}
             {hovered && !selected && <Edges threshold={20} color="#9db4ff" lineWidth={2} />}
