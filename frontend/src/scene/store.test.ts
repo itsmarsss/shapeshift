@@ -244,3 +244,30 @@ describe("groups", () => {
         expect(s().doc.objects).toHaveLength(6);
     });
 });
+
+describe("selection", () => {
+    it("toggles extra objects in and keeps the last one primary", () => {
+        s().run([
+            { type: "add", primitive: "box", name: "A" },
+            { type: "add", primitive: "box", name: "B" },
+        ]);
+        const [a, b] = s().doc.objects.map((o) => o.id);
+        s().select(a);
+        s().select(b, { toggle: true });
+        expect(s().selectedIds).toEqual([a, b]);
+        expect(s().selectedId).toBe(b);
+        s().select(b, { toggle: true });
+        expect(s().selectedIds).toEqual([a]);
+        expect(s().selectedId).toBe(a);
+    });
+
+    it("drops removed objects from the selection", () => {
+        s().run([
+            { type: "add", primitive: "box", name: "A" },
+            { type: "add", primitive: "box", name: "B" },
+        ]);
+        s().selectMany(s().doc.objects.map((o) => o.id));
+        s().run({ type: "remove", target: "B" });
+        expect(s().selectedIds).toEqual([s().doc.objects[0].id]);
+    });
+});

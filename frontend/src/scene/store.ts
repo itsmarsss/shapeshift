@@ -28,7 +28,10 @@ export type SceneState = {
     past: HistoryEntry[];
     future: HistoryEntry[];
     openCoalesce: string | null;
+    // The primary selection, which the inspector and gizmo follow.
     selectedId: string | null;
+    // Everything selected, primary last.
+    selectedIds: string[];
     mode: EditorMode;
     transformMode: TransformMode;
     snap: Snap;
@@ -37,7 +40,8 @@ export type SceneState = {
     undo: () => void;
     redo: () => void;
     load: (doc: SceneDoc) => void;
-    select: (id: string | null) => void;
+    select: (id: string | null, options?: { toggle?: boolean }) => void;
+    selectMany: (ids: string[]) => void;
     setMode: (mode: EditorMode) => void;
     setTransformMode: (mode: TransformMode) => void;
     setSnap: (snap: Partial<Snap>) => void;
@@ -47,8 +51,16 @@ export const emptyDoc = (): SceneDoc => ({ version: 2, objects: [], lights: [] }
 
 const HISTORY_LIMIT = 200;
 
-function pruneSelection(doc: SceneDoc, selectedId: string | null) {
-    return selectedId && (doc.objects.some((o) => o.id === selectedId) || doc.lights.some((l) => l.id === selectedId)) ? selectedId : null;
+function exists(doc: SceneDoc, id: string) {
+    return doc.objects.some((o) => o.id === id) || doc.lights.some((l) => l.id === id);
+}
+
+function selection(ids: string[]) {
+    return { selectedIds: ids, selectedId: ids[ids.length - 1] ?? null };
+}
+
+function pruneSelection(doc: SceneDoc, ids: string[]) {
+    return selection(ids.filter((id) => exists(doc, id)));
 }
 
 export const useScene = create<SceneState>()((set, get) => ({
@@ -57,6 +69,7 @@ export const useScene = create<SceneState>()((set, get) => ({
     future: [],
     openCoalesce: null,
     selectedId: null,
+    selectedIds: [],
     mode: "object",
     transformMode: "translate",
     snap: { enabled: false, translate: 0.5, rotate: Math.PI / 12, scale: 0.1 },
@@ -92,10 +105,9 @@ export const useScene = create<SceneState>()((set, get) => ({
             past,
             future: [],
             openCoalesce: options.coalesce ?? null,
-            selectedId:
-                options.select !== false && created.length > 0
-                    ? created[created.length - 1]
-                    : pruneSelection(doc, state.selectedId),
+            ...(options.select !== false && created.length > 0
+                ? selection([created[created.length - 1]])
+                : pruneSelection(doc, state.selectedIds)),
         });
         return results;
     },
@@ -103,7 +115,7 @@ export const useScene = create<SceneState>()((set, get) => ({
     endCoalesce: () => set({ openCoalesce: null }),
 
     undo: () => {
-        const { past, future, doc, selectedId } = get();
+        const { past, future, doc, selectedIds } = get();
         const entry = past[past.length - 1];
         if (!entry) return;
         const next = applyPatches(doc, entry.inverse);
@@ -112,12 +124,12 @@ export const useScene = create<SceneState>()((set, get) => ({
             past: past.slice(0, -1),
             future: [entry, ...future],
             openCoalesce: null,
-            selectedId: pruneSelection(next, selectedId),
+            ...pruneSelection(next, selectedIds),
         });
     },
 
     redo: () => {
-        const { past, future, doc, selectedId } = get();
+        const { past, future, doc, selectedIds } = get();
         const entry = future[0];
         if (!entry) return;
         const next = applyPatches(doc, entry.patches);
@@ -126,12 +138,18 @@ export const useScene = create<SceneState>()((set, get) => ({
             past: [...past, entry],
             future: future.slice(1),
             openCoalesce: null,
-            selectedId: pruneSelection(next, selectedId),
+            ...pruneSelection(next, selectedIds),
         });
     },
 
-    load: (doc) => set({ doc, past: [], future: [], openCoalesce: null, selectedId: null }),
-    select: (id) => set({ selectedId: id }),
+    load: (doc) => set({ doc, past: [], future: [], openCoalesce: null, ...selection([]) }),
+    select: (id, options = {}) =>
+        set((s) => {
+            if (id === null) return selection([]);
+            if (!options.toggle) return selection([id]);
+            return selection(s.selectedIds.includes(id) ? s.selectedIds.filter((x) => x !== id) : [...s.selectedIds, id]);
+        }),
+    selectMany: (ids) => set(selection([...new Set(ids)])),
     setMode: (mode) => set({ mode }),
     setTransformMode: (transformMode) => set({ transformMode }),
     setSnap: (snap) => set((s) => ({ snap: { ...s.snap, ...snap } })),
@@ -139,6 +157,8 @@ export const useScene = create<SceneState>()((set, get) => ({
 
 export const selectSelected = (s: SceneState) =>
     s.selectedId ? s.doc.objects.find((o) => o.id === s.selectedId) ?? null : null;
+
+export const selectSelectedObjects = (s: SceneState) => s.doc.objects.filter((o) => s.selectedIds.includes(o.id));
 
 export const selectSelectedLight = (s: SceneState) =>
     s.selectedId ? s.doc.lights.find((l) => l.id === s.selectedId) ?? null : null;
