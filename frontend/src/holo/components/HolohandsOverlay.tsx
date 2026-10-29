@@ -1,8 +1,12 @@
 import { useEffect, useRef } from "react";
-import { WebSocketProvider, useWebSocket } from "../provider/WebSocketContext";
+import {
+    FRAME_HEIGHT,
+    FRAME_WIDTH,
+    HandTrackerProvider,
+    useHandTracker,
+} from "../provider/HandTrackerContext";
 import { ThreeDProvider } from "../provider/ThreeDContext";
 import Editable3DObject from "./ThreeRenderer";
-import { useVideoStream } from "../provider/VideoStreamContext";
 import { useViewportActions } from "../../provider/ViewportContext";
 import useSkeleton from "../hooks/useSkeleton";
 import type { InteractionState } from "../objects/InteractionState";
@@ -16,9 +20,7 @@ function OverlayInner() {
         orbitPan,
         orbitDolly,
     } = useViewportActions() as any;
-    const { getConnectionStatus, getData, sendFrame, getAcknowledged } =
-        useWebSocket();
-    const { captureFrame } = useVideoStream();
+    const { getData } = useHandTracker();
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const viewportRef = useRef<HTMLDivElement>(null);
     const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -91,36 +93,12 @@ function OverlayInner() {
         let prevL: { x: number; y: number } | null = null;
         let prevR: { x: number; y: number } | null = null;
         let prevDist: number | null = null;
-        const lastStatusRef = { value: "" } as { value: string };
-        const lastStatusUpdateRef = { value: 0 } as { value: number };
-        let capturing = false;
 
         // FPS counters
         const frameCountRef = { value: 0 } as { value: number };
         const lastTimeRef = { value: Date.now() } as { value: number };
 
         const tick = () => {
-            // Throttle status updates (no await)
-            const now = performance.now();
-            if (now - lastStatusUpdateRef.value > 250) {
-                const s = getConnectionStatus();
-                // Status tracking removed - video now integrated into chat panel
-                lastStatusRef.value = s;
-                lastStatusUpdateRef.value = now;
-            }
-
-            // If server ready, start an async capture/send without blocking the loop
-            if (getAcknowledged() && !capturing) {
-                capturing = true;
-                captureFrame()
-                    .then((frame) => {
-                        if (frame) sendFrame(frame);
-                    })
-                    .finally(() => {
-                        capturing = false;
-                    });
-            }
-
             const canvas = canvasRef.current;
             if (canvas) {
                 const ctx =
@@ -131,7 +109,7 @@ function OverlayInner() {
                 if (ctx) {
                     if (!ctxRef.current) ctxRef.current = ctx;
 
-                    const data = getData() as any;
+                    const data = getData();
                     if (
                         data &&
                         data.hands &&
@@ -139,10 +117,9 @@ function OverlayInner() {
                         canvas.height > 0
                     ) {
                         ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        // Use original video dimensions since hand landmarks are normalized to that
                         const size = {
-                            width: 640, // Original video width
-                            height: 360, // Original video height
+                            width: FRAME_WIDTH,
+                            height: FRAME_HEIGHT,
                         };
                         processHands(data.hands, size, ctx);
 
@@ -255,10 +232,6 @@ function OverlayInner() {
         raf = requestAnimationFrame(tick);
         return () => cancelAnimationFrame(raf);
     }, [
-        getConnectionStatus,
-        getAcknowledged,
-        captureFrame,
-        sendFrame,
         getData,
         processHands,
         startHandDrag,
@@ -302,10 +275,9 @@ function OverlayInner() {
 }
 
 export default function HolohandsOverlay() {
-    const wsUrl = "ws://localhost:6969/ws"; // adjust if needed
     return (
-        <WebSocketProvider url={wsUrl}>
+        <HandTrackerProvider>
             <OverlayInner />
-        </WebSocketProvider>
+        </HandTrackerProvider>
     );
 }

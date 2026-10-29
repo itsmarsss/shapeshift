@@ -8,16 +8,13 @@
 
 ## How to run
 
-1. Ensure you have Python and Node installed
-2. (recommended) create a virtual environment with `python -m venv .venv` and activate it with `source .venv/bin/activate`
-3. Install the dependencies with `pip install -r requirements.txt`
-4. Run the backend with `python backend/webserver.py`
-5. Run the following commands in a separate terminal to set up the frontend:
+1. Ensure you have Node and pnpm installed
+2. Run the following commands to set up the frontend:
     - `cd frontend`
     - `pnpm install`
     - `pnpm dev`
-6. Open the browser and go to `http://localhost:5173`
-7. Enjoy! (note: the AI agent is not currently configured to work properly, so a fallback mode is used instead)
+3. Open the browser and go to `http://localhost:5173`
+4. Enjoy! (note: the AI agent is not currently configured to work properly, so a fallback mode is used instead)
 
 A production version will be released soon.
 
@@ -42,11 +39,11 @@ ShapeShift is built on a modern, multi-faceted tech stack designed for real-time
 
 -   **Frontend:** The entire user interface is a dynamic web application built with **React**, **TypeScript**, and **Vite**. For rendering the 3D environment, we used the powerful **Three.js** library, primarily through the declarative APIs of **@react-three/fiber** and **@react-three/drei**. Global state management is handled efficiently by **Zustand**.
 
--   **Backend (Computer Vision):** The gesture-control engine is powered by a **Python** backend using **Flask** and **Eventlet** for high-performance WebSocket communication. We use **OpenCV** to capture the video feed from the user's webcam and the **MediaPipe** library to perform real-time hand landmark detection. This landmark data is then streamed to the frontend.
+-   **Hand tracking:** Gesture control runs entirely in the browser. **MediaPipe** Hand Landmarker (WebAssembly + WebGL) reads the webcam feed and detects hand landmarks in real time, so video never leaves the user's machine.
 
 -   **Backend (AI Agent):** The AI assistant is orchestrated by a **Node.js** server using **Express**. This server acts as a middleware that defines a set of tools (functions) the AI can use to manipulate the 3D scene. It integrates with LLM providers (like Martian).
 
-The components communicate seamlessly: the Python backend streams hand data to the React frontend via WebSockets, while the frontend sends user prompts to the Node.js server to trigger AI actions.
+The frontend sends user prompts to the Node.js server to trigger AI actions.
 
 ---
 
