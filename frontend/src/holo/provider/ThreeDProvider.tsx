@@ -53,11 +53,11 @@ export const ThreeDProvider: React.FC<{ children: React.ReactNode }> = ({
         cameraRef.current.position.set(0, 3, 5);
         cameraRef.current.lookAt(0, 0, 0);
 
-        // Create an infinite grid by using a large size and positioning it at the camera's height
-        const gridHelper = new THREE.GridHelper(1000, 1000);
-        // Set grid color to white for better visibility
-        (gridHelper.material as THREE.LineBasicMaterial).color.setHex(0xffffff);
+        const gridHelper = new THREE.GridHelper(400, 400, 0x34363c, 0x26282d);
+        (gridHelper.material as THREE.LineBasicMaterial).depthWrite = false;
+        gridHelper.renderOrder = -1;
         mainGroupRef.current.add(gridHelper);
+        sceneRef.current.fog = new THREE.Fog(0x0d0e10, 15, 60);
 
         // Add custom axis lines that extend in both directions (X=Red, Y=Green, Z=Blue)
         const axisLength = 500; // Match the grid span (half of 1000)
@@ -69,7 +69,7 @@ export const ThreeDProvider: React.FC<{ children: React.ReactNode }> = ({
             new THREE.Vector3(axisLength, 0, 0),
         ]);
         const xMaterial = new THREE.LineBasicMaterial({
-            color: 0xff2222, // Brighter red
+            color: 0xe5484d,
             linewidth: axisThickness,
         });
         const xAxis = new THREE.Line(xGeometry, xMaterial);
@@ -81,7 +81,7 @@ export const ThreeDProvider: React.FC<{ children: React.ReactNode }> = ({
             new THREE.Vector3(0, axisLength, 0),
         ]);
         const yMaterial = new THREE.LineBasicMaterial({
-            color: 0x22ff22, // Brighter green
+            color: 0x46a758,
             linewidth: axisThickness,
         });
         const yAxis = new THREE.Line(yGeometry, yMaterial);
@@ -93,7 +93,7 @@ export const ThreeDProvider: React.FC<{ children: React.ReactNode }> = ({
             new THREE.Vector3(0, 0, axisLength),
         ]);
         const zMaterial = new THREE.LineBasicMaterial({
-            color: 0x2222ff, // Brighter blue
+            color: 0x4f7cff,
             linewidth: axisThickness,
         });
         const zAxis = new THREE.Line(zGeometry, zMaterial);
@@ -143,7 +143,7 @@ export const ThreeDProvider: React.FC<{ children: React.ReactNode }> = ({
         // Add eight corner markers to the face mesh.
         for (let i = 0; i < 8; i++) {
             const markerMaterial = new THREE.MeshBasicMaterial({
-                color: 0x4a9eff,
+                color: 0x4f7cff,
             });
             const marker = new THREE.Mesh(
                 new THREE.SphereGeometry(0.05, 8, 8),

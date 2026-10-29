@@ -24,7 +24,7 @@ export const useAgentTimeline = create<AgentUiState>()((set) => ({
     setSnapshot: (snapshot) => set((s) => ({ ...s, snapshot })),
     lastExportName: null,
     setLastExportName: (n) => set((s) => ({ ...s, lastExportName: n })),
-    showTimeline: true,
+    showTimeline: false,
     setShowTimeline: (v) => set((s) => ({ ...s, showTimeline: v })),
     toggleTimeline: () => set((s) => ({ ...s, showTimeline: !s.showTimeline })),
 })); 

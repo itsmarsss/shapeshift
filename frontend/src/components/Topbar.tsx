@@ -10,41 +10,65 @@ import { saveScene, loadScene } from "../utils/local";
 import { sceneToJSON, jsonToScene } from "../utils/scene";
 import { saveAs } from "file-saver";
 import type { EditorState } from "../types";
+import {
+    ArrowUUpLeft,
+    ArrowUUpRight,
+    ChatCircle,
+    Export,
+    FilePlus,
+    FloppyDisk,
+    FolderOpen,
+    ListChecks,
+    SlidersHorizontal,
+    TrayArrowDown,
+} from "@phosphor-icons/react";
+import { IconButton, Segment, Segmented } from "./ui";
+import { useAgentTimeline } from "../store/agentTimeline";
 
 const Bar = styled.div`
-    height: 48px;
-    display: flex;
+    height: var(--topbar);
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    justify-content: space-between;
-    padding: 0 12px;
-    background: rgba(20, 22, 28, 0.9);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    backdrop-filter: blur(10px);
+    padding: 0 8px 0 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
     position: relative;
     z-index: 100;
 `;
 
-const Group = styled.div`
+const Group = styled.div<{ $end?: boolean }>`
     display: flex;
-    gap: 8px;
+    align-items: center;
+    gap: 2px;
+    justify-self: ${(p) => (p.$end ? "end" : "start")};
 `;
 
-const Btn = styled.button`
-    background: #12141a;
-    color: #e6e9ef;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    padding: 6px 10px;
-    border-radius: 8px;
+const Brand = styled.div`
+    font-weight: 600;
+    margin-right: 12px;
+`;
+
+const Sep = styled.div`
+    width: 1px;
+    height: 18px;
+    margin: 0 6px;
+    background: var(--border);
 `;
 
 const HiddenInput = styled.input`
     display: none;
 `;
+
 export function Topbar() {
     const undo = useEditor((s) => s.undo);
     const redo = useEditor((s) => s.redo);
     const toggleInspector = useEditor((s) => s.toggleInspector);
-    const setShowChatPanel = useEditor((s) => s.setShowChatPanel);
+    const showInspector = useEditor((s) => s.showInspector);
+    const showChatPanel = useEditor((s) => s.showChatPanel);
+    const toggleChatPanel = useEditor((s) => s.toggleChatPanel);
+    const showTimeline = useAgentTimeline((s) => s.showTimeline);
+    const toggleTimeline = useAgentTimeline((s) => s.toggleTimeline);
     const setEditorMode = useEditor((s) => s.setEditorMode);
     const editorMode = useEditor((s) => s.editorMode);
     const clear = useEditor((s) => s.clear);
@@ -54,7 +78,6 @@ export function Topbar() {
 
     async function onExport() {
         const scene = buildSceneFromObjects(objects);
-        // Export GLB (binary) and GLTF (JSON)
         await exportSceneToGLB(scene);
         await exportSceneToGLTF(scene);
     }
@@ -71,9 +94,7 @@ export function Topbar() {
             future: [],
             checkpoints: [],
         } as EditorState;
-        // Persist to localStorage
         saveScene(state);
-        // Download as JSON file for explicit user feedback
         const json = sceneToJSON(state);
         const blob = new Blob([json], { type: "application/json" });
         saveAs(blob, "scene.json");
@@ -94,7 +115,6 @@ export function Topbar() {
     }
 
     function onLoad() {
-        // Prefer file picker to visibly do something; fallback to localStorage if no file chosen
         const input = document.getElementById(
             "load-file"
         ) as HTMLInputElement | null;
@@ -110,7 +130,6 @@ export function Topbar() {
             const text = String(reader.result || "");
             const decoded = jsonToScene(text) || loadScene();
             applyLoaded(decoded);
-            // reset input so selecting the same file again triggers change
             e.target.value = "";
         };
         reader.readAsText(file);
@@ -119,17 +138,28 @@ export function Topbar() {
     return (
         <Bar>
             <Group>
-                <Btn onClick={() => clear()}>New</Btn>
-                <Btn onClick={onSave}>Save</Btn>
-                <Btn onClick={onLoad}>Load</Btn>
-                <Btn
+                <Brand>ShapeShift</Brand>
+                <IconButton title="New scene" onClick={() => clear()}>
+                    <FilePlus size={18} />
+                </IconButton>
+                <IconButton title="Open scene" onClick={onLoad}>
+                    <FolderOpen size={18} />
+                </IconButton>
+                <IconButton title="Save scene" onClick={onSave}>
+                    <FloppyDisk size={18} />
+                </IconButton>
+                <Sep />
+                <IconButton
+                    title="Import model"
                     onClick={() =>
                         document.getElementById("import-file")?.click()
                     }
                 >
-                    Import
-                </Btn>
-                <Btn onClick={onExport}>Export</Btn>
+                    <TrayArrowDown size={18} />
+                </IconButton>
+                <IconButton title="Export as GLB and glTF" onClick={onExport}>
+                    <Export size={18} />
+                </IconButton>
                 <HiddenInput
                     id="import-file"
                     type="file"
@@ -174,39 +204,55 @@ export function Topbar() {
                     onChange={onLoadFileChange}
                 />
             </Group>
-            <Group>
-                <Btn
+            <Segmented>
+                <Segment
+                    $active={editorMode === "object"}
                     onClick={() => setEditorMode("object")}
-                    style={{ opacity: editorMode === "object" ? 1 : 0.7 }}
                 >
                     Object
-                </Btn>
-                <Btn
+                </Segment>
+                <Segment
+                    $active={editorMode === "edit"}
                     onClick={() => setEditorMode("edit")}
-                    style={{ opacity: editorMode === "edit" ? 1 : 0.7 }}
                 >
                     Edit
-                </Btn>
-                <Btn
+                </Segment>
+                <Segment
+                    $active={editorMode === "render"}
                     onClick={() => setEditorMode("render")}
-                    style={{ opacity: editorMode === "render" ? 1 : 0.7 }}
                 >
                     Render
-                </Btn>
-            </Group>
-            <Group>
-                <Btn onClick={undo}>Undo</Btn>
-                <Btn onClick={redo}>Redo</Btn>
-                <Btn
+                </Segment>
+            </Segmented>
+            <Group $end>
+                <IconButton title="Undo" onClick={undo}>
+                    <ArrowUUpLeft size={18} />
+                </IconButton>
+                <IconButton title="Redo" onClick={redo}>
+                    <ArrowUUpRight size={18} />
+                </IconButton>
+                <Sep />
+                <IconButton
+                    title="Inspector"
+                    $active={showInspector}
                     onClick={toggleInspector}
                 >
-                    🔍
-                </Btn>
-                <Btn
-                    onClick={() => setShowChatPanel(true)}
+                    <SlidersHorizontal size={18} />
+                </IconButton>
+                <IconButton
+                    title="Agent steps"
+                    $active={showTimeline}
+                    onClick={toggleTimeline}
                 >
-                    💬
-                </Btn>
+                    <ListChecks size={18} />
+                </IconButton>
+                <IconButton
+                    title="Assistant"
+                    $active={showChatPanel}
+                    onClick={toggleChatPanel}
+                >
+                    <ChatCircle size={18} />
+                </IconButton>
             </Group>
         </Bar>
     );

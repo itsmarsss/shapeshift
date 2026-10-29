@@ -1,62 +1,57 @@
 import styled from "styled-components";
 import { useState, useEffect } from "react";
+import { CameraSlash, CircleNotch } from "@phosphor-icons/react";
 import { useVideoStream } from "../holo/provider/VideoStreamContext";
+import { Select } from "./ui";
 
 const VideoContainer = styled.div`
     position: absolute;
-    bottom: 12px;
-    left: 12px;
-    width: 200px;
-    background: rgba(18, 20, 26, 0.85);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
-    padding: 6px;
+    bottom: var(--gap);
+    left: var(--gap);
+    width: 220px;
+    padding: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
     display: flex;
     flex-direction: column;
     gap: 4px;
-    z-index: 10;
+    z-index: 20;
+`;
+
+const Frame = styled.div`
+    position: relative;
+    aspect-ratio: 16 / 9;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--bg);
 `;
 
 const Video = styled.video`
     width: 100%;
-    height: 100px;
-    background: #0f1116;
-    border-radius: 6px;
-    transform: scaleX(-1);
+    height: 100%;
     object-fit: cover;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    transform: scaleX(-1);
+    display: block;
 `;
 
-const Status = styled.div`
-    font-size: 10px;
-    color: #8c8c8c;
-    background: rgba(0, 0, 0, 0.3);
-    padding: 3px 6px;
-    border-radius: 4px;
-    text-align: center;
-    border: 1px solid rgba(255, 255, 255, 0.04);
-`;
-
-const CameraSelector = styled.select`
-    background: rgba(0, 0, 0, 0.4);
-    color: #e6e9ef;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 4px;
-    padding: 2px 4px;
-    font-size: 9px;
-    width: 100%;
-    margin-top: 2px;
-
-    option {
-        background: #1e222c;
-        color: #e6e9ef;
-    }
-`;
-
-const Controls = styled.div`
+const Overlay = styled.div`
+    position: absolute;
+    inset: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: var(--text-muted);
+    font-size: 12px;
+    text-align: center;
+    padding: 8px;
+`;
+
+const CameraSelect = styled(Select)`
+    height: 26px;
+    font-size: 12px;
 `;
 
 export function VideoStream() {
@@ -104,33 +99,40 @@ export function VideoStream() {
         event: React.ChangeEvent<HTMLSelectElement>
     ) => {
         const cameraId = event.target.value;
-        console.log("Switching to camera:", cameraId);
         setSelectedCamera(cameraId);
         setActiveCamera(cameraId);
     };
 
     return (
         <VideoContainer>
-            <Video ref={videoRef} autoPlay muted />
-            <Controls>
-                <Status>{status}</Status>
-                {cameras.length > 1 && (
-                    <CameraSelector
-                        value={selectedCamera}
-                        onChange={handleCameraChange}
-                    >
-                        {cameras.map((camera) => (
-                            <option
-                                key={camera.deviceId}
-                                value={camera.deviceId}
-                            >
-                                {camera.label ||
-                                    `Camera ${camera.deviceId.slice(0, 8)}`}
-                            </option>
-                        ))}
-                    </CameraSelector>
+            <Frame>
+                <Video ref={videoRef} autoPlay muted playsInline />
+                {status === "loading" && (
+                    <Overlay>
+                        <CircleNotch size={18} />
+                        Starting camera
+                    </Overlay>
                 )}
-            </Controls>
+                {status === "error" && (
+                    <Overlay>
+                        <CameraSlash size={18} />
+                        Allow camera access to use hand controls
+                    </Overlay>
+                )}
+            </Frame>
+            {cameras.length > 1 && (
+                <CameraSelect
+                    value={selectedCamera}
+                    onChange={handleCameraChange}
+                >
+                    {cameras.map((camera) => (
+                        <option key={camera.deviceId} value={camera.deviceId}>
+                            {camera.label ||
+                                `Camera ${camera.deviceId.slice(0, 8)}`}
+                        </option>
+                    ))}
+                </CameraSelect>
+            )}
         </VideoContainer>
     );
 }

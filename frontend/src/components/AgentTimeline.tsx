@@ -1,100 +1,90 @@
 import styled from "styled-components";
+import { CheckCircle, WarningCircle, X } from "@phosphor-icons/react";
 import type { StepResult } from "../agent/types";
 import { useAgentTimeline } from "../store/agentTimeline";
+import { IconButton, Panel, PanelHeader, PanelTitle } from "./ui";
 
-const Rail = styled.div`
-    position: absolute;
-    top: 56px;
-    bottom: 12px;
-    right: 300px; /* to the left of chat panel */
+const Rail = styled(Panel)`
+    top: calc(var(--topbar) + var(--gap));
+    bottom: var(--gap);
+    right: calc(var(--gap) * 2 + var(--chat-width, 0px));
     width: 260px;
-    background: rgba(18, 20, 26, 0.9);
-    color: #e6e9ef;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
     z-index: 40;
-`;
-
-const Header = styled.div`
-    padding: 8px 12px;
-    font-weight: 600;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-`;
-
-const CloseBtn = styled.button`
-    background: #12141a;
-    color: #e6e9ef;
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 8px;
-    padding: 4px 8px;
-    font-size: 12px;
 `;
 
 const Steps = styled.div`
     flex: 1;
     overflow: auto;
-    padding: 8px 10px;
+    padding: 8px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
 `;
 
-const Row = styled.div<{ ok: boolean }>`
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background: ${(p) => (p.ok ? "rgba(30, 34, 44, 0.7)" : "rgba(60, 20, 20, 0.5)")};
-    border-radius: 10px;
-    padding: 8px;
+const Row = styled.div`
+    padding: 8px 10px;
+    border-radius: var(--radius);
+    background: var(--surface-raised);
     font-size: 12px;
 `;
 
-const Badge = styled.span`
-    display: inline-block;
-    padding: 2px 6px;
-    margin-right: 6px;
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 999px;
-    background: rgba(255,255,255,0.06);
+const RowHead = styled.div<{ $ok: boolean }>`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+    svg {
+        color: ${(p) => (p.$ok ? "var(--success)" : "var(--danger)")};
+    }
+`;
+
+const Args = styled.div`
+    margin-top: 4px;
+    color: var(--text-muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 11px;
+    word-break: break-all;
+`;
+
+const Changes = styled.div`
+    margin-top: 4px;
+    color: var(--text-muted);
+`;
+
+const Empty = styled.div`
+    padding: 8px 6px;
+    color: var(--text-muted);
 `;
 
 export function AgentTimeline({ steps }: { steps: StepResult[] }) {
     const setShow = useAgentTimeline((s) => s.setShowTimeline);
     return (
         <Rail>
-            <Header>
-                <div>Agent Timeline</div>
-                <CloseBtn onClick={() => setShow(false)}>✕</CloseBtn>
-            </Header>
+            <PanelHeader>
+                <PanelTitle>Agent steps</PanelTitle>
+                <IconButton title="Close" onClick={() => setShow(false)}>
+                    <X size={16} />
+                </IconButton>
+            </PanelHeader>
             <Steps>
                 {steps.length === 0 ? (
-                    <div style={{ opacity: 0.6, fontSize: 12 }}>No steps yet</div>
+                    <Empty>Steps appear here when the assistant falls back to built-in commands.</Empty>
                 ) : (
                     steps.map((s, i) => {
-                        const tool = s.tool?.name;
-                        const args = s.tool?.args || {};
                         const diff = s.diff || { addedIds: [], removedIds: [], updatedIds: [] };
-                        const diffs: string[] = [];
-                        if (diff.addedIds.length) diffs.push(`+${diff.addedIds.length} added`);
-                        if (diff.removedIds.length) diffs.push(`-${diff.removedIds.length} removed`);
-                        if (diff.updatedIds.length) diffs.push(`~${diff.updatedIds.length} updated`);
+                        const changes = [
+                            diff.addedIds.length && `${diff.addedIds.length} added`,
+                            diff.removedIds.length && `${diff.removedIds.length} removed`,
+                            diff.updatedIds.length && `${diff.updatedIds.length} updated`,
+                        ].filter(Boolean);
                         return (
-                            <Row key={i} ok={s.ok}>
-                                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                    <div>{tool}</div>
-                                    <div>{s.ok ? "✅" : "❌"}</div>
-                                </div>
-                                <div style={{ opacity: 0.8, marginTop: 4 }}>{shortArgs(args)}</div>
-                                <div style={{ marginTop: 6 }}>
-                                    {diffs.map((d, j) => (
-                                        <Badge key={j}>{d}</Badge>
-                                    ))}
-                                </div>
+                            <Row key={i}>
+                                <RowHead $ok={s.ok}>
+                                    {s.ok ? <CheckCircle size={14} weight="fill" /> : <WarningCircle size={14} weight="fill" />}
+                                    {s.tool?.name.replace(/_/g, " ")}
+                                </RowHead>
+                                <Args>{shortArgs(s.tool?.args || {})}</Args>
+                                {changes.length > 0 && <Changes>{changes.join(" · ")}</Changes>}
                             </Row>
                         );
                     })

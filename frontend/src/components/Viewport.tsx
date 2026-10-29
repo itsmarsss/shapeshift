@@ -5,6 +5,7 @@ import {
     GizmoHelper,
     GizmoViewport,
     Grid,
+    Line,
     OrbitControls,
     PerspectiveCamera,
     TransformControls,
@@ -881,7 +882,7 @@ export function Viewport() {
                 if (!isTransforming && !isGizmoInteracting) select(null);
             }}
         >
-            <color attach="background" args={[0.08, 0.08, 0.1]} />
+            <color attach="background" args={["#0d0e10"]} />
             <PerspectiveCamera makeDefault position={[4, 3, 6]} fov={50} />
             <OrbitControls
                 ref={orbitRef as React.Ref<OrbitControlsImpl>}
@@ -911,7 +912,6 @@ export function Viewport() {
             ) : (
                 <Lights />
             )}
-            {/* Grid and axes - show in all modes including render */}
             <Grid
                 infiniteGrid
                 fadeDistance={40}
@@ -919,56 +919,17 @@ export function Viewport() {
                 sectionSize={2}
                 cellThickness={0.3}
                 sectionThickness={1}
-                cellColor="#ffffff"
-                sectionColor="#ffffff"
+                cellColor="#26282d"
+                sectionColor="#3a3d44"
             />
-            {/* Custom axis lines that extend in both directions - full grid span */}
-            <group>
-                {/* X-axis (Bright Red) */}
-                <line>
-                    <bufferGeometry>
-                        <bufferAttribute
-                            attach="attributes-position"
-                            args={[
-                                new Float32Array([-500, 0, 0, 500, 0, 0]),
-                                3,
-                            ]}
-                        />
-                    </bufferGeometry>
-                    <lineBasicMaterial color="#ff2222" linewidth={4} />
-                </line>
-                {/* Y-axis (Bright Green) */}
-                <line>
-                    <bufferGeometry>
-                        <bufferAttribute
-                            attach="attributes-position"
-                            args={[
-                                new Float32Array([0, -500, 0, 0, 500, 0]),
-                                3,
-                            ]}
-                        />
-                    </bufferGeometry>
-                    <lineBasicMaterial color="#22ff22" linewidth={4} />
-                </line>
-                {/* Z-axis (Bright Blue) */}
-                <line>
-                    <bufferGeometry>
-                        <bufferAttribute
-                            attach="attributes-position"
-                            args={[
-                                new Float32Array([0, 0, -500, 0, 0, 500]),
-                                3,
-                            ]}
-                        />
-                    </bufferGeometry>
-                    <lineBasicMaterial color="#2222ff" linewidth={4} />
-                </line>
-            </group>
+            <Line points={[[-500, 0.002, 0], [500, 0.002, 0]]} color="#e5484d" lineWidth={1.5} />
+            <Line points={[[0, -500, 0], [0, 500, 0]]} color="#46a758" lineWidth={1.5} />
+            <Line points={[[0, 0.002, -500], [0, 0.002, 500]]} color="#4f7cff" lineWidth={1.5} />
             {/* Gizmo helper - only show in non-render modes */}
             {editorMode !== "render" && (
                 <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
                     <GizmoViewport
-                        axisColors={["#ff6b6b", "#51cf66", "#4dabf7"]}
+                        axisColors={["#e5484d", "#46a758", "#4f7cff"]}
                         labelColor="#dee2e6"
                     />
                 </GizmoHelper>
