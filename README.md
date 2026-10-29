@@ -1,5 +1,7 @@
 # ShapeShift
 
+Try it at [shapeshift.hanzpo.com](https://shapeshift.hanzpo.com).
+
 ## 🚀 Join the ShapeShift Waitlist
 
 ### We’re getting ready to launch ShapeShift! Be among the first to try it out by joining the waitlist:
@@ -16,7 +18,9 @@
     - `pnpm dev`
 3. Open the browser and go to `http://localhost:5173`
 
-A production version will be released soon.
+## How to deploy
+
+From `frontend`, run `pnpm run deploy`. This builds the app and deploys the Worker to `shapeshift.hanzpo.com`.
 
 ## Inspiration
 

@@ -19,5 +19,6 @@
       "simple": { "limit": 20, "period": 60 }
     }
   ],
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  "routes": [{ "pattern": "shapeshift.hanzpo.com", "custom_domain": true }]
 }

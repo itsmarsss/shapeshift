@@ -11,7 +11,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "cf-typegen": "wrangler types"
+    "cf-typegen": "wrangler types",
+    "deploy": "pnpm build && wrangler deploy"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.2.0",
