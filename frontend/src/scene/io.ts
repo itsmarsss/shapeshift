@@ -1,6 +1,4 @@
 import * as THREE from "three";
-import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { buildGeometry, toMeshGeometry } from "./geometry";
 import { DEFAULT_MATERIAL } from "./commands";
 import { SceneDoc, type SceneObject } from "./schema";
@@ -67,11 +65,13 @@ export function toThreeScene(doc: SceneDoc): THREE.Scene {
 }
 
 export async function exportGLB(doc: SceneDoc) {
+    const { GLTFExporter } = await import("three/examples/jsm/exporters/GLTFExporter.js");
     const result = await new GLTFExporter().parseAsync(toThreeScene(doc), { binary: true });
     download(result as ArrayBuffer, "scene.glb", "model/gltf-binary");
 }
 
 export async function importModel(file: File): Promise<SceneObject[]> {
+    const { GLTFLoader } = await import("three/examples/jsm/loaders/GLTFLoader.js");
     const gltf = await new GLTFLoader().parseAsync(await file.arrayBuffer(), "");
     gltf.scene.updateMatrixWorld(true);
     const objects: SceneObject[] = [];

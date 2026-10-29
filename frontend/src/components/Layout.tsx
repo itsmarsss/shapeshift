@@ -1,17 +1,18 @@
-import type React from "react";
+import { lazy, Suspense, type CSSProperties } from "react";
 import styled from "styled-components";
 import { GlobalStyle } from "./ui";
 import Topbar from "./Topbar";
 import Toolbar from "./Toolbar";
 import Inspector from "./Inspector";
 import BooleanPanel from "./BooleanPanel";
-import ChatPanel from "./ChatPanel";
 import { Viewport } from "../viewport/Viewport";
 import { useShortcuts } from "../hooks/useShortcuts";
 import { useUI } from "../ui/store";
-import { HandOverlay } from "../hands/HandOverlay";
-import { HandPreview } from "../hands/HandPreview";
-import { HandCommands } from "../hands/HandCommands";
+import { useHands } from "../hands/tracker";
+
+// Loaded after the editor so they don't hold up the first frame.
+const ChatPanel = lazy(() => import("./ChatPanel"));
+const HandUI = lazy(() => import("../hands/HandUI"));
 
 const Root = styled.div`
     position: relative;
@@ -27,20 +28,21 @@ const Stage = styled.div`
 export function Layout() {
     useShortcuts();
     const showChat = useUI((s) => s.showChat);
+    const handsOn = useHands((s) => s.status !== "off");
     return (
-        <Root style={{ "--chat-width": showChat ? "360px" : "0px" } as React.CSSProperties}>
+        <Root style={{ "--chat-width": showChat ? "360px" : "0px" } as CSSProperties}>
             <GlobalStyle />
             <Topbar />
             <Stage>
                 <Viewport />
-                <HandOverlay />
             </Stage>
             <Toolbar />
             <Inspector />
             <BooleanPanel />
-            <ChatPanel />
-            <HandPreview />
-            <HandCommands />
+            <Suspense fallback={null}>
+                <ChatPanel />
+                {handsOn && <HandUI />}
+            </Suspense>
         </Root>
     );
 }
