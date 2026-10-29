@@ -20,6 +20,7 @@ type CollabState = {
     // `restore` brings back the scene the user had before joining someone else's room.
     leave: (options?: { restore?: boolean }) => void;
     rename: (name: string) => void;
+    moveCursor: (cursor: [number, number, number] | null) => void;
 };
 
 const NAME_KEY = "shapeshift-name";
@@ -71,6 +72,14 @@ let applyingRemote = false;
 // them in order and the last write wins, so resending is safe.
 const pending = new Map<string, Ops>();
 let unsubscribers: (() => void)[] = [];
+let cursor: [number, number, number] | null = null;
+let cursorTimer: ReturnType<typeof setTimeout> | undefined;
+let lastCursorSent = 0;
+const CURSOR_MS = 66;
+
+function sendPresence() {
+    send({ type: "presence", presence: { selection: useScene.getState().selectedIds.slice(0, 200), cursor } });
+}
 
 function send(msg: ClientMessage) {
     if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(msg));
@@ -102,7 +111,7 @@ function watchScene() {
             }
             if (state.selectedIds !== prev.selectedIds) {
                 clearTimeout(presenceTimer);
-                presenceTimer = setTimeout(() => send({ type: "presence", presence: { selection: useScene.getState().selectedIds.slice(0, 200) } }), 60);
+                presenceTimer = setTimeout(sendPresence, 60);
             }
         }),
         () => clearTimeout(presenceTimer),
@@ -129,7 +138,7 @@ export const useCollab = create<CollabState>()((set, get) => {
                 }
                 seedOnWelcome = false;
                 for (const [id, ops] of pending) send({ type: "ops", id, ops });
-                send({ type: "presence", presence: { selection: useScene.getState().selectedIds } });
+                sendPresence();
                 set({ status: "live", you: msg.you, peers: Object.fromEntries(msg.peers.map((p) => [p.id, p])), error: null });
                 return;
             }
@@ -246,6 +255,20 @@ export const useCollab = create<CollabState>()((set, get) => {
                     // Nothing to restore.
                 }
             }
+        },
+
+        // Throttled to about 15 updates a second, always ending on the latest spot.
+        moveCursor: (next) => {
+            if (get().status !== "live") return;
+            cursor = next ? (next.map((v) => Math.round(v * 1000) / 1000) as [number, number, number]) : null;
+            clearTimeout(cursorTimer);
+            const wait = CURSOR_MS - (Date.now() - lastCursorSent);
+            const flush = () => {
+                lastCursorSent = Date.now();
+                sendPresence();
+            };
+            if (wait <= 0) flush();
+            else cursorTimer = setTimeout(flush, wait);
         },
 
         rename: (raw) => {
