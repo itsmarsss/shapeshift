@@ -20,6 +20,7 @@ const SavedActivity = z.object({
 const SavedTurn = z.object({
     id: z.string(),
     prompt: z.string(),
+    attachments: z.array(z.string()).optional(),
     items: z.array(
         z.discriminatedUnion("kind", [
             z.object({ kind: z.literal("text"), text: z.string() }),
@@ -74,7 +75,7 @@ export function saveChat({ conversation, turns }: SavedChat) {
         }
         // Snapshots are the heavy part. The model doesn't need old ones, and
         // thumbnails go first if the chat is still too big.
-        const lean = conversation.map((m) => (m.role === "tool" && m.images ? { ...m, images: undefined } : m));
+        const lean = conversation.map((m) => ((m.role === "tool" || m.role === "user") && m.images ? { ...m, images: undefined } : m));
         const plainTurns = turns.map((t) => omit(t, "entry", "writing"));
         let json = JSON.stringify({ version: 1, conversation: lean, turns: plainTurns });
         if (json.length > BUDGET) {

@@ -199,6 +199,13 @@ describe("agent loop", () => {
         expect(s().past).toHaveLength(1);
     });
 
+    it("sends attached pictures with the prompt", async () => {
+        const transport = scripted([() => ({ message: { role: "assistant", content: "A cat." }, stop: "end", model: "m" })]);
+        const conversation: WireMessage[] = [];
+        await runTurn({ conversation, prompt: "what is this", images: ["QUJD"], transport, signal: new AbortController().signal, ctx: newTurnContext("img") });
+        expect(conversation[0]).toMatchObject({ role: "user", images: ["QUJD"] });
+    });
+
     it("stops at the step limit with every call answered", async () => {
         const loop = () => ({
             message: { role: "assistant" as const, content: null, tool_calls: [call("add", { primitive: "box" })] },

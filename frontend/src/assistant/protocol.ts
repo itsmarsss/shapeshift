@@ -32,6 +32,8 @@ export const WireMessage = z.discriminatedUnion("role", [
         role: z.literal("user"),
         content: z.string().min(1).max(LIMITS.promptChars),
         scene: z.string().max(LIMITS.sceneChars).optional(),
+        // Base64 JPEG reference pictures the user attached.
+        images: z.array(z.string().max(LIMITS.imageChars).regex(/^[A-Za-z0-9+/=]+$/)).max(4).optional(),
     }),
     z.object({
         role: z.literal("assistant"),

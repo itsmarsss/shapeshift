@@ -14,7 +14,10 @@ function toParams(messages: WireMessage[]): ChatCompletionMessageParam[] {
     return [
         { role: "system", content: SYSTEM_PROMPT },
         ...messages.map((m): ChatCompletionMessageParam => {
-            if (m.role === "user") return { role: "user", content: userText(m) };
+            if (m.role === "user") {
+                const note = m.images?.length ? "\n\n(The user attached a picture, but this model can't see images. Ask them to describe it.)" : "";
+                return { role: "user", content: userText(m) + note };
+            }
             if (m.role === "tool") {
                 const note = m.images?.length ? "\n(A picture was taken, but this model can't see images. Rely on the bounds instead.)" : "";
                 return { role: "tool", tool_call_id: m.tool_call_id, content: m.content + note };

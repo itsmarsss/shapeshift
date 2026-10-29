@@ -34,13 +34,14 @@ describe("chat persistence", () => {
     it("round-trips the chat without the model's copies of snapshots", () => {
         saveChat({
             conversation: [
-                { role: "user", content: "look" },
+                { role: "user", content: "look", images: ["UkVG"] },
                 { role: "assistant", content: null, tool_calls: [{ id: "l1", name: "look", arguments: "{}" }] },
                 { role: "tool", tool_call_id: "l1", content: "{}", images: ["QUJD"] },
             ],
             turns: [turn({ entry: { patches: [], inverse: [] } })],
         });
         const loaded = loadChat()!;
+        expect(loaded.conversation[0]).toEqual({ role: "user", content: "look" });
         expect(loaded.conversation[2]).toEqual({ role: "tool", tool_call_id: "l1", content: "{}" });
         expect(loaded.turns[0]).not.toHaveProperty("entry");
         expect(loaded.turns[0].items[0]).toMatchObject({ activities: [{ image: "data:image/jpeg;base64,QUJD" }] });

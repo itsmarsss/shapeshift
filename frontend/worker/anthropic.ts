@@ -38,7 +38,10 @@ export function toParams(messages: WireMessage[]): MessageParam[] {
 
     for (const m of messages) {
         if (m.role === "user") {
-            pushUser([{ type: "text", text: userText(m) }]);
+            pushUser([
+                ...(m.images ?? []).map((data) => ({ type: "image" as const, source: { type: "base64" as const, media_type: "image/jpeg" as const, data } })),
+                { type: "text", text: userText(m) },
+            ]);
         } else if (m.role === "tool") {
             const content = m.images?.length
                 ? [
