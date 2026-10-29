@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { useScene } from "../scene/store";
+import { PRIMITIVES } from "../scene/schema";
 import { duplicateSelection, groupSelection, removeSelection, selectAll, ungroupSelection } from "../scene/selection";
+import { useUI } from "../ui/store";
 
 const TRANSFORM_KEYS = { w: "translate", e: "rotate", r: "scale" } as const;
 
@@ -12,10 +14,17 @@ function isTyping(target: EventTarget | null) {
 export function useShortcuts() {
     useEffect(() => {
         function onKeyDown(e: KeyboardEvent) {
-            if (isTyping(e.target)) return;
             const s = useScene.getState();
+            const ui = useUI.getState();
             const mod = e.metaKey || e.ctrlKey;
             const key = e.key.toLowerCase();
+
+            if (mod && key === ",") {
+                e.preventDefault();
+                ui.setShowSettings(true);
+                return;
+            }
+            if (isTyping(e.target) || ui.showSettings) return;
 
             if (mod && key === "z") {
                 e.preventDefault();
@@ -37,6 +46,12 @@ export function useShortcuts() {
             } else if ((key === "delete" || key === "backspace") && s.selectedId) {
                 e.preventDefault();
                 removeSelection();
+            } else if (mod && key === "l") {
+                e.preventDefault();
+                ui.setShowChat(true);
+                setTimeout(() => document.querySelector<HTMLTextAreaElement>("[data-chat-input]")?.focus(), 50);
+            } else if (!mod && /^[1-6]$/.test(key) && s.mode !== "render") {
+                s.run({ type: "add", primitive: PRIMITIVES[Number(key) - 1] });
             } else if (key === "escape") {
                 s.select(null);
             } else if (!mod && key in TRANSFORM_KEYS) {

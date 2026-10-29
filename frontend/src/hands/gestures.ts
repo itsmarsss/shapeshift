@@ -15,6 +15,9 @@ export type HandState = {
 
 export const PINCH_START = 0.2;
 export const PINCH_END = 0.32;
+
+export const tuning = { sensitivity: 1, smoothing: 0.5 };
+const minCutoff = () => 3 - tuning.smoothing * 2.6;
 const CONFIRM_FRAMES = 2;
 const LOST_FRAMES = 5;
 const MARGIN = 0.12;
@@ -67,13 +70,14 @@ class HandTrack {
         this.missing = 0;
         this.present = true;
 
+        this.fx.minCutoff = this.fy.minCutoff = minCutoff();
         const thumb = point(frame.landmarks, THUMB_TIP);
         const index = point(frame.landmarks, INDEX_TIP);
         this.x = remap(this.fx.filter(1 - (thumb[0] + index[0]) / 2, time));
         this.y = remap(this.fy.filter((thumb[1] + index[1]) / 2, time));
 
         const ratio = pinchRatio(frame.landmarks);
-        const flipping = this.pinching ? ratio > PINCH_END : ratio < PINCH_START;
+        const flipping = this.pinching ? ratio > PINCH_END * tuning.sensitivity : ratio < PINCH_START * tuning.sensitivity;
         this.streak = flipping ? this.streak + 1 : 0;
         if (this.streak >= CONFIRM_FRAMES) {
             this.pinching = !this.pinching;

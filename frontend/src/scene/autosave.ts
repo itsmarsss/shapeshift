@@ -1,5 +1,6 @@
 import { parseSceneFile } from "./io";
 import { useScene } from "./store";
+import { useSettings } from "../settings/store";
 
 const KEY = "shapeshift-scene";
 
@@ -14,7 +15,7 @@ export function startAutosave() {
 
     let timer: ReturnType<typeof setTimeout> | undefined;
     return useScene.subscribe((state, prev) => {
-        if (state.doc === prev.doc) return;
+        if (state.doc === prev.doc || !useSettings.getState().autosave) return;
         clearTimeout(timer);
         timer = setTimeout(() => {
             try {

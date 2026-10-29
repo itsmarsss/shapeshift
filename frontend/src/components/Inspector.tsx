@@ -6,6 +6,7 @@ import { selectSelected, selectSelectedLight, selectSelectedObjects, useScene } 
 import { duplicateSelection, groupSelection, removeSelection, ungroupSelection } from "../scene/selection";
 import type { Command, Light, Vec3 } from "../scene/schema";
 import { useUI } from "../ui/store";
+import { UNIT_SCALE, useSettings } from "../settings/store";
 import { Button, Divider, FieldLabel, IconButton, Input, Panel, PanelHeader, PanelTitle, Select } from "./ui";
 
 const Root = styled(Panel)`
@@ -318,6 +319,10 @@ export function Inspector() {
     const snap = useScene((s) => s.snap);
     const setSnap = useScene((s) => s.setSnap);
     const mode = useScene((s) => s.mode);
+    const units = useSettings((s) => s.units);
+    const angleUnit = useSettings((s) => s.angleUnit);
+    const unit = UNIT_SCALE[units];
+    const angle = angleUnit === "deg" ? DEG : 1;
 
     if (!show) return null;
 
@@ -373,20 +378,21 @@ export function Inspector() {
                             {selected.group && <Muted style={{ marginTop: 6 }}>In group “{selected.group}”. Alt-click picks one part.</Muted>}
                         </div>
                         <div>
-                            <FieldLabel>Position</FieldLabel>
+                            <FieldLabel>Position ({units})</FieldLabel>
                             <VectorField
                                 value={selected.position}
-                                step={snap.enabled ? snap.translate : 0.1}
+                                scale={unit}
+                                step={(snap.enabled ? snap.translate : 0.1) * unit}
                                 onCommit={endCoalesce}
                                 onChange={(position) => edit("position", { type: "transform", target: selected.id, position })}
                             />
                         </div>
                         <div>
-                            <FieldLabel>Rotation (degrees)</FieldLabel>
+                            <FieldLabel>Rotation ({angleUnit === "deg" ? "degrees" : "radians"})</FieldLabel>
                             <VectorField
                                 value={selected.rotation}
-                                scale={DEG}
-                                step={snap.enabled ? round(snap.rotate * DEG) : 1}
+                                scale={angle}
+                                step={snap.enabled ? round(snap.rotate * angle) : angleUnit === "deg" ? 1 : 0.05}
                                 onCommit={endCoalesce}
                                 onChange={(rotation) => edit("rotation", { type: "transform", target: selected.id, rotation })}
                             />
@@ -470,8 +476,13 @@ export function Inspector() {
                     {snap.enabled && (
                         <Grid style={{ marginTop: 10 }}>
                             <Sub>
-                                Move
-                                <NumberInput value={snap.translate} step={0.1} min={0.01} onChange={(translate) => setSnap({ translate })} />
+                                Move ({units})
+                                <NumberInput
+                                    value={snap.translate * unit}
+                                    step={0.1 * unit}
+                                    min={0.001 * unit}
+                                    onChange={(v) => setSnap({ translate: v / unit })}
+                                />
                             </Sub>
                             <Sub>
                                 Rotate (°)

@@ -22,6 +22,21 @@ export const GlobalStyle = createGlobalStyle`
         --radius-lg: 12px;
         --topbar: 48px;
         --gap: 12px;
+        --cursor: rgba(236, 236, 238, 0.85);
+        color-scheme: dark;
+    }
+    :root[data-theme="light"] {
+        --bg: #f4f4f5;
+        --surface: #ffffff;
+        --surface-raised: #f0f0f2;
+        --surface-hover: #e8e8eb;
+        --border: rgba(0, 0, 0, 0.08);
+        --border-strong: rgba(0, 0, 0, 0.16);
+        --text: #18181b;
+        --text-muted: #6b6d75;
+        --text-faint: #a5a7ae;
+        --cursor: rgba(24, 24, 27, 0.8);
+        color-scheme: light;
     }
     html, body, #root {
         height: 100%;
