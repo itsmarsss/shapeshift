@@ -10,6 +10,8 @@ type HandStore = {
     setEnabled: (on: boolean) => Promise<void>;
 };
 
+export const useHandHover = create<{ hoveredId: string | null }>()(() => ({ hoveredId: null }));
+
 export const live: { hands: HandState[]; frames: HandFrame[]; video: HTMLVideoElement | null } = {
     hands: [],
     frames: [],
