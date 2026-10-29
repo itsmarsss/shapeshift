@@ -112,7 +112,7 @@ const GroupTitle = styled.div`
     margin-bottom: 4px;
 `;
 
-const RowEl = styled.label`
+const RowEl = styled.div`
     display: flex;
     align-items: center;
     justify-content: space-between;
