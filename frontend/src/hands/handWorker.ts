@@ -59,7 +59,7 @@ self.onmessage = (e: MessageEvent<{ frame: ImageBitmap; time: number }>) => {
     const hands: WorkerHand[] = result.landmarks.map((points, i) => {
         const category = result.handedness[i]?.[0];
         return {
-            handedness: category?.categoryName === "Left" ? "Right" : "Left",
+            handedness: category?.categoryName === "Right" ? "Right" : "Left",
             score: category?.score ?? 0,
             landmarks: points.flatMap((p) => [p.x, p.y, p.z]),
         };

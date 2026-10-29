@@ -8,12 +8,13 @@ import type { SceneObject } from "../scene/schema";
 type Props = {
     object: SceneObject;
     selected: boolean;
+    hovered: boolean;
     showSelection: boolean;
     onSelect: (id: string) => void;
     meshRef?: (mesh: THREE.Mesh | null) => void;
 };
 
-export const SceneMesh = memo(function SceneMesh({ object, selected, showSelection, onSelect, meshRef }: Props) {
+export const SceneMesh = memo(function SceneMesh({ object, selected, hovered, showSelection, onSelect, meshRef }: Props) {
     const geometry = useMemo(() => buildGeometry(object.geometry), [object.geometry]);
     useEffect(() => () => geometry.dispose(), [geometry]);
     const { color, metalness, roughness, opacity } = object.material;
@@ -41,6 +42,7 @@ export const SceneMesh = memo(function SceneMesh({ object, selected, showSelecti
                 transparent={opacity < 1}
             />
             {selected && showSelection && <Edges threshold={20} color="#4f7cff" />}
+            {hovered && !selected && <Edges threshold={20} color="#9db4ff" lineWidth={2} />}
         </mesh>
     );
 });
