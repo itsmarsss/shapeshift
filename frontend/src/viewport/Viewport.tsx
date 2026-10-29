@@ -6,6 +6,7 @@ import { useScene } from "../scene/store";
 import { SceneMesh } from "./SceneMesh";
 import { EditOverlay } from "./EditOverlay";
 import { SnapshotBridge } from "./SnapshotBridge";
+import { HandControls } from "../hands/HandControls";
 
 const BACKGROUND = "#0d0e10";
 
@@ -61,6 +62,7 @@ export function Viewport() {
             />
             <CameraControls makeDefault />
             <SnapshotBridge />
+            <HandControls />
 
             {objects.map((o) => (
                 <SceneMesh
