@@ -1,9 +1,10 @@
 import { forwardRef, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import styled from "styled-components";
-import { ArrowUp, Crosshair, Square, X } from "@phosphor-icons/react";
+import { ArrowUp, Crosshair, Microphone, Square, X } from "@phosphor-icons/react";
 import { selectSelected, useScene } from "../../scene/store";
 import { useAssistant } from "../../assistant/store";
 import { LIMITS } from "../../assistant/protocol";
+import { useSpeechInput } from "./useSpeechInput";
 
 const Root = styled.form`
     margin: 0 10px 10px;
@@ -73,7 +74,13 @@ const Chip = styled.span`
     }
 `;
 
-export const RoundButton = styled.button<{ $tone?: "accent" | "danger" | "plain" }>`
+const VoiceNote = styled.div`
+    padding: 0 12px 2px;
+    color: var(--danger);
+    font-size: 11px;
+`;
+
+export const RoundButton = styled.button<{ $tone?: "accent" | "danger" | "plain"; $live?: boolean }>`
     width: 28px;
     height: 28px;
     flex-shrink: 0;
@@ -85,6 +92,7 @@ export const RoundButton = styled.button<{ $tone?: "accent" | "danger" | "plain"
     background: ${(p) => (p.$tone === "accent" ? "var(--accent)" : p.$tone === "danger" ? "var(--danger)" : "transparent")};
     color: ${(p) => (p.$tone === "plain" ? "var(--text-muted)" : "#fff")};
     transition: opacity 0.12s ease, background 0.12s ease;
+    ${(p) => (p.$live ? "color: var(--danger); box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 35%, transparent);" : "")}
 
     &:hover:not(:disabled) {
         background: ${(p) => (p.$tone === "plain" ? "var(--surface-hover)" : undefined)};
@@ -108,6 +116,23 @@ export const Composer = forwardRef<ComposerHandle, { extra?: React.ReactNode; pl
     const send = useAssistant((s) => s.send);
     const stop = useAssistant((s) => s.stop);
     const lastPrompt = useAssistant((s) => s.turns[s.turns.length - 1]?.prompt);
+
+    const [voiceError, setVoiceError] = useState<string | null>(null);
+    const voice = useSpeechInput({
+        onInterim: (t) => {
+            setVoiceError(null);
+            setText(t);
+        },
+        onFinal: (t) => {
+            if (useAssistant.getState().running) return setText(t);
+            send(t);
+            setText("");
+        },
+        onError: (message) => {
+            setText("");
+            setVoiceError(message);
+        },
+    });
 
     useImperativeHandle(ref, () => ({ focus: () => fieldRef.current?.focus(), setText }), []);
 
@@ -137,7 +162,7 @@ export const Composer = forwardRef<ComposerHandle, { extra?: React.ReactNode; pl
                 value={text}
                 maxLength={LIMITS.promptChars}
                 aria-label="Message the assistant"
-                placeholder={placeholderOverride ?? (selected ? `Change ${selected.name}…` : "Describe a change or something to build…")}
+                placeholder={voice.listening ? "Listening…" : placeholderOverride ?? (selected ? `Change ${selected.name}…` : "Describe a change or something to build…")}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -152,6 +177,7 @@ export const Composer = forwardRef<ComposerHandle, { extra?: React.ReactNode; pl
                     }
                 }}
             />
+            {voiceError && <VoiceNote role="alert">{voiceError}</VoiceNote>}
             <Bar>
                 {selected ? (
                     <Chip title="The assistant treats the selection as “it”">
@@ -164,6 +190,18 @@ export const Composer = forwardRef<ComposerHandle, { extra?: React.ReactNode; pl
                 ) : null}
                 <span style={{ flex: 1 }} />
                 {extra}
+                {voice.supported && (
+                    <RoundButton
+                        type="button"
+                        $tone="plain"
+                        $live={voice.listening}
+                        aria-pressed={voice.listening}
+                        title={voice.listening ? "Stop listening and send" : "Speak a request"}
+                        onClick={voice.toggle}
+                    >
+                        <Microphone size={15} weight={voice.listening ? "fill" : "regular"} />
+                    </RoundButton>
+                )}
                 {running ? (
                     <RoundButton type="button" $tone="danger" title="Stop (Esc)" onClick={stop}>
                         <Square size={11} weight="fill" />
