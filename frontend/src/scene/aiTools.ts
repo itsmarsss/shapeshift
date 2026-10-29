@@ -8,6 +8,9 @@ const DESCRIPTIONS: Record<(typeof AI_COMMANDS)[number], string> = {
     transform: "Set position, rotation (radians) and scale. With relative: true, position and rotation are added and scale is multiplied.",
     material: "Change color (#rrggbb), metalness, roughness or opacity (all 0 to 1).",
     rename: "Rename an object.",
+    addLight:
+        "Add a light. point shines in every direction, spot shines a cone from position toward aim, directional is sunlight from the direction of position toward aim.",
+    updateLight: "Change a light's position, aim, color, intensity, range or spot angle.",
     boolean: "Combine two objects. union merges them, subtract cuts `tool` out of `target`, intersect keeps the overlap. `tool` is removed.",
 };
 

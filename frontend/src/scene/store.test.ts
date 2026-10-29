@@ -141,3 +141,39 @@ describe("edit geometry", () => {
         expect(box.indices.length / 3).toBe(12);
     });
 });
+
+describe("lights", () => {
+    it("adds lights with defaults and lets every light field change", () => {
+        s().run({ type: "addLight", light: "spot", name: "Key", color: "#ffeedd" });
+        const key = s().doc.lights[0];
+        expect(key).toMatchObject({ name: "Key", type: "spot", color: "#ffeedd", aim: [0, 0, 0] });
+        expect(s().selectedId).toBe(key.id);
+        s().run({ type: "updateLight", target: "key", intensity: 80, aim: [1, 0, 0], angle: 0.3 });
+        expect(s().doc.lights[0]).toMatchObject({ intensity: 80, aim: [1, 0, 0], angle: 0.3 });
+    });
+
+    it("moves, renames, duplicates and removes lights with the object commands", () => {
+        s().run({ type: "addLight", light: "point" });
+        s().run({ type: "transform", target: "Point Light", position: [0, 1, 0], relative: true });
+        expect(s().doc.lights[0].position).toEqual([2, 4, 2]);
+        s().run({ type: "rename", target: "Point Light", name: "Bulb" });
+        s().run({ type: "duplicate", target: "Bulb" });
+        expect(s().doc.lights.map((l) => l.name)).toEqual(["Bulb", "Bulb 2"]);
+        s().run({ type: "remove", target: "Bulb" });
+        expect(s().doc.lights.map((l) => l.name)).toEqual(["Bulb 2"]);
+        s().undo();
+        expect(s().doc.lights).toHaveLength(2);
+    });
+
+    it("keeps object and light names apart and rejects mixed-up commands", () => {
+        s().run({ type: "add", primitive: "box", name: "Lamp" });
+        s().run({ type: "addLight", light: "point", name: "Lamp" });
+        expect(s().doc.lights[0].name).toBe("Lamp 2");
+        expect(s().run({ type: "updateLight", target: "Lamp", intensity: 1 })[0].ok).toBe(false);
+        expect(s().run({ type: "material", target: "Lamp 2", color: "#ff0000" })[0].ok).toBe(false);
+    });
+
+    it("loads scenes saved before lights existed", () => {
+        expect(SceneDoc.parse({ version: 2, objects: [] }).lights).toEqual([]);
+    });
+});

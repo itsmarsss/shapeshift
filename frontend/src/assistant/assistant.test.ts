@@ -21,7 +21,7 @@ beforeEach(() => s().load(emptyDoc()));
 describe("tools", () => {
     it("declares every command and agent tool with an object schema", () => {
         const names = TOOLS.map((t) => t.name);
-        expect(names).toEqual(["add", "remove", "duplicate", "transform", "material", "rename", "boolean", "inspect", "select", "look", "undo"]);
+        expect(names).toEqual(["add", "remove", "duplicate", "transform", "material", "rename", "boolean", "addLight", "updateLight", "inspect", "select", "look", "undo"]);
         for (const t of TOOLS) expect(t.parameters.type).toBe("object");
         const add = TOOLS.find((t) => t.name === "add")!.parameters as { properties: Record<string, unknown> };
         expect(add.properties.geometry).toBeDefined();
@@ -63,13 +63,15 @@ describe("scene description", () => {
                 material: { color: "#c8ccd4", metalness: 0, roughness: 0.6, opacity: 1 },
             },
         ],
+        lights: [],
     };
 
     it("lists ids, sizes, transforms and world bounds", () => {
         expect(describeScene(doc, "a1")).toBe(
-            '"Box" id=a1, box 2x1x1, at [0, 0.5, 0], rotation [0, 1.571, 0], #c8ccd4, bounds [-0.5, 0, -1] to [0.5, 1, 1], (selected)'
+            '"Box" id=a1, box 2x1x1, at [0, 0.5, 0], rotation [0, 1.571, 0], #c8ccd4, bounds [-0.5, 0, -1] to [0.5, 1, 1], (selected)\n' +
+                "No lights yet, so the editor's default studio lighting is on."
         );
-        expect(describeScene(emptyDoc(), null)).toBe("The scene is empty.");
+        expect(describeScene(emptyDoc(), null)).toContain("The scene has no objects.");
     });
 
     it("accounts for scale and rotation in bounds", () => {
@@ -193,7 +195,7 @@ describe("agent loop", () => {
 
         expect(outcome.stop).toBe("end");
         expect(conversation.map((m) => m.role)).toEqual(["user", "assistant", "tool", "assistant", "tool", "assistant"]);
-        expect(conversation[0]).toMatchObject({ role: "user", content: "make a head", scene: "The scene is empty." });
+        expect(conversation[0]).toMatchObject({ role: "user", content: "make a head", scene: describeScene(emptyDoc(), null) });
         expect(s().doc.objects[0].material.color).toBe("#ffffff");
         s().endCoalesce();
         expect(s().past).toHaveLength(1);

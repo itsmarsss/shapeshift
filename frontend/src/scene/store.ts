@@ -43,12 +43,12 @@ export type SceneState = {
     setSnap: (snap: Partial<Snap>) => void;
 };
 
-export const emptyDoc = (): SceneDoc => ({ version: 2, objects: [] });
+export const emptyDoc = (): SceneDoc => ({ version: 2, objects: [], lights: [] });
 
 const HISTORY_LIMIT = 200;
 
 function pruneSelection(doc: SceneDoc, selectedId: string | null) {
-    return selectedId && doc.objects.some((o) => o.id === selectedId) ? selectedId : null;
+    return selectedId && (doc.objects.some((o) => o.id === selectedId) || doc.lights.some((l) => l.id === selectedId)) ? selectedId : null;
 }
 
 export const useScene = create<SceneState>()((set, get) => ({
@@ -139,3 +139,6 @@ export const useScene = create<SceneState>()((set, get) => ({
 
 export const selectSelected = (s: SceneState) =>
     s.selectedId ? s.doc.objects.find((o) => o.id === s.selectedId) ?? null : null;
+
+export const selectSelectedLight = (s: SceneState) =>
+    s.selectedId ? s.doc.lights.find((l) => l.id === s.selectedId) ?? null : null;

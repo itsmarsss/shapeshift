@@ -1,8 +1,8 @@
 // How the assistant sees the scene, and how its actions are described back to
 // the user.
 import * as THREE from "three";
-import { findObject } from "../scene/commands";
-import type { Command, Geometry, SceneDoc, SceneObject, Vec3 } from "../scene/schema";
+import { findLight, findObject } from "../scene/commands";
+import type { Command, Geometry, Light, SceneDoc, SceneObject, Vec3 } from "../scene/schema";
 
 const round = (v: number) => {
     const r = Math.round(v * 1000) / 1000;
@@ -94,16 +94,35 @@ export function describeObject(o: SceneObject, selectedId: string | null = null)
         .join(", ");
 }
 
+export function describeLight(l: Light, selectedId: string | null = null): string {
+    return [
+        `Light "${l.name}" id=${l.id}`,
+        l.type,
+        `at ${fmt(l.position)}`,
+        l.type === "point" ? null : `aimed at ${fmt(l.aim)}`,
+        `${l.color} intensity ${round(l.intensity)}`,
+        l.type !== "directional" && l.distance ? `range ${round(l.distance)}` : null,
+        l.type === "spot" ? `angle ${round(l.angle)}` : null,
+        l.id === selectedId ? "(selected)" : null,
+    ]
+        .filter(Boolean)
+        .join(", ");
+}
+
 const SCENE_OBJECT_LIMIT = 200;
 
 export function describeScene(doc: SceneDoc, selectedId: string | null): string {
-    if (!doc.objects.length) return "The scene is empty.";
+    const lights = doc.lights.length
+        ? doc.lights.map((l) => describeLight(l, selectedId))
+        : ["No lights yet, so the editor's default studio lighting is on."];
+    if (!doc.objects.length) return ["The scene has no objects.", ...lights].join("\n");
     const listed = doc.objects.slice(0, SCENE_OBJECT_LIMIT);
     const selected = doc.objects.find((o) => o.id === selectedId);
     if (selected && !listed.includes(selected)) listed.push(selected);
     const lines = listed.map((o) => describeObject(o, selectedId));
     if (doc.objects.length > listed.length) lines.push(`…and ${doc.objects.length - listed.length} more objects. Use inspect to read them.`);
-    if (!selected) lines.push("Nothing is selected.");
+    lines.push(...lights);
+    if (!selected && !doc.lights.some((l) => l.id === selectedId)) lines.push("Nothing is selected.");
     return lines.join("\n");
 }
 
@@ -127,7 +146,7 @@ export function inspectObject(o: SceneObject) {
 const DEG = 180 / Math.PI;
 
 export function describeCommand(cmd: Command, doc: SceneDoc): string {
-    const name = "target" in cmd ? findObject(doc, cmd.target)?.name ?? cmd.target : "";
+    const name = "target" in cmd ? findObject(doc, cmd.target)?.name ?? findLight(doc, cmd.target)?.name ?? cmd.target : "";
     switch (cmd.type) {
         case "add":
             return `Added ${cmd.name ?? `a ${cmd.primitive}`}`;
@@ -152,6 +171,10 @@ export function describeCommand(cmd: Command, doc: SceneDoc): string {
             const verb = { union: "Merged", subtract: "Cut", intersect: "Intersected" }[cmd.operation];
             return cmd.operation === "subtract" ? `Cut ${tool} out of ${name}` : `${verb} ${name} with ${tool}`;
         }
+        case "addLight":
+            return `Added ${cmd.name ?? `a ${cmd.light} light`}`;
+        case "updateLight":
+            return `Adjusted ${name}`;
         case "insert":
             return `Inserted ${cmd.objects.length} objects`;
         case "clear":
