@@ -7,6 +7,7 @@ import { parseToolCall, TOOLS } from "./tools";
 import { AgentError, type Transport } from "./transport";
 import { emptyDoc, useScene } from "../scene/store";
 import type { SceneDoc } from "../scene/schema";
+import { setSnapshotTaker } from "../viewport/snapshot";
 
 const s = () => useScene.getState();
 const call = (name: string, args: unknown, id = `${name}-${Math.random().toString(36).slice(2, 7)}`) => ({
@@ -20,7 +21,7 @@ beforeEach(() => s().load(emptyDoc()));
 describe("tools", () => {
     it("declares every command and agent tool with an object schema", () => {
         const names = TOOLS.map((t) => t.name);
-        expect(names).toEqual(["add", "remove", "duplicate", "transform", "material", "rename", "boolean", "inspect", "select", "undo"]);
+        expect(names).toEqual(["add", "remove", "duplicate", "transform", "material", "rename", "boolean", "inspect", "select", "look", "undo"]);
         for (const t of TOOLS) expect(t.parameters.type).toBe("object");
         const add = TOOLS.find((t) => t.name === "add")!.parameters as { properties: Record<string, unknown> };
         expect(add.properties.geometry).toBeDefined();
@@ -144,6 +145,28 @@ function scripted(steps: Array<(req: WireMessage[]) => Awaited<ReturnType<Transp
         return next(request.messages);
     };
 }
+
+describe("look", () => {
+    it("attaches a picture of the requested view", () => {
+        s().run({ type: "add", primitive: "box", name: "Crate" });
+        const seen: unknown[] = [];
+        setSnapshotTaker((opts) => {
+            seen.push(opts);
+            return { dataUrl: "data:image/jpeg;base64,QUJD", width: 4, height: 3 };
+        });
+        const { messages, activities } = executeToolCalls([call("look", { view: "front", targets: ["Crate"] })], newTurnContext("l"));
+        setSnapshotTaker(null);
+        expect(seen).toEqual([{ view: "front", targets: [s().doc.objects[0].id] }]);
+        expect(messages[0].images).toEqual(["QUJD"]);
+        expect(activities[0]).toMatchObject({ ok: true, image: "data:image/jpeg;base64,QUJD" });
+    });
+
+    it("reports when there is no viewport", () => {
+        const { messages } = executeToolCalls([call("look", {})], newTurnContext("l2"));
+        expect(messages[0].is_error).toBe(true);
+        expect(messages[0].images).toBeUndefined();
+    });
+});
 
 describe("agent loop", () => {
     it("feeds tool results back until the model answers", async () => {

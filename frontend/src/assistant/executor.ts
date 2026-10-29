@@ -1,6 +1,7 @@
 import { findObject } from "../scene/commands";
 import type { Command } from "../scene/schema";
 import { useScene } from "../scene/store";
+import { takeSnapshot, type View } from "../viewport/snapshot";
 import { describeCommand, describeObject, describeScene, inspectObject } from "./assistant";
 import { LIMITS, type WireMessage, type WireToolCall } from "./protocol";
 import { parseToolCall } from "./tools";
@@ -13,6 +14,7 @@ export type Activity = {
     ok: boolean;
     error?: string;
     color?: string;
+    image?: string;
 };
 
 export type ToolMessage = Extract<WireMessage, { role: "tool" }>;
@@ -55,7 +57,7 @@ function commandColor(cmd: Command): string | undefined {
     return undefined;
 }
 
-type Outcome = { activity: Omit<Activity, "id">; result: unknown; isError: boolean };
+type Outcome = { activity: Omit<Activity, "id">; result: unknown; isError: boolean; images?: string[] };
 
 function runCommand(original: Command, ctx: TurnContext): Outcome {
     const cmd = withAliases(original, ctx);
@@ -123,6 +125,32 @@ function runSelect(target: string | null, ctx: TurnContext): Outcome {
     return { activity: { label: `Selected ${obj.name}`, ok: true }, result: { ok: true, selected: obj.id }, isError: false };
 }
 
+const VIEW_NAMES: Record<View, string> = {
+    current: "the current view",
+    front: "the front",
+    back: "the back",
+    left: "the left",
+    right: "the right",
+    top: "above",
+    iso: "an angle",
+};
+
+function runLook(view: View, targets: string[] | undefined, ctx: TurnContext): Outcome {
+    const doc = useScene.getState().doc;
+    const ids = targets?.map((t) => findObject(doc, resolveAlias(ctx, t))?.id).filter((id): id is string => !!id);
+    const shot = takeSnapshot({ view, targets: ids?.length ? ids : undefined });
+    if (!shot) {
+        const error = "The viewport isn't available";
+        return { activity: { label: "Couldn't look at the scene", ok: false, error }, result: { ok: false, error }, isError: true };
+    }
+    return {
+        activity: { label: `Looked from ${VIEW_NAMES[view]}`, ok: true, image: shot.dataUrl },
+        result: { ok: true, view, size: `${shot.width}x${shot.height}`, note: "The picture is attached. The grid cells are 0.5 m, the red line is X and the blue line is Z." },
+        isError: false,
+        images: [shot.dataUrl.slice(shot.dataUrl.indexOf(",") + 1)],
+    };
+}
+
 function runUndo(steps: number, ctx: TurnContext): Outcome {
     const state = useScene.getState();
     // Undo pops whole history entries, so stop merging this turn's edits into
@@ -162,7 +190,9 @@ export function executeToolCalls(calls: WireToolCall[], ctx: TurnContext): { mes
                           ? runInspect(req.targets, ctx)
                           : req.kind === "select"
                             ? runSelect(req.target, ctx)
-                            : runUndo(req.steps, ctx);
+                            : req.kind === "look"
+                              ? runLook(req.view, req.targets, ctx)
+                              : runUndo(req.steps, ctx);
             } catch (err) {
                 const error = err instanceof Error ? err.message : "The change failed";
                 outcome = { activity: { label: `Couldn't run ${call.name}`, ok: false, error }, result: { ok: false, error }, isError: true };
@@ -174,6 +204,7 @@ export function executeToolCalls(calls: WireToolCall[], ctx: TurnContext): { mes
             tool_call_id: call.id,
             content: clip(JSON.stringify(outcome.result)),
             ...(outcome.isError ? { is_error: true } : {}),
+            ...(outcome.images ? { images: outcome.images } : {}),
         });
     }
     return { messages, activities };

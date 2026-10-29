@@ -40,7 +40,13 @@ export function toParams(messages: WireMessage[]): MessageParam[] {
         if (m.role === "user") {
             pushUser([{ type: "text", text: userText(m) }]);
         } else if (m.role === "tool") {
-            pushUser([{ type: "tool_result", tool_use_id: m.tool_call_id, content: m.content, ...(m.is_error ? { is_error: true } : {}) }]);
+            const content = m.images?.length
+                ? [
+                      { type: "text" as const, text: m.content },
+                      ...m.images.map((data) => ({ type: "image" as const, source: { type: "base64" as const, media_type: "image/jpeg" as const, data } })),
+                  ]
+                : m.content;
+            pushUser([{ type: "tool_result", tool_use_id: m.tool_call_id, content, ...(m.is_error ? { is_error: true } : {}) }]);
         } else if (m.raw?.length) {
             out.push({ role: "assistant", content: m.raw as unknown as Anthropic.Beta.Messages.BetaContentBlockParam[] });
         } else {
