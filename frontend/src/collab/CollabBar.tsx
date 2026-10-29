@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
-import { Check, Copy, SignOut, UsersThree } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, Check, ClockCounterClockwise, Copy, FloppyDisk, SignOut, UsersThree } from "@phosphor-icons/react";
 import { useShallow } from "zustand/react/shallow";
 import { Button, Input } from "../components/ui";
 import { roomLink, useCollab } from "./session";
@@ -106,6 +106,124 @@ const People = styled.ul`
         color: var(--text-faint);
     }
 `;
+
+const Versions = styled.ul`
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0;
+    max-height: 168px;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    li {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 6px;
+        border-radius: 6px;
+    }
+    li:hover {
+        background: var(--surface-raised);
+    }
+    b {
+        font-weight: 500;
+    }
+    small {
+        display: block;
+        color: var(--text-faint);
+        font-size: 11px;
+    }
+`;
+
+const Small = styled.button<{ $confirm?: boolean }>`
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 24px;
+    padding: 0 8px;
+    border-radius: 6px;
+    border: 1px solid ${(p) => (p.$confirm ? "var(--danger)" : "var(--border)")};
+    background: ${(p) => (p.$confirm ? "color-mix(in srgb, var(--danger) 18%, transparent)" : "transparent")};
+    color: ${(p) => (p.$confirm ? "var(--text)" : "var(--text-muted)")};
+    font-size: 12px;
+
+    &:hover:not(:disabled) {
+        color: var(--text);
+        border-color: var(--border-strong);
+    }
+`;
+
+function ago(at: number) {
+    const s = Math.max(0, (Date.now() - at) / 1000);
+    if (s < 60) return "just now";
+    if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+    if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+    return new Date(at).toLocaleDateString();
+}
+
+function History() {
+    const versions = useCollab((s) => s.versions);
+    const restoring = useCollab((s) => s.restoring);
+    const saveVersion = useCollab((s) => s.saveVersion);
+    const restoreVersion = useCollab((s) => s.restoreVersion);
+    const [label, setLabel] = useState("");
+    const [confirm, setConfirm] = useState<string | null>(null);
+    const newest = versions.slice().reverse();
+
+    return (
+        <div>
+            <Label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <ClockCounterClockwise size={13} /> History
+            </Label>
+            <Row>
+                <Input placeholder="Name this version" value={label} maxLength={60} onChange={(e) => setLabel(e.target.value)} />
+                <Button
+                    title="Save a version everyone can go back to"
+                    onClick={() => {
+                        saveVersion(label);
+                        setLabel("");
+                    }}
+                >
+                    <FloppyDisk size={16} />
+                    Save
+                </Button>
+            </Row>
+            {newest.length > 0 ? (
+                <Versions>
+                    {newest.map((v) => (
+                        <li key={v.id}>
+                            <div>
+                                <b>{v.label}</b>
+                                <small>
+                                    {ago(v.at)} · {v.auto ? "auto" : v.by} · {v.objects} objects{v.lights ? `, ${v.lights} lights` : ""}
+                                </small>
+                            </div>
+                            <Small
+                                $confirm={confirm === v.id}
+                                disabled={restoring === v.id}
+                                onClick={() => {
+                                    if (confirm !== v.id) return setConfirm(v.id);
+                                    setConfirm(null);
+                                    restoreVersion(v.id);
+                                }}
+                                onBlur={() => setConfirm((c) => (c === v.id ? null : c))}
+                                title="Replace the scene for everyone. You can undo it"
+                            >
+                                <ArrowCounterClockwise size={12} />
+                                {restoring === v.id ? "Restoring…" : confirm === v.id ? "Restore for everyone?" : "Restore"}
+                            </Small>
+                        </li>
+                    ))}
+                </Versions>
+            ) : (
+                <Note style={{ marginTop: 6 }}>No versions yet. The room also saves one on its own every 10 minutes while people edit.</Note>
+            )}
+        </div>
+    );
+}
 
 const Note = styled.div<{ $error?: boolean }>`
     font-size: 12px;
@@ -232,6 +350,7 @@ export function CollabBar() {
                             ))}
                         </People>
                     </div>
+                    <History />
                     {error && <Note $error>{error}</Note>}
                     {status !== "live" && !error && <Note>{STATUS_TEXT[status]}</Note>}
                     <Button
