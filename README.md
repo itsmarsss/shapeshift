@@ -18,6 +18,17 @@ Try it at [shapeshift.hanzpo.com](https://shapeshift.hanzpo.com).
     - `pnpm dev`
 3. Open the browser and go to `http://localhost:5173`
 
+## Hand control
+
+Turn it on with the hand button in the top bar. Pinch an object to drag it, pinch empty space to orbit, and pinch with both hands to zoom and pan.
+
+Hand tracking runs MediaPipe in a Web Worker, smooths landmarks with a One Euro filter, and detects pinches with a state machine that needs two frames to start or end a pinch. Add `?record` to the URL to record landmark streams or replay one. The gesture tests in `src/hands` replay recorded streams.
+
+## Development
+
+- `pnpm test` runs the unit tests (scene commands, undo, the assistant's tool parsing, gestures)
+- `pnpm lint` and `pnpm build` must pass before merging
+
 ## How to deploy
 
 From `frontend`, run `pnpm run deploy`. This builds the app and deploys the Worker to `shapeshift.hanzpo.com`.
@@ -32,7 +43,7 @@ We've always been fascinated by the futuristic interfaces in movies like _Minori
 
 ShapeShift is an innovative, browser-based 3D modeling platform that transforms your webcam into a powerful creation tool. It allows users to interact with a 3D environment in two revolutionary ways:
 
--   **👋 Real-Time Gesture Control:** Using your hands, you can directly manipulate objects in the 3D scene. ShapeShift tracks your hand movements in real-time, allowing you to grab, move, rotate, and scale objects with intuitive gestures, eliminating the need for a mouse and keyboard.
+-   **👋 Real-Time Gesture Control:** Using your hands, you can grab and move objects and orbit and zoom the camera, with no mouse or keyboard needed.
 -   **🤖 AI Agent Assistant:** ShapeShift features an intelligent AI assistant that understands natural language. You can simply tell the AI what you want to create or modify. For example, you can say, "Create a red sphere and a blue cube, then place the sphere on top of the cube," and the AI will execute the commands.
 
 ---
@@ -41,11 +52,11 @@ ShapeShift is an innovative, browser-based 3D modeling platform that transforms 
 
 ShapeShift is built on a modern, multi-faceted tech stack designed for real-time performance and intelligence.
 
--   **Frontend:** The entire user interface is a dynamic web application built with **React**, **TypeScript**, and **Vite**. For rendering the 3D environment, we used the powerful **Three.js** library, primarily through the declarative APIs of **@react-three/fiber** and **@react-three/drei**. Global state management is handled efficiently by **Zustand**.
+-   **Frontend:** The entire user interface is a dynamic web application built with **React**, **TypeScript**, and **Vite**. For rendering the 3D environment, we used the powerful **Three.js** library, primarily through the declarative APIs of **@react-three/fiber** and **@react-three/drei**. The scene lives in one **Zustand** store and every change is a zod-validated command applied with Immer patches, so everything can be undone.
 
--   **Hand tracking:** Gesture control runs entirely in the browser. **MediaPipe** Hand Landmarker (WebAssembly + WebGL) reads the webcam feed and detects hand landmarks in real time, so video never leaves the user's machine.
+-   **Hand tracking:** Gesture control runs entirely in the browser. **MediaPipe** Hand Landmarker runs in a Web Worker on the webcam feed, so video never leaves the user's machine.
 
--   **Backend (AI Agent):** A **Cloudflare Worker** serves the app and exposes `/api/chat`. It defines a set of tools (functions) the AI can use to manipulate the 3D scene and calls an LLM on **Workers AI**. Requests are rate limited per IP.
+-   **Backend (AI Agent):** A **Cloudflare Worker** serves the app and exposes `/api/chat`. Its tools are generated from the same command schema the editor uses, and it calls an LLM on **Workers AI**. Requests are rate limited per IP.
 
 The frontend sends user prompts to the Worker to trigger AI actions.
 
