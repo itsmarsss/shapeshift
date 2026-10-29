@@ -118,6 +118,17 @@ describe("anthropic conversion", () => {
         });
     });
 
+    it("puts attached pictures before the prompt", () => {
+        const [first] = toParams([{ role: "user", content: "build this", images: ["QUJD"] }]);
+        expect(first).toEqual({
+            role: "user",
+            content: [
+                { type: "image", source: { type: "base64", media_type: "image/jpeg", data: "QUJD" } },
+                { type: "text", text: "build this" },
+            ],
+        });
+    });
+
     const reply = (content: unknown[], stop_reason: string) => ({ content, stop_reason, model: "claude-opus-5-5" }) as unknown as Anthropic.Beta.Messages.BetaMessage;
 
     it("turns tool_use blocks into tool calls and keeps the raw blocks", () => {

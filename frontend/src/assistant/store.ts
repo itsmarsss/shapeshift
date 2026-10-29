@@ -9,6 +9,8 @@ import { loadChat, saveChat } from "./persist";
 
 type HistoryEntry = SceneState["past"][number];
 
+export type Attachment = { data: string; thumbnail: string };
+
 export type TurnItem = { kind: "text"; text: string } | { kind: "activity"; activities: Activity[] };
 
 export type TurnStatus = "running" | "done" | "error" | "stopped";
@@ -16,6 +18,8 @@ export type TurnStatus = "running" | "done" | "error" | "stopped";
 export type Turn = {
     id: string;
     prompt: string;
+    // Thumbnails of the pictures attached to the prompt.
+    attachments?: string[];
     items: TurnItem[];
     status: TurnStatus;
     error?: { message: string; retryable: boolean };
@@ -30,7 +34,7 @@ type AssistantState = {
     turns: Turn[];
     running: boolean;
     info: AgentInfo | null;
-    send: (prompt: string) => void;
+    send: (prompt: string, attachments?: Attachment[]) => void;
     retry: () => void;
     stop: () => void;
     reset: () => void;
@@ -70,7 +74,7 @@ export const useAssistant = create<AssistantState>()((set, get) => {
     const patchTurn = (id: string, fn: (t: Turn) => Partial<Turn>) =>
         set((s) => ({ turns: s.turns.map((t) => (t.id === id ? { ...t, ...fn(t) } : t)) }));
 
-    async function drive(turnId: string, prompt?: string) {
+    async function drive(turnId: string, prompt?: string, images?: string[]) {
         controller = new AbortController();
         const ctx = context!;
         set({ running: true });
@@ -78,6 +82,7 @@ export const useAssistant = create<AssistantState>()((set, get) => {
             const { stop } = await runTurn({
                 conversation,
                 prompt,
+                images,
                 transport,
                 signal: controller.signal,
                 ctx,
@@ -136,15 +141,26 @@ export const useAssistant = create<AssistantState>()((set, get) => {
         running: false,
         info: null,
 
-        send: (raw) => {
-            const prompt = raw.trim();
+        send: (raw, attachments = []) => {
+            const prompt = raw.trim() || (attachments.length ? "Build this." : "");
             if (!prompt || get().running) return;
             const id = nanoid(8);
             context = newTurnContext(`assistant:${id}`);
             set((s) => ({
-                turns: [...s.turns, { id, prompt, items: [], status: "running", writing: null, startedAt: Date.now() }],
+                turns: [
+                    ...s.turns,
+                    {
+                        id,
+                        prompt,
+                        ...(attachments.length ? { attachments: attachments.map((a) => a.thumbnail) } : {}),
+                        items: [],
+                        status: "running",
+                        writing: null,
+                        startedAt: Date.now(),
+                    },
+                ],
             }));
-            void drive(id, prompt);
+            void drive(id, prompt, attachments.map((a) => a.data));
         },
 
         retry: () => {

@@ -54,6 +54,7 @@ export function requestWindow(conversation: WireMessage[]): WireMessage[] {
 export async function runTurn(opts: {
     conversation: WireMessage[];
     prompt?: string;
+    images?: string[];
     transport: Transport;
     signal: AbortSignal;
     ctx: TurnContext;
@@ -69,6 +70,7 @@ export async function runTurn(opts: {
             role: "user",
             content: opts.prompt.slice(0, LIMITS.promptChars),
             scene: describeScene(doc, selectedId).slice(0, LIMITS.sceneChars),
+            ...(opts.images?.length ? { images: opts.images } : {}),
         });
     }
 
