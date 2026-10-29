@@ -4,6 +4,7 @@ import { CameraControls, Grid, Line, TransformControls } from "@react-three/drei
 import type * as THREE from "three";
 import { useScene } from "../scene/store";
 import { SceneMesh } from "./SceneMesh";
+import { EditOverlay } from "./EditOverlay";
 
 const BACKGROUND = "#0d0e10";
 
@@ -29,12 +30,14 @@ export function Viewport() {
     const gizmoBusy = useRef(false);
 
     const editing = mode !== "render";
+    const selectedObject = objects.find((o) => o.id === selectedId);
 
     return (
         <Canvas
             shadows
             dpr={[1, 2]}
             camera={{ position: [4, 3.5, 6], fov: 45, near: 0.05, far: 500 }}
+            raycaster={{ params: { Points: { threshold: 0.08 } } as THREE.RaycasterParameters }}
             onPointerMissed={() => {
                 if (!gizmoBusy.current) select(null);
             }}
@@ -62,7 +65,7 @@ export function Viewport() {
                     key={o.id}
                     object={o}
                     selected={o.id === selectedId}
-                    showSelection={editing}
+                    showSelection={mode === "object"}
                     onSelect={select}
                     meshRef={o.id === selectedId ? setSelectedMesh : undefined}
                 />
@@ -88,6 +91,8 @@ export function Viewport() {
                     <shadowMaterial opacity={0.35} />
                 </mesh>
             )}
+
+            {mode === "edit" && selectedObject && <EditOverlay object={selectedObject} gizmoBusy={gizmoBusy} />}
 
             {mode === "object" && selectedId && selectedMesh && (
                 <TransformControls

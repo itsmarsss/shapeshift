@@ -124,3 +124,12 @@ describe("booleans and insert", () => {
         expect(s().doc.objects[1].name).toBe("Box 2");
     });
 });
+
+describe("edit geometry", () => {
+    it("welds primitives into editable meshes with shared vertices", async () => {
+        const { editableMesh } = await import("./geometry");
+        const box = editableMesh({ type: "box", width: 1, height: 1, depth: 1 });
+        expect(box.positions.length / 3).toBe(8);
+        expect(box.indices.length / 3).toBe(12);
+    });
+});

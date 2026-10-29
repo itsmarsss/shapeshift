@@ -26,6 +26,35 @@ export function buildGeometry(g: Geometry): THREE.BufferGeometry {
     }
 }
 
+function buildEditGeometry(g: Exclude<Geometry, { type: "mesh" }>): THREE.BufferGeometry {
+    switch (g.type) {
+        case "box":
+            return new THREE.BoxGeometry(g.width, g.height, g.depth);
+        case "sphere":
+            return new THREE.SphereGeometry(g.radius, 16, 10);
+        case "cylinder":
+            return new THREE.CylinderGeometry(g.radiusTop, g.radiusBottom, g.height, 16);
+        case "cone":
+            return new THREE.ConeGeometry(g.radius, g.height, 16);
+        case "torus":
+            return new THREE.TorusGeometry(g.radius, g.tube, 10, 24);
+        case "plane":
+            return new THREE.PlaneGeometry(g.width, g.height, 2, 2);
+    }
+}
+
+const editableCache = new WeakMap<Geometry, Extract<Geometry, { type: "mesh" }>>();
+
+export function editableMesh(g: Geometry): Extract<Geometry, { type: "mesh" }> {
+    if (g.type === "mesh") return g;
+    let mesh = editableCache.get(g);
+    if (!mesh) {
+        mesh = toMeshGeometry(buildEditGeometry(g));
+        editableCache.set(g, mesh);
+    }
+    return mesh;
+}
+
 export function toMeshGeometry(geometry: THREE.BufferGeometry): Extract<Geometry, { type: "mesh" }> {
     const welded = new THREE.BufferGeometry();
     welded.setAttribute("position", geometry.getAttribute("position").clone());

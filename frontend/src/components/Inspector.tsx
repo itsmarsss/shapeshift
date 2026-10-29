@@ -167,6 +167,7 @@ export function Inspector() {
     const endCoalesce = useScene((s) => s.endCoalesce);
     const snap = useScene((s) => s.snap);
     const setSnap = useScene((s) => s.setSnap);
+    const mode = useScene((s) => s.mode);
 
     if (!show) return null;
 
@@ -191,6 +192,8 @@ export function Inspector() {
                 </Select>
 
                 {!selected && objects.length > 0 && <Muted>Select an object to edit it.</Muted>}
+
+                {selected && mode === "edit" && <Muted>Click a vertex to move it. Shift-click to select more.</Muted>}
 
                 {selected && (
                     <>

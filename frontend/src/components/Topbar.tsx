@@ -49,6 +49,7 @@ const Sep = styled.div`
 
 const MODES: { mode: EditorMode; label: string }[] = [
     { mode: "object", label: "Object" },
+    { mode: "edit", label: "Edit" },
     { mode: "render", label: "Render" },
 ];
 
