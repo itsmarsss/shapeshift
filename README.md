@@ -9,12 +9,12 @@
 ## How to run
 
 1. Ensure you have Node and pnpm installed
-2. Run the following commands to set up the frontend:
+2. Run the following commands:
     - `cd frontend`
     - `pnpm install`
+    - `pnpm exec wrangler login` (chat uses Workers AI on your Cloudflare account)
     - `pnpm dev`
 3. Open the browser and go to `http://localhost:5173`
-4. Enjoy! (note: the AI agent is not currently configured to work properly, so a fallback mode is used instead)
 
 A production version will be released soon.
 
@@ -41,9 +41,9 @@ ShapeShift is built on a modern, multi-faceted tech stack designed for real-time
 
 -   **Hand tracking:** Gesture control runs entirely in the browser. **MediaPipe** Hand Landmarker (WebAssembly + WebGL) reads the webcam feed and detects hand landmarks in real time, so video never leaves the user's machine.
 
--   **Backend (AI Agent):** The AI assistant is orchestrated by a **Node.js** server using **Express**. This server acts as a middleware that defines a set of tools (functions) the AI can use to manipulate the 3D scene. It integrates with LLM providers (like Martian).
+-   **Backend (AI Agent):** A **Cloudflare Worker** serves the app and exposes `/api/chat`. It defines a set of tools (functions) the AI can use to manipulate the 3D scene and calls an LLM on **Workers AI**. Requests are rate limited per IP.
 
-The frontend sends user prompts to the Node.js server to trigger AI actions.
+The frontend sends user prompts to the Worker to trigger AI actions.
 
 ---
 

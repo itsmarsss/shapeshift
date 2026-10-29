@@ -5,9 +5,6 @@ import type { GeometryKind, SceneObject } from "../types";
 import { runAgent } from "../agent/agent";
 import { useAgentTimeline } from "../store/agentTimeline";
 
-const SERVER_URL =
-    (import.meta as any).env?.VITE_SERVER_URL ?? "http://localhost:8787";
-
 const Panel = styled.div`
     position: absolute;
     top: 56px;
@@ -232,7 +229,7 @@ export function ChatPanel() {
                 ? pinned.map((o) => summarizeObjectDetailed(o)).join("; ")
                 : "";
 
-            const r = await fetch(`${SERVER_URL}/api/chat`, {
+            const r = await fetch("/api/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ user: userText, sceneSummary, focusContext }),

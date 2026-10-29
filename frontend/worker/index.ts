@@ -1,32 +1,6 @@
-import express from 'express'
-import dotenv from 'dotenv'
+const MODEL = '@cf/zai-org/glm-4.7-flash'
 
-dotenv.config({ path: '.env.local' })
-dotenv.config()
-
-const app = express()
-const PORT = process.env.PORT || 8787
-
-app.use(express.json({ limit: '20mb' }))
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-  if (req.method === 'OPTIONS') return res.sendStatus(200)
-  next()
-})
-
-function getLlms() {
-  const martianKey = process.env.MARTIAN_API_KEY || process.env.VITE_MARTIAN_API_KEY
-  const martianBase = process.env.MARTIAN_BASE_URL || 'https://api.withmartian.com/v1'
-
-  if (martianKey) {
-    return { provider: 'martian', baseUrl: martianBase, apiKey: martianKey, model: process.env.MARTIAN_MODEL || process.env.LLM_MODEL || 'openai/gpt-4.1-nano' }
-  }
-  return null
-}
-
-const tools = [
+const tools: ChatCompletionTool[] = [
   { type: 'function', function: { name: 'addObject', description: 'Add a primitive to the scene', parameters: { type: 'object', properties: { kind: { type: 'string', enum: ['box', 'sphere', 'cylinder', 'cone', 'torus', 'plane'] }, params: { type: 'object', additionalProperties: true } }, required: ['kind'] } } },
   { type: 'function', function: { name: 'selectObject', description: 'Select an object by id or name', parameters: { type: 'object', properties: { target: { type: 'string' } }, required: ['target'] } } },
   { type: 'function', function: { name: 'updateTransform', description: 'Update position, rotation (radians), or scale. Use deltas when requested to move/rotate/scale by amounts.', parameters: { type: 'object', properties: { id: { type: 'string' }, position: { type: 'object', properties: { x: { type: 'number' }, y: { type: 'number' }, z: { type: 'number' } } }, rotation: { type: 'object', properties: { x: { type: 'number' }, y: { type: 'number' }, z: { type: 'number' } } }, scale: { type: 'object', properties: { x: { type: 'number' }, y: { type: 'number' }, z: { type: 'number' } } }, isDelta: { type: 'boolean', description: 'If true, apply values as deltas (additive). Otherwise set absolute.' } }, required: ['id'] } } },
@@ -56,57 +30,40 @@ const systemPrompt = `You are a 3D modeling copilot. Use the provided tools to c
 - When the user asks to rename something, use updateName.
 Only produce natural language when no tool call is appropriate.`
 
-app.get('/api/health', (req, res) => {
-  const llm = getLlms()
-  res.json({ ok: !!llm, provider: llm?.provider ?? null, baseUrl: llm?.baseUrl ?? null, model: llm?.model ?? null, hasKey: !!llm?.apiKey })
-})
+type ChatRequest = {
+  user?: unknown
+  sceneSummary?: unknown
+  focusContext?: unknown
+}
 
-app.post('/api/chat', async (req, res) => {
-  const llm = getLlms()
-  if (!llm) return res.status(500).json({ error: 'No LLM API key configured. Set MARTIAN_API_KEY (+ optional MARTIAN_BASE_URL) or OPENAI_API_KEY.' })
+async function chat(request: Request, env: Env) {
+  const ip = request.headers.get('cf-connecting-ip') ?? 'unknown'
+  const { success } = await env.CHAT_LIMITER.limit({ key: ip })
+  if (!success) return Response.json({ error: 'Too many requests' }, { status: 429 })
 
-  const { user, sceneSummary, focusContext } = req.body || {}
-  if (!user || typeof user !== 'string') return res.status(400).json({ error: 'Missing user prompt' })
+  const { user, sceneSummary, focusContext } = await request.json<ChatRequest>().catch(() => ({}) as ChatRequest)
+  if (!user || typeof user !== 'string') return Response.json({ error: 'Missing user prompt' }, { status: 400 })
+  if (user.length > 2000) return Response.json({ error: 'Prompt too long' }, { status: 400 })
 
-  const messages = [
-    { role: 'system', content: systemPrompt },
-    focusContext ? { role: 'system', content: `Focus: ${focusContext}` } : null,
-    sceneSummary ? { role: 'system', content: `Scene: ${sceneSummary}` } : null,
-    { role: 'user', content: user }
-  ].filter(Boolean)
-
-  const url = `${llm.baseUrl.replace(/\/$/, '')}/chat/completions`
+  const messages: ChatCompletionMessageParam[] = [{ role: 'system', content: systemPrompt }]
+  if (typeof focusContext === 'string' && focusContext) messages.push({ role: 'system', content: `Focus: ${focusContext.slice(0, 8000)}` })
+  if (typeof sceneSummary === 'string' && sceneSummary) messages.push({ role: 'system', content: `Scene: ${sceneSummary.slice(0, 8000)}` })
+  messages.push({ role: 'user', content: user })
 
   try {
-    const r = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${llm.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: llm.model,
-        temperature: 0,
-        messages,
-        tools,
-        tool_choice: 'auto'
-      })
-    })
-    const data = await r.json()
-    if (!r.ok) {
-      console.error('Upstream error', data)
-      return res.status(500).json({ error: 'Upstream error', details: data })
-    }
-    return res.json(data)
+    const result = await env.AI.run(MODEL, { messages, tools, temperature: 0 })
+    return Response.json(result)
   } catch (err) {
-    console.error('Request failed', err)
-    return res.status(500).json({ error: 'Request failed', details: String(err) })
+    console.error('AI request failed', err)
+    return Response.json({ error: 'Request failed' }, { status: 502 })
   }
-})
+}
 
-const detected = getLlms()
-console.log(`[LLM] provider=${detected?.provider ?? 'none'} base=${detected?.baseUrl ?? 'n/a'} model=${detected?.model ?? 'n/a'} hasKey=${!!detected?.apiKey}`)
-
-app.listen(PORT, () => {
-  console.log(`LLM server listening on http://localhost:${PORT}`)
-}) 
+export default {
+  async fetch(request, env) {
+    const { pathname } = new URL(request.url)
+    if (pathname === '/api/chat' && request.method === 'POST') return chat(request, env)
+    if (pathname.startsWith('/api/')) return Response.json({ error: 'Not found' }, { status: 404 })
+    return env.ASSETS.fetch(request)
+  },
+} satisfies ExportedHandler<Env>
