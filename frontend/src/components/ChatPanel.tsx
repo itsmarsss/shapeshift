@@ -1,10 +1,13 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import styled from "styled-components";
-import { PaperPlaneRight, X } from "@phosphor-icons/react";
+import { NotePencil, Sparkle, X } from "@phosphor-icons/react";
 import { selectSelected, useScene } from "../scene/store";
-import { describeScene, summarize, toCommands, type ToolCall } from "../assistant/assistant";
+import { useAssistant } from "../assistant/store";
+import type { AgentInfo } from "../assistant/protocol";
 import { useUI } from "../ui/store";
-import { IconButton, Input, Panel, PanelHeader, PanelTitle } from "./ui";
+import { IconButton, Panel } from "./ui";
+import { Composer, type ComposerHandle } from "./assistant/Composer";
+import { TurnView } from "./assistant/TurnView";
 
 const Root = styled(Panel)`
     top: calc(var(--topbar) + var(--gap));
@@ -12,154 +15,228 @@ const Root = styled(Panel)`
     right: var(--gap);
     width: var(--chat-width);
     z-index: 50;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
 `;
 
-const Messages = styled.div`
-    flex: 1;
-    padding: 12px;
-    overflow: auto;
+const Header = styled.div`
     display: flex;
-    flex-direction: column;
-    gap: 8px;
-`;
-
-const Message = styled.div<{ $role: "user" | "assistant" }>`
-    align-self: ${(p) => (p.$role === "user" ? "flex-end" : "flex-start")};
-    background: ${(p) => (p.$role === "user" ? "var(--accent)" : "var(--surface-raised)")};
-    color: ${(p) => (p.$role === "user" ? "var(--accent-text)" : "var(--text)")};
-    padding: 7px 11px;
-    border-radius: 14px;
-    max-width: 85%;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-`;
-
-const Pending = styled.div`
-    color: var(--text-muted);
-    padding: 0 4px;
-`;
-
-const Examples = styled.div`
-    margin-top: auto;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-`;
-
-const Example = styled.button`
-    border: 1px solid var(--border);
-    background: transparent;
-    border-radius: 999px;
-    padding: 5px 11px;
-    color: var(--text-muted);
-
-    &:hover {
-        color: var(--text);
-        border-color: var(--border-strong);
-    }
-`;
-
-const Form = styled.form`
-    display: flex;
-    gap: 6px;
-    padding: 8px;
-    border-top: 1px solid var(--border);
+    align-items: center;
+    gap: 10px;
+    height: 52px;
+    padding: 0 8px 0 12px;
+    border-bottom: 1px solid var(--border);
     flex-shrink: 0;
 `;
 
-const EXAMPLES = ["Add a red sphere", "Make it twice as wide", "Build a table with four legs"];
+const Mark = styled.div`
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+`;
 
-type Msg = { role: "user" | "assistant"; content: string };
+const Titles = styled.div`
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+`;
+
+const Title = styled.div`
+    font-weight: 600;
+`;
+
+const Subtitle = styled.div`
+    color: var(--text-faint);
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+`;
+
+const Scroll = styled.div`
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 12px 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    scrollbar-width: thin;
+`;
+
+const Empty = styled.div`
+    margin: auto 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+`;
+
+const EmptyTitle = styled.div`
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 4px;
+`;
+
+const EmptyText = styled.div`
+    color: var(--text-muted);
+    line-height: 1.5;
+`;
+
+const Suggestions = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+`;
+
+const Suggestion = styled.button`
+    text-align: left;
+    padding: 9px 11px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface-raised);
+    color: var(--text);
+    line-height: 1.35;
+    transition: border-color 0.12s ease, background 0.12s ease;
+
+    &:hover:not(:disabled) {
+        border-color: var(--border-strong);
+        background: var(--surface-hover);
+    }
+`;
+
+const Hint = styled.div`
+    padding: 0 14px 10px;
+    margin-top: -4px;
+    color: var(--text-faint);
+    font-size: 11px;
+    flex-shrink: 0;
+`;
+
+const MODEL_NAMES: Record<string, string> = {
+    "claude-opus-5-5": "Claude Opus 5.5",
+    "claude-sonnet-5-5": "Claude Sonnet 5.5",
+    "claude-fable-5-1": "Claude Fable 5.1",
+    "claude-haiku-4-5": "Claude Haiku 4.5",
+    "@cf/zai-org/glm-4.7-flash": "GLM 4.7 Flash",
+};
+
+const modelName = (info: AgentInfo) => MODEL_NAMES[info.model] ?? info.model;
+
+function useSuggestions(): string[] {
+    const count = useScene((s) => s.doc.objects.length);
+    const selected = useScene(selectSelected);
+    if (selected) {
+        return [`Make ${selected.name} brushed gold`, `Make ${selected.name} twice as tall`, `Put a small red sphere on top of ${selected.name}`];
+    }
+    if (count === 0) {
+        return ["Build a snowman with a hat and a carrot nose", "Make a wooden table with four chairs", "Create a small rocket on a launch pad"];
+    }
+    return ["Line up five spheres in rainbow colors", "Add a ground plane under everything", "Describe what's in the scene"];
+}
+
+// Keep the view pinned to the newest message unless the user scrolled up.
+function useStickToBottom(dep: unknown) {
+    const ref = useRef<HTMLDivElement>(null);
+    const stuck = useRef(true);
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+        const onScroll = () => {
+            stuck.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+        };
+        el.addEventListener("scroll", onScroll, { passive: true });
+        return () => el.removeEventListener("scroll", onScroll);
+    }, []);
+    useEffect(() => {
+        const el = ref.current;
+        if (el && stuck.current) el.scrollTop = el.scrollHeight;
+    }, [dep]);
+    return {
+        ref,
+        stick: () => {
+            stuck.current = true;
+        },
+    };
+}
+
+function isTyping(target: EventTarget | null) {
+    const el = target as HTMLElement | null;
+    return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
+}
 
 export function ChatPanel() {
     const show = useUI((s) => s.showChat);
     const setShow = useUI((s) => s.setShowChat);
-    const selected = useScene(selectSelected);
-    const [messages, setMessages] = useState<Msg[]>([]);
-    const [input, setInput] = useState("");
-    const [busy, setBusy] = useState(false);
-    const scrollRef = useRef<HTMLDivElement>(null);
+    const turns = useAssistant((s) => s.turns);
+    const running = useAssistant((s) => s.running);
+    const info = useAssistant((s) => s.info);
+    const send = useAssistant((s) => s.send);
+    const reset = useAssistant((s) => s.reset);
+    const loadInfo = useAssistant((s) => s.loadInfo);
+    const suggestions = useSuggestions();
+    const composer = useRef<ComposerHandle>(null);
+    const { ref: scrollRef, stick } = useStickToBottom(turns);
+
+    useEffect(() => loadInfo(), [loadInfo]);
+
+    // "/" opens the assistant and focuses the message field.
+    useEffect(() => {
+        function onKeyDown(e: KeyboardEvent) {
+            if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return;
+            e.preventDefault();
+            useUI.getState().setShowChat(true);
+            requestAnimationFrame(() => composer.current?.focus());
+        }
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, []);
 
     if (!show) return null;
 
-    function append(msg: Msg) {
-        setMessages((prev) => [...prev, msg]);
-        queueMicrotask(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }));
-    }
-
-    async function send(text: string) {
-        const content = text.trim();
-        if (!content || busy) return;
-        const history = [...messages, { role: "user" as const, content }];
-        append({ role: "user", content });
-        setBusy(true);
-        try {
-            const { doc, selectedId, run } = useScene.getState();
-            const res = await fetch("/api/chat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ messages: history, scene: describeScene(doc, selectedId) }),
-            });
-            if (res.status === 429) return append({ role: "assistant", content: "Too many requests. Wait a minute and try again." });
-            if (!res.ok) return append({ role: "assistant", content: "The assistant is unavailable right now." });
-            const data = await res.json();
-            const message = data?.choices?.[0]?.message ?? {};
-            const { commands, errors } = toCommands((message.tool_calls ?? []) as ToolCall[]);
-            const results = commands.length ? run(commands) : [];
-            const failed = results.flatMap((r) => (r.ok ? [] : [r.error]));
-            const done = summarize(commands.filter((_, i) => results[i]?.ok), doc);
-            const reply = [String(message.content ?? "").trim() || done, ...errors, ...failed].filter(Boolean).join("\n");
-            append({ role: "assistant", content: reply || "I couldn't turn that into an edit." });
-        } catch {
-            append({ role: "assistant", content: "The assistant is unavailable right now." });
-        } finally {
-            setBusy(false);
-        }
-    }
-
     return (
-        <Root>
-            <PanelHeader>
-                <PanelTitle>Assistant</PanelTitle>
+        <Root aria-label="Assistant">
+            <Header>
+                <Mark>
+                    <Sparkle size={16} weight="fill" />
+                </Mark>
+                <Titles>
+                    <Title>Assistant</Title>
+                    <Subtitle>{info ? modelName(info) : "Edits your scene from plain language"}</Subtitle>
+                </Titles>
+                <IconButton title="New chat" onClick={reset} disabled={turns.length === 0}>
+                    <NotePencil size={16} />
+                </IconButton>
                 <IconButton title="Close" onClick={() => setShow(false)}>
                     <X size={16} />
                 </IconButton>
-            </PanelHeader>
-            <Messages ref={scrollRef}>
-                {messages.length === 0 && (
-                    <Examples>
-                        {EXAMPLES.map((ex) => (
-                            <Example key={ex} onClick={() => send(ex)}>
-                                {ex}
-                            </Example>
-                        ))}
-                    </Examples>
+            </Header>
+            <Scroll ref={scrollRef} aria-live="polite">
+                {turns.length === 0 ? (
+                    <Empty>
+                        <div>
+                            <EmptyTitle>What should we make?</EmptyTitle>
+                            <EmptyText>Describe a change or a whole object. Each reply is a single undo step.</EmptyText>
+                        </div>
+                        <Suggestions>
+                            {suggestions.map((s) => (
+                                <Suggestion key={s} onClick={() => send(s)} disabled={running}>
+                                    {s}
+                                </Suggestion>
+                            ))}
+                        </Suggestions>
+                    </Empty>
+                ) : (
+                    turns.map((t, i) => <TurnView key={t.id} turn={t} last={i === turns.length - 1} />)
                 )}
-                {messages.map((m, i) => (
-                    <Message key={i} $role={m.role}>
-                        {m.content}
-                    </Message>
-                ))}
-                {busy && <Pending>Thinking…</Pending>}
-            </Messages>
-            <Form
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    const text = input;
-                    setInput("");
-                    send(text);
-                }}
-            >
-                <Input
-                    placeholder={selected ? `Change ${selected.name}…` : "Describe a change…"}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                />
-                <IconButton type="submit" title="Send" disabled={!input.trim() || busy}>
-                    <PaperPlaneRight size={18} />
-                </IconButton>
-            </Form>
+            </Scroll>
+            <div onSubmitCapture={stick} style={{ display: "contents" }}>
+                <Composer ref={composer} />
+            </div>
+            <Hint>Enter to send · Shift+Enter for a new line · / to focus</Hint>
         </Root>
     );
 }

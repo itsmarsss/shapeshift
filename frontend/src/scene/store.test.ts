@@ -29,6 +29,14 @@ describe("commands", () => {
         expect(o.scale).toEqual([2, 2, 2]);
     });
 
+    it("adds primitives with explicit dimensions resting on the ground", () => {
+        s().run({ type: "add", primitive: "cylinder", geometry: { type: "cylinder", radiusTop: 0.1, radiusBottom: 0.3, height: 2 } });
+        expect(s().doc.objects[0].geometry).toEqual({ type: "cylinder", radiusTop: 0.1, radiusBottom: 0.3, height: 2 });
+        expect(s().doc.objects[0].position[1]).toBe(1);
+        const [r] = s().run({ type: "add", primitive: "box", geometry: { type: "sphere", radius: 1 } });
+        expect(r.ok).toBe(false);
+    });
+
     it("duplicates an object that was already edited", () => {
         s().run({ type: "add", primitive: "box" });
         s().run({ type: "transform", target: "Box", position: [1, 0, 0] });

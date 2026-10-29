@@ -27,12 +27,18 @@ const LABELS: Record<Primitive, string> = {
     plane: "Plane",
 };
 
-function restingPose(primitive: Primitive): { position: Vec3; rotation: Vec3 } {
-    switch (primitive) {
+function restingPose(geometry: Geometry, scaleY: number): { position: Vec3; rotation: Vec3 } {
+    switch (geometry.type) {
         case "plane":
             return { position: [0, 0.001, 0], rotation: [-Math.PI / 2, 0, 0] };
         case "torus":
-            return { position: [0, 0.2, 0], rotation: [-Math.PI / 2, 0, 0] };
+            return { position: [0, geometry.tube * scaleY, 0], rotation: [-Math.PI / 2, 0, 0] };
+        case "sphere":
+            return { position: [0, geometry.radius * scaleY, 0], rotation: [0, 0, 0] };
+        case "box":
+        case "cylinder":
+        case "cone":
+            return { position: [0, (geometry.height / 2) * scaleY, 0], rotation: [0, 0, 0] };
         default:
             return { position: [0, 0.5, 0], rotation: [0, 0, 0] };
     }
@@ -77,8 +83,12 @@ const mul = (a: Vec3, b: Vec3): Vec3 => [a[0] * b[0], a[1] * b[1], a[2] * b[2]];
 
 export function applyCommand(doc: SceneDoc, cmd: Command, newId: () => string): CommandResult {
     if (cmd.type === "add") {
+        if (cmd.geometry && cmd.geometry.type !== cmd.primitive) {
+            return { ok: false, error: `Geometry type "${cmd.geometry.type}" does not match primitive "${cmd.primitive}"` };
+        }
         const id = newId();
-        const pose = restingPose(cmd.primitive);
+        const geometry = structuredClone(cmd.geometry ?? DEFAULT_GEOMETRY[cmd.primitive]);
+        const pose = restingPose(geometry, cmd.scale?.[1] ?? 1);
         if (!cmd.position) {
             const [x, z] = freeSpot(doc);
             pose.position = [x, pose.position[1], z];
@@ -86,7 +96,7 @@ export function applyCommand(doc: SceneDoc, cmd: Command, newId: () => string): 
         doc.objects.push({
             id,
             name: uniqueName(doc, cmd.name ?? LABELS[cmd.primitive]),
-            geometry: structuredClone(DEFAULT_GEOMETRY[cmd.primitive]),
+            geometry,
             position: cmd.position ?? pose.position,
             rotation: cmd.rotation ?? pose.rotation,
             scale: cmd.scale ?? [1, 1, 1],

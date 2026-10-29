@@ -14,7 +14,8 @@ Try it at [shapeshift.hanzpo.com](https://shapeshift.hanzpo.com).
 2. Run the following commands:
     - `cd frontend`
     - `pnpm install`
-    - `pnpm exec wrangler login` (chat uses Workers AI on your Cloudflare account)
+    - `pnpm exec wrangler login` (needed for the Workers AI binding in dev)
+    - `cp .dev.vars.example .dev.vars` and set `ANTHROPIC_API_KEY` to use Claude. Without a key the assistant falls back to Workers AI
     - `pnpm dev`
 3. Open the browser and go to `http://localhost:5173`
 
@@ -26,12 +27,12 @@ Hand tracking runs MediaPipe in a Web Worker, smooths landmarks with a One Euro 
 
 ## Development
 
-- `pnpm test` runs the unit tests (scene commands, undo, the assistant's tool parsing, gestures)
+- `pnpm test` runs the unit tests (scene commands, undo, the assistant's agent loop and Worker, gestures)
 - `pnpm lint` and `pnpm build` must pass before merging
 
 ## How to deploy
 
-From `frontend`, run `pnpm run deploy`. This builds the app and deploys the Worker to `shapeshift.hanzpo.com`.
+From `frontend`, run `pnpm exec wrangler secret put ANTHROPIC_API_KEY` once, then `pnpm run deploy`. This builds the app and deploys the Worker to `shapeshift.hanzpo.com`. `AGENT_MODEL` and `AGENT_EFFORT` in `wrangler.jsonc` pick the Claude model and effort.
 
 ## Inspiration
 
@@ -56,9 +57,7 @@ ShapeShift is built on a modern, multi-faceted tech stack designed for real-time
 
 -   **Hand tracking:** Gesture control runs entirely in the browser. **MediaPipe** Hand Landmarker runs in a Web Worker on the webcam feed, so video never leaves the user's machine.
 
--   **Backend (AI Agent):** A **Cloudflare Worker** serves the app and exposes `/api/chat`. Its tools are generated from the same command schema the editor uses, and it calls an LLM on **Workers AI**. Requests are rate limited per IP.
-
-The frontend sends user prompts to the Worker to trigger AI actions.
+-   **Backend (AI Agent):** A **Cloudflare Worker** serves the app and exposes `/api/agent`. The browser runs the agent loop: it sends the conversation, the Worker streams back the model's next step from **Claude** (or **Workers AI** without a key), and the browser runs the tool calls against the scene and sends the results back until the model is done. Each reply is one undo step. Requests are validated and rate limited per IP.
 
 ---
 

@@ -1,0 +1,2 @@
+# Copy to .dev.vars for local development. Without a key the assistant uses Workers AI.
+ANTHROPIC_API_KEY=
