@@ -50,3 +50,15 @@ test('starts from a template and undoes it', async ({ page }) => {
   await page.getByTitle('Undo').click()
   await expect(page.locator('select option', { hasText: 'Carrot nose' })).toHaveCount(0)
 })
+
+test('exports a shape for 3D printing', async ({ page }) => {
+  await openEditor(page)
+  await page.getByTitle('Add box').click()
+  await page.getByTitle('Export for 3D printing').click()
+  const dialog = page.getByRole('dialog', { name: 'Export for 3D printing' })
+  await dialog.getByRole('button', { name: 'Small' }).click()
+  await expect(dialog).toContainText('50 × 50 × 50 mm')
+  const download = page.waitForEvent('download')
+  await dialog.getByRole('button', { name: 'Download STL' }).click()
+  expect((await download).suggestedFilename()).toBe('scene.stl')
+})
