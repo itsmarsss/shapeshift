@@ -12,6 +12,7 @@ import Inspector from "./Inspector";
 import BooleanPanel from "./BooleanPanel";
 import { HistoryPanel } from "./HistoryPanel";
 import { StartCard } from "./StartCard";
+import { ViewCube } from "./ViewCube";
 import { Viewport } from "../viewport/Viewport";
 import { useShortcuts } from "../hooks/useShortcuts";
 import { useUI } from "../ui/store";
@@ -75,6 +76,7 @@ export function Layout() {
             <Timeline />
             <OfflineNote />
             <StartCard />
+            <ViewCube />
             <Suspense fallback={null}>
                 <ChatPanel />
                 {handsOn && <HandUI />}
