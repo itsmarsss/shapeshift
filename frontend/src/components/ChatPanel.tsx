@@ -201,7 +201,7 @@ export function ChatPanel() {
     // "/" opens the assistant and focuses the message field.
     useEffect(() => {
         function onKeyDown(e: KeyboardEvent) {
-            if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return;
+            if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target) || useUI.getState().showOnboarding) return;
             e.preventDefault();
             useUI.getState().setShowChat(true);
             requestAnimationFrame(() => composer.current?.focus());

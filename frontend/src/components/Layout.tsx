@@ -18,6 +18,7 @@ import { useResolvedTheme } from "../settings/theme";
 const ChatPanel = lazy(() => import("./ChatPanel"));
 const HandUI = lazy(() => import("../hands/HandUI"));
 const SettingsModal = lazy(() => import("../settings/SettingsModal"));
+const Onboarding = lazy(() => import("./Onboarding"));
 
 const Root = styled.div`
     position: relative;
@@ -35,6 +36,7 @@ export function Layout() {
     const showChat = useUI((s) => s.showChat);
     const handsOn = useHands((s) => s.status !== "off");
     const showSettings = useUI((s) => s.showSettings);
+    const showOnboarding = useUI((s) => s.showOnboarding);
     const timelineOpen = useTimeline((s) => s.open);
     const compact = useCompact();
     const theme = useResolvedTheme();
@@ -64,6 +66,7 @@ export function Layout() {
                 <ChatPanel />
                 {handsOn && <HandUI />}
                 {showSettings && <SettingsModal />}
+                {showOnboarding && <Onboarding />}
             </Suspense>
         </Root>
     );
