@@ -4,6 +4,7 @@ import { Edges } from "@react-three/drei";
 import type * as THREE from "three";
 import { buildGeometry } from "../scene/geometry";
 import type { SceneObject } from "../scene/schema";
+import { usePalette } from "../settings/theme";
 
 type Props = {
     object: SceneObject;
@@ -21,6 +22,7 @@ export const SceneMesh = memo(function SceneMesh({ object, selected, hovered, pe
     useEffect(() => () => geometry.dispose(), [geometry]);
     const { color, metalness, roughness, opacity, emissive, emissiveIntensity = 0, transmission = 0 } = object.material;
     const glow = { emissive: emissive ?? color, emissiveIntensity };
+    const palette = usePalette();
 
     return (
         <mesh
@@ -53,9 +55,9 @@ export const SceneMesh = memo(function SceneMesh({ object, selected, hovered, pe
             ) : (
                 <meshStandardMaterial color={color} metalness={metalness} roughness={roughness} opacity={opacity} transparent={opacity < 1} {...glow} />
             )}
-            {selected && showSelection && <Edges threshold={20} color="#4f7cff" />}
+            {selected && showSelection && <Edges threshold={20} color={palette.accent} />}
             {peerColor && !selected && <Edges threshold={20} color={peerColor} lineWidth={2} />}
-            {hovered && !selected && <Edges threshold={20} color="#9db4ff" lineWidth={2} />}
+            {hovered && !selected && <Edges threshold={20} color={palette.hover} lineWidth={2} />}
         </mesh>
     );
 });

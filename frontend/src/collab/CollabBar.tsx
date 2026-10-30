@@ -58,7 +58,7 @@ const Dot = styled.span<{ $status: string }>`
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: ${(p) => (p.$status === "live" ? "var(--success)" : p.$status === "error" ? "var(--danger)" : "#ffc53d")};
+    background: ${(p) => (p.$status === "live" ? "var(--success)" : p.$status === "error" ? "var(--danger)" : "var(--warning)")};
     animation: ${(p) => (p.$status === "live" || p.$status === "error" ? "none" : pulse)} 1s ease-in-out infinite;
 `;
 

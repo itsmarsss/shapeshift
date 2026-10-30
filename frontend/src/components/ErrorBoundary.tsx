@@ -58,8 +58,8 @@ const Row = styled.div`
         cursor: pointer;
     }
     button:first-child {
-        background: #4f7cff;
-        border-color: #4f7cff;
+        background: var(--accent, #5b80ff);
+        border-color: var(--accent, #5b80ff);
         color: #fff;
     }
 `;

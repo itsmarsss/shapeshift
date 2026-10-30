@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { ThreeEvent } from "@react-three/fiber";
 import { TransformControls } from "@react-three/drei";
+import { useGizmoColors } from "./GizmoTheme";
 import * as THREE from "three";
 import { editableMesh } from "../scene/geometry";
 import type { SceneObject } from "../scene/schema";
 import { useScene } from "../scene/store";
 import { useEditSelection } from "./editSelection";
+import { usePalette } from "../settings/theme";
 
 const HANDLE = new THREE.Color("#c8ccd4");
-const HANDLE_SELECTED = new THREE.Color("#4f7cff");
-const HANDLE_HOVER = new THREE.Color("#9db4ff");
 
 type DragStart = {
     pivot: THREE.Vector3;
@@ -18,6 +18,7 @@ type DragStart = {
 };
 
 export function EditOverlay({ object, gizmoBusy }: { object: SceneObject; gizmoBusy: RefObject<boolean> }) {
+    const gizmoColors = useGizmoColors();
     const run = useScene((s) => s.run);
     const endCoalesce = useScene((s) => s.endCoalesce);
     const snap = useScene((s) => s.snap);
@@ -26,6 +27,7 @@ export function EditOverlay({ object, gizmoBusy }: { object: SceneObject; gizmoB
     const selected = useEditSelection((s) => s.vertices);
     const setSelected = useEditSelection((s) => s.setVertices);
     const hoverVertex = useEditSelection((s) => s.hoverVertex);
+    const palette = usePalette();
     const [pivot] = useState(() => new THREE.Object3D());
     const groupRef = useRef<THREE.Group>(null);
     const drag = useRef<DragStart | null>(null);
@@ -37,11 +39,12 @@ export function EditOverlay({ object, gizmoBusy }: { object: SceneObject; gizmoB
         const g = new THREE.BufferGeometry();
         g.setAttribute("position", new THREE.Float32BufferAttribute(mesh.positions, 3));
         const colors = new Float32Array(count * 3);
-        for (let i = 0; i < count; i++)
-            (active.includes(i) ? HANDLE_SELECTED : i === hoverVertex ? HANDLE_HOVER : HANDLE).toArray(colors, i * 3);
+        const chosen = new THREE.Color(palette.accent);
+        const hovered = new THREE.Color(palette.hover);
+        for (let i = 0; i < count; i++) (active.includes(i) ? chosen : i === hoverVertex ? hovered : HANDLE).toArray(colors, i * 3);
         g.setAttribute("color", new THREE.BufferAttribute(colors, 3));
         return g;
-    }, [mesh.positions, count, active, hoverVertex]);
+    }, [mesh.positions, count, active, hoverVertex, palette]);
     useEffect(() => () => pointsGeometry.dispose(), [pointsGeometry]);
 
     const wireGeometry = useMemo(() => {
@@ -79,7 +82,7 @@ export function EditOverlay({ object, gizmoBusy }: { object: SceneObject; gizmoB
         <>
             <group ref={groupRef} position={object.position} rotation={object.rotation} scale={object.scale}>
                 <lineSegments geometry={wireGeometry} raycast={() => null}>
-                    <lineBasicMaterial color="#4f7cff" transparent opacity={0.35} depthTest={false} />
+                    <lineBasicMaterial color={palette.accent} transparent opacity={0.35} depthTest={false} />
                 </lineSegments>
                 <points geometry={pointsGeometry} onClick={onPick} renderOrder={2}>
                     <pointsMaterial size={9} sizeAttenuation={false} vertexColors depthTest={false} />
@@ -88,6 +91,7 @@ export function EditOverlay({ object, gizmoBusy }: { object: SceneObject; gizmoB
             <primitive object={pivot} />
             {active.length > 0 && (
                 <TransformControls
+                    ref={gizmoColors}
                     object={pivot}
                     mode="translate"
                     size={0.7}

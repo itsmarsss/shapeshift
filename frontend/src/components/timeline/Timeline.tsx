@@ -95,7 +95,7 @@ const Diamond = styled.button<{ $active: boolean; $faint: boolean }>`
     padding: 0;
     border: 1.5px solid ${(p) => (p.$active ? "#fff" : "transparent")};
     transform: rotate(45deg);
-    background: ${(p) => (p.$faint ? "var(--text-faint)" : "var(--warning, #ffc53d)")};
+    background: ${(p) => (p.$faint ? "var(--text-faint)" : "var(--warning)")};
     cursor: pointer;
 `;
 
