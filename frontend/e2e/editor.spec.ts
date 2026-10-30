@@ -88,3 +88,59 @@ test('offers a way to start on an empty scene', async ({ page }) => {
   await card.getByRole('button', { name: /Try saying/ }).click()
   await expect(page.getByText('Build a snowman with a hat and a carrot nose').first()).toBeVisible()
 })
+
+test('drags a shape across the floor, and orbits when dragging empty space', async ({ page }) => {
+  await openEditor(page)
+  await page.getByTitle('Add box').click()
+  const position = () =>
+    page.evaluate(() => JSON.parse(localStorage.getItem('shapeshift-scene') ?? '{"objects":[]}').objects[0]?.position as number[] | undefined)
+  await expect.poll(position).toEqual([0, 0.5, 0])
+  const canvas = (await page.locator('canvas').first().boundingBox())!
+  const drag = async (x: number, y: number, dx: number, dy: number) => {
+    await page.mouse.move(x, y)
+    await page.mouse.down()
+    await page.mouse.move(x + dx, y + dy, { steps: 12 })
+    await page.mouse.up()
+  }
+
+  // Press on the box, left of the gizmo in the middle, and pull it right.
+  await drag(canvas.x + canvas.width / 2 - 60, canvas.y + canvas.height / 2, 160, 0)
+  await expect.poll(async () => (await position())?.[0] ?? 0).toBeGreaterThan(0.3)
+  const moved = await position()
+  expect(moved?.[1]).toBeCloseTo(0.5)
+
+  // Dragging empty space turns the camera and leaves the box alone.
+  await drag(canvas.x + 420, canvas.y + 140, 150, 40)
+  expect(await position()).toEqual(moved)
+  await expect(page.locator('input[value="Box"]')).toBeVisible()
+
+  // The whole drag was one step.
+  await page.getByTitle('Undo').click()
+  await expect.poll(position).toEqual([0, 0.5, 0])
+})
+
+test('picks colors from the palette or by hex, as one undo step', async ({ page }) => {
+  await openEditor(page)
+  await page.getByTitle('Add sphere').click()
+  const color = () => page.evaluate(() => JSON.parse(localStorage.getItem('shapeshift-scene') ?? '{"objects":[]}').objects[0]?.material.color)
+  // Autosave is debounced, so wait for the new sphere to be saved.
+  await expect.poll(color).toBeTruthy()
+  const before = await color()
+
+  await page.getByRole('button', { name: /^Color: #/ }).click()
+  const picker = page.getByRole('dialog', { name: 'Pick color' })
+  await picker.getByRole('button', { name: '#3e8ed0' }).click()
+  await expect.poll(color).toBe('#3e8ed0')
+  await picker.getByLabel('Hex color').fill('f80')
+  await expect.poll(color).toBe('#ff8800')
+  await page.keyboard.press('Escape')
+  await expect(picker).toHaveCount(0)
+
+  // The color it was given last time comes back under Recent.
+  await page.getByRole('button', { name: /^Color: #/ }).click()
+  await expect(picker.getByRole('button', { name: 'Recent #ff8800' })).toBeVisible()
+  await page.keyboard.press('Escape')
+
+  await page.getByTitle('Undo').click()
+  await expect.poll(color).toBe(before)
+})

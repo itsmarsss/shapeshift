@@ -16,6 +16,9 @@ type Props = {
     peerColor?: string;
     showSelection: boolean;
     onSelect: (id: string, event: MouseEvent) => void;
+    // Pressing starts a drag; see useObjectDrag.
+    onPress?: (id: string, event: ThreeEvent<PointerEvent>) => void;
+    onHover?: (over: boolean) => void;
     meshRef?: (mesh: THREE.Mesh | null) => void;
 };
 
@@ -95,7 +98,7 @@ function useObjectGeometry(g: Geometry): THREE.BufferGeometry | undefined {
     return built ?? asset;
 }
 
-export const SceneMesh = memo(function SceneMesh({ object, selected, hovered, peerColor, showSelection, onSelect, meshRef }: Props) {
+export const SceneMesh = memo(function SceneMesh({ object, selected, hovered, peerColor, showSelection, onSelect, onPress, onHover, meshRef }: Props) {
     const geometry = useObjectGeometry(object.geometry);
     const palette = usePalette();
     if (!geometry) return null;
@@ -114,6 +117,9 @@ export const SceneMesh = memo(function SceneMesh({ object, selected, hovered, pe
                 e.stopPropagation();
                 onSelect(object.id, e.nativeEvent);
             }}
+            onPointerDown={onPress && ((e: ThreeEvent<PointerEvent>) => onPress(object.id, e))}
+            onPointerOver={onHover && ((e: ThreeEvent<PointerEvent>) => (e.stopPropagation(), onHover(true)))}
+            onPointerOut={onHover && (() => onHover(false))}
         >
             <ModelMaterial material={object.material} vertexColors={!!geometry.getAttribute("color")} />
             {selected && showSelection && <Outline object={object} geometry={geometry} color={palette.accent} />}

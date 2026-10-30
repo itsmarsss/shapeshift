@@ -9,6 +9,8 @@ type Props = {
     hash: string;
     objects: SceneObject[];
     onSelect: (id: string, event: MouseEvent) => void;
+    onPress?: (id: string, event: ThreeEvent<PointerEvent>) => void;
+    onHover?: (over: boolean) => void;
 };
 
 const matrix = new THREE.Matrix4();
@@ -20,7 +22,7 @@ const color = new THREE.Color();
 
 // Every copy of one imported part, such as all the bolts in an assembly,
 // drawn in a single call.
-export const AssetBatch = memo(function AssetBatch({ hash, objects, onSelect }: Props) {
+export const AssetBatch = memo(function AssetBatch({ hash, objects, onSelect, onPress, onHover }: Props) {
     const geometry = useMeshGeometry(hash);
     const ref = useRef<THREE.InstancedMesh>(null);
 
@@ -52,6 +54,15 @@ export const AssetBatch = memo(function AssetBatch({ hash, objects, onSelect }: 
                 const id = e.instanceId === undefined ? undefined : objects[e.instanceId]?.id;
                 if (id) onSelect(id, e.nativeEvent);
             }}
+            onPointerDown={
+                onPress &&
+                ((e: ThreeEvent<PointerEvent>) => {
+                    const id = e.instanceId === undefined ? undefined : objects[e.instanceId]?.id;
+                    if (id) onPress(id, e);
+                })
+            }
+            onPointerOver={onHover && ((e: ThreeEvent<PointerEvent>) => (e.stopPropagation(), onHover(true)))}
+            onPointerOut={onHover && (() => onHover(false))}
         >
             <ModelMaterial material={objects[0].material} vertexColors={!!geometry.getAttribute("color")} color="#ffffff" />
         </instancedMesh>

@@ -1,11 +1,11 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { useTimeline } from "../scene/timeline";
 import { transformCommand } from "../scene/autokey";
 import type { Pose } from "../scene/animation";
-import type { Light, SceneObject } from "@shapeshift/shared/scene/schema";
+import type { Light, SceneObject, Vec3 } from "@shapeshift/shared/scene/schema";
 import { useShallow } from "zustand/react/shallow";
 import { useCollab } from "../collab/session";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas, useThree, type ThreeEvent } from "@react-three/fiber";
 import { CameraControls, Grid, Line, TransformControls } from "@react-three/drei";
 import type * as THREE from "three";
 import { useScene } from "../scene/store";
@@ -17,6 +17,7 @@ import { SceneEnvironment } from "./SceneEnvironment";
 import { EditOverlay } from "./EditOverlay";
 import { SnapshotBridge } from "./SnapshotBridge";
 import { FrameBridge } from "./FrameBridge";
+import { useObjectDrag } from "./useObjectDrag";
 import { useGizmoColors } from "./GizmoTheme";
 import { AssetBatch } from "./AssetBatch";
 import { batchKey } from "./batching";
@@ -79,6 +80,100 @@ function withLightPoses(lights: Light[], poses: Map<string, Pose>): Light[] {
     });
 }
 
+type ItemsProps = {
+    objects: SceneObject[];
+    lights: Light[];
+    selectedIds: string[];
+    selectedId: string | null;
+    hoveredId: string | null;
+    peerColors: Map<string, string>;
+    editing: boolean;
+    pick: (id: string, event: MouseEvent) => void;
+    busy: MutableRefObject<boolean>;
+    setSelectedMesh: (mesh: THREE.Mesh | null) => void;
+};
+
+// The scene's objects and light markers. Lives inside the canvas so pressing
+// one can start a drag; see useObjectDrag.
+function SceneItems({ objects, lights, selectedIds, selectedId, hoveredId, peerColors, editing, pick, busy, setSelectedMesh }: ItemsProps) {
+    const mode = useScene((s) => s.mode);
+    const drawn = useRef(new Map<string, Vec3>());
+    drawn.current = new Map([...objects.map((o) => [o.id, o.position] as const), ...lights.map((l) => [l.id, l.position] as const)]);
+    const positions = useCallback(() => drawn.current, []);
+    const drag = useObjectDrag({ positions, pick, busy });
+    const onHover = drag.onHover;
+    // Exploded parts are drawn away from where they are, so they can be picked but not dragged.
+    const exploded = useView((s) => s.explode > 0);
+    const onPointerDown = exploded ? pickOnly(pick) : drag.onPointerDown;
+    // Copies of the same imported part are drawn together, apart from ones
+    // that need their own outline.
+    const { singles, batches } = useMemo(() => {
+        const marked = new Set([...selectedIds, ...peerColors.keys(), ...(hoveredId ? [hoveredId] : [])]);
+        const groups = new Map<string, SceneObject[]>();
+        const singles: SceneObject[] = [];
+        for (const o of objects) {
+            const key = marked.has(o.id) ? null : batchKey(o);
+            if (key === null) singles.push(o);
+            else {
+                const list = groups.get(key);
+                if (list) list.push(o);
+                else groups.set(key, [o]);
+            }
+        }
+        const batches: [string, SceneObject[]][] = [];
+        for (const [key, members] of groups) {
+            if (members.length > 1) batches.push([key, members]);
+            else singles.push(members[0]);
+        }
+        return { singles, batches };
+    }, [objects, selectedIds, hoveredId, peerColors]);
+
+    // In object mode a press selects (and may drag); clicks only select in the other modes.
+    const click = mode === "object" ? noop : pick;
+    const clickLight = mode === "object" ? noop : (id: string) => pick(id, new MouseEvent("click"));
+    return (
+        <>
+            {lights.map((l) => (
+                <SceneLight
+                    key={l.id}
+                    light={l}
+                    selected={l.id === selectedId}
+                    showMarker={editing}
+                    onSelect={clickLight}
+                    onPress={onPointerDown}
+                    onHover={onHover}
+                    markerRef={l.id === selectedId ? setSelectedMesh : undefined}
+                />
+            ))}
+            {singles.map((o) => (
+                <SceneMesh
+                    key={o.id}
+                    object={o}
+                    selected={selectedIds.includes(o.id)}
+                    hovered={o.id === hoveredId}
+                    peerColor={peerColors.get(o.id)}
+                    showSelection={mode === "object"}
+                    onSelect={click}
+                    onPress={onPointerDown}
+                    onHover={onHover}
+                    meshRef={o.id === selectedId ? setSelectedMesh : undefined}
+                />
+            ))}
+            {batches.map(([key, members]) => (
+                <AssetBatch key={key} hash={(members[0].geometry as { hash: string }).hash} objects={members} onSelect={click} onPress={onPointerDown} onHover={onHover} />
+            ))}
+        </>
+    );
+}
+
+const noop = () => {};
+
+const pickOnly = (pick: (id: string, event: MouseEvent) => void) => (id: string, e: ThreeEvent<PointerEvent>) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    pick(id, e.nativeEvent);
+};
+
 export function Viewport() {
     const gizmoColors = useGizmoColors();
     const baseObjects = useScene((s) => s.doc.objects);
@@ -96,9 +191,11 @@ export function Viewport() {
     const handsOn = useHands((s) => s.status !== "off");
     const selectedIds = useScene(useShallow((s) => s.selectedIds));
     const peers = useCollab((s) => s.peers);
-    const peerColors = new Map<string, string>();
-    for (const p of Object.values(peers)) for (const id of p.presence.selection) peerColors.set(id, p.color);
-    const peerKey = [...peerColors].join();
+    const peerColors = useMemo(() => {
+        const colors = new Map<string, string>();
+        for (const p of Object.values(peers)) for (const id of p.presence.selection) colors.set(id, p.color);
+        return colors;
+    }, [peers]);
     const selectMany = useScene((s) => s.selectMany);
     const mode = useScene((s) => s.mode);
     const transformMode = useScene((s) => s.transformMode);
@@ -132,29 +229,6 @@ export function Viewport() {
         }
         select(id);
     }
-    // Copies of the same imported part are drawn together, apart from ones
-    // that need their own outline.
-    const { singles, batches } = useMemo(() => {
-        const marked = new Set([...selectedIds, ...peerColors.keys(), ...(hoveredId ? [hoveredId] : [])]);
-        const groups = new Map<string, SceneObject[]>();
-        const singles: SceneObject[] = [];
-        for (const o of objects) {
-            const key = marked.has(o.id) ? null : batchKey(o);
-            if (key === null) singles.push(o);
-            else {
-                const list = groups.get(key);
-                if (list) list.push(o);
-                else groups.set(key, [o]);
-            }
-        }
-        const batches: [string, SceneObject[]][] = [];
-        for (const [key, members] of groups) {
-            if (members.length > 1) batches.push([key, members]);
-            else singles.push(members[0]);
-        }
-        return { singles, batches };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [objects, selectedIds, hoveredId, peerKey]);
     // The built-in key light only shows until the scene has lights of its own.
     const studio = lights.length === 0;
 
@@ -189,16 +263,6 @@ export function Viewport() {
                     shadow-normalBias={0.02}
                 />
             )}
-            {lights.map((l) => (
-                <SceneLight
-                    key={l.id}
-                    light={l}
-                    selected={l.id === selectedId}
-                    showMarker={editing}
-                    onSelect={select}
-                    markerRef={l.id === selectedId ? setSelectedMesh : undefined}
-                />
-            ))}
             <CameraControls
                 makeDefault
                 azimuthRotateSpeed={settings.orbitSpeed}
@@ -217,21 +281,18 @@ export function Viewport() {
                 </Suspense>
             )}
 
-            {singles.map((o) => (
-                <SceneMesh
-                    key={o.id}
-                    object={o}
-                    selected={selectedIds.includes(o.id)}
-                    hovered={o.id === hoveredId}
-                    peerColor={peerColors.get(o.id)}
-                    showSelection={mode === "object"}
-                    onSelect={pick}
-                    meshRef={o.id === selectedId ? setSelectedMesh : undefined}
-                />
-            ))}
-            {batches.map(([key, members]) => (
-                <AssetBatch key={key} hash={(members[0].geometry as { hash: string }).hash} objects={members} onSelect={pick} />
-            ))}
+            <SceneItems
+                objects={objects}
+                lights={lights}
+                selectedIds={selectedIds}
+                selectedId={selectedId}
+                hoveredId={hoveredId}
+                peerColors={peerColors}
+                editing={editing}
+                pick={pick}
+                busy={gizmoBusy}
+                setSelectedMesh={setSelectedMesh}
+            />
             <SectionCut objects={visible} />
             <AutoNear />
 
