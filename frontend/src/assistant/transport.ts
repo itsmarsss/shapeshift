@@ -36,6 +36,7 @@ const MESSAGES: Record<AgentError["code"], string> = {
     upstream: "The model didn't respond properly.",
     not_configured: "The assistant isn't set up on this server.",
     internal: "Something went wrong on the server.",
+    quota: "You've used this month's assistant prompts.",
     network: "Couldn't reach the server. Check your connection.",
     aborted: "Stopped.",
     timeout: "The model took too long to respond.",

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { nanoid } from "nanoid";
 import { useScene, type SceneState } from "../scene/store";
+import { useAccount } from "../account/store";
 import { runTurn } from "./agent";
 import { newTurnContext, type Activity, type TurnContext } from "./executor";
 import type { AgentInfo, WireMessage } from "@shapeshift/shared/assistant/protocol";
@@ -28,7 +29,8 @@ export type Turn = {
     attachments?: string[];
     items: TurnItem[];
     status: TurnStatus;
-    error?: { message: string; retryable: boolean };
+    // `quota` is set when the monthly allowance ran out, to offer a way to get more.
+    error?: { message: string; retryable: boolean; quota?: boolean };
     note?: string;
     writing: string | null;
     entry?: HistoryEntry;
@@ -126,9 +128,18 @@ export const useAssistant = create<AssistantState>()((set, get) => {
         } catch (err) {
             const error = err instanceof AgentError ? err : new AgentError("internal", "Something went wrong.");
             if (error.code === "aborted") patchTurn(turnId, () => ({ status: "stopped", error: undefined }));
-            else patchTurn(turnId, () => ({ status: "error", error: { message: error.message, retryable: error.code !== "bad_request" && error.code !== "not_configured" } }));
+            else
+                patchTurn(turnId, () => ({
+                    status: "error",
+                    error: {
+                        message: error.message,
+                        retryable: error.code !== "bad_request" && error.code !== "not_configured" && error.code !== "quota",
+                        ...(error.code === "quota" ? { quota: true } : {}),
+                    },
+                }));
             if (error.code !== "aborted" && !(err instanceof AgentError)) console.error(err);
         } finally {
+            void useAccount.getState().refreshUsage();
             const scene = useScene.getState();
             scene.endCoalesce();
             // Select what the turn made when it made one thing, so "it" means that next.
