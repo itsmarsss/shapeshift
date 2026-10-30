@@ -13,7 +13,9 @@
     "preview": "vite preview",
     "cf-typegen": "wrangler types",
     "deploy": "pnpm build && wrangler deploy",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:migrate": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
