@@ -1,2 +1,8 @@
 # Copy to .dev.vars for local development. Without a key the assistant uses Workers AI.
 ANTHROPIC_API_KEY=
+
+# Billing, with Stripe test-mode keys. Leave empty to run without Pro.
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_PRICE_MONTHLY=
+STRIPE_PRICE_YEARLY=
