@@ -29,3 +29,11 @@ test('sends a free account to checkout for the chosen price', async ({ page }) =
   await expect(page.getByRole('status')).toContainText('Finishing your upgrade')
   expect(interval).toBe('month')
 })
+
+test('scrolls on a short window', async ({ page }) => {
+  await page.setViewportSize({ width: 1200, height: 600 })
+  await page.goto('/pricing')
+  await page.mouse.move(600, 300)
+  await page.mouse.wheel(0, 2000)
+  await expect(page.getByText('Do I need Pro to use hand control or export?')).toBeInViewport()
+})
