@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { PlanId } from "@shapeshift/shared/billing/plans";
 import { sendEmail } from "./email";
 
 // Passwordless sign-in: we email a 6-digit code, the user types it in, and we
@@ -14,11 +15,11 @@ const COOKIE = "ss_session";
 
 export const Email = z.string().trim().toLowerCase().email().max(254);
 
-export type User = { id: string; email: string; name: string | null };
+export type User = { id: string; email: string; name: string | null; plan: PlanId };
 
 const now = () => Date.now();
 
-async function sha256(text: string) {
+export async function sha256(text: string) {
     const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)));
     return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
@@ -103,9 +104,9 @@ export async function finishSignIn(env: Env, request: Request, rawEmail: unknown
     }
 
     await env.DB.prepare("DELETE FROM login_codes WHERE email = ?1").bind(email.data).run();
-    let user = await env.DB.prepare("SELECT id, email, name FROM users WHERE email = ?1").bind(email.data).first<User>();
+    let user = await env.DB.prepare("SELECT id, email, name, plan FROM users WHERE email = ?1").bind(email.data).first<User>();
     if (!user) {
-        user = { id: crypto.randomUUID(), email: email.data, name: null };
+        user = { id: crypto.randomUUID(), email: email.data, name: null, plan: "free" };
         await env.DB.prepare("INSERT INTO users (id, email, name, created_at) VALUES (?1, ?2, NULL, ?3)").bind(user.id, user.email, now()).run();
     }
     const token = randomToken();
@@ -129,7 +130,7 @@ export async function currentUser(env: Env, request: Request): Promise<User | nu
     if (!token) return null;
     return (
         (await env.DB.prepare(
-            "SELECT u.id, u.email, u.name FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?1 AND s.expires_at > ?2"
+            "SELECT u.id, u.email, u.name, u.plan FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?1 AND s.expires_at > ?2"
         )
             .bind(await sha256(token), now())
             .first<User>()) ?? null
