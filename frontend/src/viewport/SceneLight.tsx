@@ -10,6 +10,8 @@ type Props = {
     selected: boolean;
     showMarker: boolean;
     onSelect: (id: string) => void;
+    onPress?: (id: string, event: ThreeEvent<PointerEvent>) => void;
+    onHover?: (over: boolean) => void;
     markerRef?: (mesh: THREE.Mesh | null) => void;
 };
 
@@ -19,7 +21,7 @@ const SHADOW = {
     "shadow-normalBias": 0.02,
 };
 
-export const SceneLight = memo(function SceneLight({ light, selected, showMarker, onSelect, markerRef }: Props) {
+export const SceneLight = memo(function SceneLight({ light, selected, showMarker, onSelect, onPress, onHover, markerRef }: Props) {
     // Spot and directional lights point at a target object, which has to be in
     // the scene graph for its matrix to update.
     const target = useMemo(() => new THREE.Object3D(), []);
@@ -77,6 +79,9 @@ export const SceneLight = memo(function SceneLight({ light, selected, showMarker
                             e.stopPropagation();
                             onSelect(light.id);
                         }}
+                        onPointerDown={onPress && ((e: ThreeEvent<PointerEvent>) => onPress(light.id, e))}
+                        onPointerOver={onHover && ((e: ThreeEvent<PointerEvent>) => (e.stopPropagation(), onHover(true)))}
+                        onPointerOut={onHover && (() => onHover(false))}
                     >
                         <sphereGeometry args={[light.type === "directional" ? 0.16 : 0.11, 16, 12]} />
                         <meshBasicMaterial color={light.color} toneMapped={false} />
