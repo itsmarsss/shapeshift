@@ -24,7 +24,7 @@ export function useShortcuts() {
                 ui.setShowSettings(true);
                 return;
             }
-            if (isTyping(e.target) || ui.showSettings) return;
+            if (isTyping(e.target) || ui.showSettings || ui.showOnboarding) return;
 
             if (mod && key === "z") {
                 e.preventDefault();

@@ -40,7 +40,7 @@ The editor runs entirely in the browser. Accounts (sign in with an email code), 
 - **Durable Objects** host shared rooms
 - **Email** goes through Resend. Without `RESEND_API_KEY`, sign-in codes are printed and shown on localhost only
 
-Before the first deploy: `wrangler d1 create shapeshift` (put the id in `wrangler.jsonc`), `pnpm db:migrate:remote`, `wrangler r2 bucket create shapeshift-scenes` and `wrangler secret put RESEND_API_KEY`.
+Before the first deploy: `wrangler secret put RESEND_API_KEY`.
 
 ## Project layout
 

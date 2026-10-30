@@ -10,6 +10,20 @@ test('adds a shape from the toolbar and undoes it', async ({ page }) => {
   await expect(page.locator('select option', { hasText: 'Box' })).toHaveCount(0)
 })
 
+test('shows the intro once to new visitors', async ({ page }) => {
+  await page.goto('/')
+  const intro = page.getByRole('dialog', { name: 'Welcome to ShapeShift' })
+  await expect(intro).toContainText('1 of 4')
+  await intro.getByRole('button', { name: 'Next' }).click()
+  await expect(intro).toContainText('2 of 4')
+  await intro.getByRole('button', { name: 'Back' }).click()
+  await intro.getByRole('button', { name: 'Skip' }).click()
+  await expect(intro).toHaveCount(0)
+  await page.reload()
+  await expect(page.getByTitle('Add box')).toBeVisible()
+  await expect(intro).toHaveCount(0)
+})
+
 test('jumps back through the history panel', async ({ page }) => {
   await openEditor(page)
   await page.getByTitle('Add box').click()

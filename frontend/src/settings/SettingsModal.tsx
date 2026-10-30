@@ -485,6 +485,17 @@ function Section({ id }: { id: SectionId }) {
         case "data":
             return (
                 <Group>
+                    <Row label="Show the intro again">
+                        <Button
+                            type="button"
+                            onClick={() => {
+                                useUI.getState().setShowSettings(false);
+                                useUI.getState().setShowOnboarding(true);
+                            }}
+                        >
+                            Show
+                        </Button>
+                    </Row>
                     <Row label="Reset settings" hint="Puts every setting back to its default">
                         <Button
                             type="button"
