@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Html, type CameraControls } from "@react-three/drei";
 import * as THREE from "three";
@@ -67,6 +67,11 @@ export function SizeHandles({ objects, gizmoBusy }: { objects: SceneObject[]; gi
     const [hovered, setHovered] = useState<string | null>(null);
     const [dragging, setDragging] = useState<string | null>(null);
     const group = useRef<THREE.Group>(null);
+    const busy = hovered !== null || dragging !== null;
+    useEffect(() => {
+        useTools.getState().setHandleBusy(busy);
+        return () => useTools.getState().setHandleBusy(false);
+    }, [busy]);
 
     const frame = useMemo(() => {
         if (objects.length === 1) {

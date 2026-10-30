@@ -168,6 +168,8 @@ export function inspectObject(o: SceneObject) {
         rotation: o.rotation.map(round),
         scale: o.scale.map(round),
         material: o.material,
+        ...(o.hole ? { hole: true } : {}),
+        ...(o.group ? { group: o.group } : {}),
         bounds: { min: b.min.map(round), max: b.max.map(round) },
     };
 }

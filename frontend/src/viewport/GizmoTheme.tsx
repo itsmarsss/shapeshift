@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import * as THREE from "three";
 import { usePalette } from "../settings/theme";
+import { trackGizmo } from "./tools";
 
 type GizmoMaterial = THREE.Material & { color?: THREE.Color; tempColor?: THREE.Color };
 
@@ -15,6 +16,7 @@ export function useGizmoColors() {
     return useCallback(
         (controls: THREE.Object3D | null) => {
             if (!controls) return;
+            trackGizmo(controls as unknown as { enabled: boolean });
             const target = [palette.axisX, palette.axisY, palette.axisZ].map((c) => new THREE.Color(c));
             controls.traverse((child) => {
                 const materials = [(child as THREE.Mesh).material].flat().filter(Boolean) as GizmoMaterial[];

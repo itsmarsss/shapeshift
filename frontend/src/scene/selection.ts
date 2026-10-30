@@ -110,15 +110,13 @@ export function addShape(primitive: Primitive) {
     let low = Infinity;
     for (let i = 0; i < points.length; i += 3) low = Math.min(low, v.set(points[i], points[i + 1], points[i + 2]).applyQuaternion(rotation).dot(normal));
     const origin = new THREE.Vector3(...wp.origin);
-    const spot =
-        SPOTS.map(([x, z]) => new THREE.Vector3(x, 0, z).applyQuaternion(turn).add(origin)).find((p) =>
-            s.doc.objects.every((o) => p.distanceTo(new THREE.Vector3(...o.position)) >= 1.2)
-        ) ?? origin;
+    const spots = SPOTS.map(([x, z]) => new THREE.Vector3(x, 0, z).applyQuaternion(turn).add(origin).addScaledVector(normal, -low));
+    const spot = spots.find((p) => s.doc.objects.every((o) => p.distanceTo(new THREE.Vector3(...o.position)) >= 0.5)) ?? spots[0];
     const euler = new THREE.Euler().setFromQuaternion(rotation);
     return s.run({
         type: "add",
         primitive,
-        position: spot.addScaledVector(normal, -low).toArray() as Vec3,
+        position: spot.toArray() as Vec3,
         rotation: [euler.x, euler.y, euler.z],
     });
 }

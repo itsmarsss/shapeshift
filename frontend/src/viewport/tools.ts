@@ -12,6 +12,9 @@ type ToolState = {
     // Grid spacing on screen right now, in metres.
     gridStep: number;
     ruler: Vec3[];
+    // A size handle is under the pointer or being dragged, so the gizmo stands aside.
+    handleBusy: boolean;
+    setHandleBusy: (busy: boolean) => void;
     setTool: (tool: Tool) => void;
     setWorkplane: (workplane: Workplane | null) => void;
     setGridStep: (step: number) => void;
@@ -24,12 +27,31 @@ export const useTools = create<ToolState>()((set) => ({
     workplane: null,
     gridStep: 0.1,
     ruler: [],
+    handleBusy: false,
+    setHandleBusy: (handleBusy) => set({ handleBusy }),
     setTool: (tool) => set({ tool }),
     setWorkplane: (workplane) => set({ workplane }),
     setGridStep: (gridStep) => set({ gridStep }),
     addRulerPoint: (point) => set((s) => ({ ruler: s.ruler.length >= 2 ? [point] : [...s.ruler, point] })),
     clearRuler: () => set({ ruler: [] }),
 }));
+
+let gizmos: WeakRef<{ enabled: boolean }>[] = [];
+
+// The gizmo listens to the canvas before the scene's own handlers do, so it's
+// switched off directly the moment a size handle is under the pointer.
+export function trackGizmo(gizmo: { enabled: boolean }) {
+    gizmos = [...gizmos.filter((g) => g.deref()), new WeakRef(gizmo)];
+    gizmo.enabled = !useTools.getState().handleBusy;
+}
+
+useTools.subscribe((s, prev) => {
+    if (s.handleBusy === prev.handleBusy) return;
+    for (const g of gizmos) {
+        const gizmo = g.deref();
+        if (gizmo) gizmo.enabled = !s.handleBusy;
+    }
+});
 
 const UP = new THREE.Vector3(0, 1, 0);
 
