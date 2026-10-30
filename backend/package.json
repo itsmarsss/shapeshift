@@ -14,6 +14,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
     "@shapeshift/shared": "workspace:*",
+    "aws4fetch": "^1.0.20",
     "zod": "^4.6.7"
   },
   "devDependencies": {

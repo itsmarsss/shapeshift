@@ -38,9 +38,9 @@ The editor runs entirely in the browser. Accounts (sign in with an email code), 
 - **D1** holds users, sessions, sign-in codes, the waitlist and the scene index. Run `pnpm db:migrate` once for local development
 - **R2** stores saved scenes and their previews
 - **Durable Objects** host shared rooms
-- **Email** goes through Resend. Without `RESEND_API_KEY`, sign-in codes are printed and shown on localhost only
+- **Email** goes through Amazon SES (us-east-1), from `hello@tryshapeshift.com`. Without its keys, sign-in codes are printed and shown on localhost only
 
-Before the first deploy: `wrangler secret put RESEND_API_KEY`.
+Before the first deploy, set `AWS_SES_ACCESS_KEY_ID` and `AWS_SES_SECRET_ACCESS_KEY` with `wrangler secret put`. They belong to the `shapeshift-ses` IAM user, which may only send as `@tryshapeshift.com`.
 
 ## Plans and billing
 

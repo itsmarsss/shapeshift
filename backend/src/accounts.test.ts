@@ -61,11 +61,18 @@ describe("sign in with an email code", () => {
         const e = env();
         const res = await call(e, "/api/auth/start", { body: { email: "dee@example.com" }, host: "shapeshift.example" });
         expect(res.status).toBe(503);
-        const withEmail = env({ RESEND_API_KEY: "re_test" } as Partial<Env>);
+        const withEmail = env({ AWS_SES_ACCESS_KEY_ID: "AKIATEST", AWS_SES_SECRET_ACCESS_KEY: "secret" } as Partial<Env>);
         const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}"));
         const sent = await read(await call(withEmail, "/api/auth/start", { body: { email: "dee@example.com" }, host: "shapeshift.example" }));
         expect(sent).toEqual({ ok: true });
         expect(fetchMock).toHaveBeenCalledOnce();
+        // A signed SES request, with the code only in the email itself.
+        const request = fetchMock.mock.calls[0][0] as Request;
+        expect(request.url).toBe("https://email.us-east-1.amazonaws.com/v2/email/outbound-emails");
+        expect(request.headers.get("authorization")).toMatch(/^AWS4-HMAC-SHA256 Credential=AKIATEST\/\d{8}\/us-east-1\/ses\/aws4_request/);
+        const body = (await request.json()) as { Destination: { ToAddresses: string[] }; Content: { Simple: { Subject: { Data: string } } } };
+        expect(body.Destination.ToAddresses).toEqual(["dee@example.com"]);
+        expect(body.Content.Simple.Subject.Data).toMatch(/^\d{6} is your ShapeShift code$/);
         fetchMock.mockRestore();
     });
 
