@@ -32,6 +32,9 @@ type AccountState = {
 };
 
 const LINK_KEY = "shapeshift-cloud-scene";
+// Remembers that this browser was signed in, so opening the app can show the
+// scene gallery straight away instead of waiting on the server to say so.
+const SIGNED_IN_KEY = "shapeshift-signed-in";
 const AUTOSAVE_MS = 2500;
 
 function thumbnail() {
@@ -44,6 +47,23 @@ function remember(id: string | null, title = "") {
         else localStorage.removeItem(LINK_KEY);
     } catch {
         // Optional.
+    }
+}
+
+function rememberSignedIn(on: boolean) {
+    try {
+        if (on) localStorage.setItem(SIGNED_IN_KEY, "1");
+        else localStorage.removeItem(SIGNED_IN_KEY);
+    } catch {
+        // Optional.
+    }
+}
+
+export function seemsSignedIn() {
+    try {
+        return localStorage.getItem(SIGNED_IN_KEY) === "1";
+    } catch {
+        return false;
     }
 }
 
@@ -73,6 +93,7 @@ export const useAccount = create<AccountState>()((set, get) => ({
         try {
             const { user } = await api.me();
             const link = user ? remembered() : null;
+            rememberSignedIn(Boolean(user));
             set({ user, loaded: true, cloudId: link?.id ?? null, cloudTitle: link?.title ?? "" });
         } catch {
             set({ loaded: true });
@@ -83,10 +104,14 @@ export const useAccount = create<AccountState>()((set, get) => ({
         set({ showScenes });
         if (showScenes) void get().refreshScenes();
     },
-    signedIn: (user) => set({ user, showSignIn: false }),
+    signedIn: (user) => {
+        rememberSignedIn(true);
+        set({ user, showSignIn: false });
+    },
     signOut: async () => {
         await api.signOut().catch(() => {});
         remember(null);
+        rememberSignedIn(false);
         set({ user: null, cloudId: null, cloudTitle: "", scenes: [], save: "idle", showScenes: false });
     },
 
