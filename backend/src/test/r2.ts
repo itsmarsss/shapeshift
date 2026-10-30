@@ -12,6 +12,9 @@ export function testBucket() {
             if (!f) return null;
             return { body: f.data, text: async () => new TextDecoder().decode(f.data) };
         },
+        async head(key: string) {
+            return files.has(key) ? {} : null;
+        },
         async delete(keys: string | string[]) {
             for (const k of [keys].flat()) files.delete(k);
         },

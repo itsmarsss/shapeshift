@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emptyOps, ClientMessage, type Ops } from "@shapeshift/shared/collab/protocol";
+import { emptyOps, ClientMessage, ROOM_LIMITS, type Ops } from "@shapeshift/shared/collab/protocol";
 import { RoomState, VersionList } from "./roomState";
 import type { SceneObject } from "@shapeshift/shared/scene/schema";
 
@@ -41,10 +41,10 @@ describe("room state", () => {
     });
 
     it("refuses changes past the size limit without applying them", () => {
-        const room = new RoomState(Array.from({ length: 2000 }, (_, i) => box(`o${i}`)));
+        const room = new RoomState(Array.from({ length: ROOM_LIMITS.objects }, (_, i) => box(`o${i}`)));
         const result = room.apply(ops((o) => o.objects.upsert.push({ entity: box("one-too-many") })));
         expect(result.ok).toBe(false);
-        expect(room.objects).toHaveLength(2000);
+        expect(room.objects).toHaveLength(ROOM_LIMITS.objects);
         expect(room.version).toBe(0);
     });
 

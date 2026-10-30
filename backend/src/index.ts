@@ -2,6 +2,7 @@ import { agentInfo, agentStep } from "./agent";
 import { ROOM_ID } from "@shapeshift/shared/collab/protocol";
 import { handleAccounts } from "./accounts";
 import { handleScenes } from "./scenes";
+import { handleMeshes } from "./meshes";
 import { handleWaitlist } from "./waitlist";
 import { handlePublic, sharePage } from "./publicScenes";
 import { handleUsage } from "./usage";
@@ -29,6 +30,8 @@ export default {
         if (usage) return usage;
         const waitlist = await handleWaitlist(request, env);
         if (waitlist) return waitlist;
+        const meshes = await handleMeshes(request, env);
+        if (meshes) return meshes;
         const scenes = await handleScenes(request, env);
         if (scenes) return scenes;
         const room = pathname.match(/^\/api\/rooms\/([^/]+)$/);

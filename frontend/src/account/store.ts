@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { useScene } from "../scene/store";
+import { meshHashes, uploadMeshes } from "../scene/meshStore";
 import { useCollab } from "../collab/session";
 import { takeSnapshot } from "../viewport/snapshot";
 import type { Usage } from "@shapeshift/shared/billing/plans";
@@ -136,6 +137,8 @@ export const useAccount = create<AccountState>()((set, get) => ({
         const doc = useScene.getState().doc;
         set({ save: "saving", saveError: null });
         try {
+            // Imported meshes aren't in the scene file, so they go up first.
+            await uploadMeshes(meshHashes(doc));
             if (cloudId) {
                 const { scene } = await api.update(cloudId, { doc, thumbnail: thumbnail(), ...(title ? { title } : {}) });
                 set({ save: "saved", cloudTitle: scene.title });

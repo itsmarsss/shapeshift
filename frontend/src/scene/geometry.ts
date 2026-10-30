@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { mergeVertices, toCreasedNormals } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { ADDITION, Brush, Evaluator, INTERSECTION, SUBTRACTION } from "three-bvh-csg";
 import type { Geometry, SceneObject, Vec3 } from "@shapeshift/shared/scene/schema";
+import { meshGeometry } from "./meshStore";
 
 export function buildGeometry(g: Geometry): THREE.BufferGeometry {
     switch (g.type) {
@@ -23,10 +24,12 @@ export function buildGeometry(g: Geometry): THREE.BufferGeometry {
             if (g.indices.length) geometry.setIndex(g.indices);
             return toCreasedNormals(geometry, Math.PI / 6);
         }
+        case "asset":
+            return meshGeometry(g.hash)?.clone() ?? new THREE.BufferGeometry();
     }
 }
 
-function buildEditGeometry(g: Exclude<Geometry, { type: "mesh" }>): THREE.BufferGeometry {
+function buildEditGeometry(g: Exclude<Geometry, { type: "mesh" | "asset" }>): THREE.BufferGeometry {
     switch (g.type) {
         case "box":
             return new THREE.BoxGeometry(g.width, g.height, g.depth);
@@ -44,9 +47,12 @@ function buildEditGeometry(g: Exclude<Geometry, { type: "mesh" }>): THREE.Buffer
 }
 
 const editableCache = new WeakMap<Geometry, Extract<Geometry, { type: "mesh" }>>();
+const EMPTY_MESH: Extract<Geometry, { type: "mesh" }> = { type: "mesh", positions: [], indices: [] };
 
 export function editableMesh(g: Geometry): Extract<Geometry, { type: "mesh" }> {
     if (g.type === "mesh") return g;
+    // Imported models are for looking at, so their vertices aren't editable.
+    if (g.type === "asset") return EMPTY_MESH;
     let mesh = editableCache.get(g);
     if (!mesh) {
         mesh = toMeshGeometry(buildEditGeometry(g));

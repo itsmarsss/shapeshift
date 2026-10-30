@@ -16,12 +16,23 @@ const PRIMITIVE_GEOMETRIES = [
     z.object({ type: z.literal("plane"), width: z.number().positive(), height: z.number().positive() }),
 ] as const;
 
+// A mesh too big to keep in the scene document. Its binary data lives in a
+// content-addressed store and is looked up by this hash.
+export const MeshHash = z.string().regex(/^[0-9a-f]{32}$/);
+
 export const PrimitiveGeometry = z.discriminatedUnion("type", PRIMITIVE_GEOMETRIES);
 export type PrimitiveGeometry = z.infer<typeof PrimitiveGeometry>;
 
 export const Geometry = z.discriminatedUnion("type", [
     ...PRIMITIVE_GEOMETRIES,
     z.object({ type: z.literal("mesh"), positions: z.array(z.number()), indices: z.array(z.number().int().nonnegative()) }),
+    z.object({
+        type: z.literal("asset"),
+        hash: MeshHash,
+        min: Vec3,
+        max: Vec3,
+        triangles: z.number().int().nonnegative(),
+    }),
 ]);
 export type Geometry = z.infer<typeof Geometry>;
 
@@ -49,6 +60,8 @@ export const SceneObject = z.object({
     scale: Vec3,
     material: Material,
     group: z.string().min(1).optional(),
+    // Where the object sits in an imported assembly, outermost first.
+    path: z.array(z.string()).max(32).optional(),
 });
 export type SceneObject = z.infer<typeof SceneObject>;
 

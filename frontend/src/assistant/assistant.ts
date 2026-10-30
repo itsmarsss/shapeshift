@@ -28,6 +28,8 @@ function size(g: Geometry): string {
             return `${round(g.width)}x${round(g.height)}`;
         case "mesh":
             return `${Math.floor(g.indices.length / 3)} triangles`;
+        case "asset":
+            return `${g.triangles} triangles`;
     }
 }
 
@@ -60,6 +62,8 @@ function localBox(g: Geometry): THREE.Box3 {
             }
             return box.copy(cached);
         }
+        case "asset":
+            return box.set(new THREE.Vector3(...g.min), new THREE.Vector3(...g.max));
     }
 }
 
@@ -145,7 +149,12 @@ export function describeScene(doc: SceneDoc, selectedId: string | null, selected
 
 export function inspectObject(o: SceneObject) {
     const b = worldBounds(o);
-    const geometry = o.geometry.type === "mesh" ? { type: "mesh", triangles: Math.floor(o.geometry.indices.length / 3) } : o.geometry;
+    const geometry =
+        o.geometry.type === "mesh"
+            ? { type: "mesh", triangles: Math.floor(o.geometry.indices.length / 3) }
+            : o.geometry.type === "asset"
+              ? { type: "imported mesh", triangles: o.geometry.triangles }
+              : o.geometry;
     return {
         id: o.id,
         name: o.name,

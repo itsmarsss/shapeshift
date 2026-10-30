@@ -2,10 +2,11 @@ import { create } from "zustand";
 import { nanoid } from "nanoid";
 import { diffDocs, isEmptyDiff } from "../scene/diff";
 import { useScene } from "../scene/store";
+import { meshHashes, uploadMeshes } from "../scene/meshStore";
 import { parseSceneFile } from "../scene/io";
 import { emptyAnimation } from "@shapeshift/shared/scene/schema";
 import { diffToOps, opsToDiff, syncDiff } from "./ops";
-import { ROOM_ID, ROOM_LIMITS, type ClientMessage, type Ops, type Peer, type ServerMessage, type SharedTurn, type VersionMeta } from "@shapeshift/shared/collab/protocol";
+import { ROOM_ID, ROOM_LIMITS, emptyOps, type ClientMessage, type Ops, type Peer, type ServerMessage, type SharedTurn, type VersionMeta } from "@shapeshift/shared/collab/protocol";
 
 export type CollabStatus = "off" | "connecting" | "live" | "reconnecting" | "error";
 
@@ -120,10 +121,17 @@ function send(msg: ClientMessage) {
     if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(msg));
 }
 
+// Parts per message, so a big imported assembly stays under the room's message size.
+const UPSERTS_PER_MESSAGE = 800;
+
 function sendOps(ops: Ops) {
-    const id = nanoid(10);
-    pending.set(id, ops);
-    send({ type: "ops", id, ops });
+    const { upsert } = ops.objects;
+    for (let i = 0; i === 0 || i < upsert.length; i += UPSERTS_PER_MESSAGE) {
+        const part: Ops = i === 0 ? { ...ops, objects: { ...ops.objects, upsert: upsert.slice(0, UPSERTS_PER_MESSAGE) } } : { ...emptyOps(), objects: { upsert: upsert.slice(i, i + UPSERTS_PER_MESSAGE), remove: [] } };
+        const id = nanoid(10);
+        pending.set(id, part);
+        send({ type: "ops", id, ops: part });
+    }
 }
 
 function applyRemote(fn: () => void) {
@@ -163,7 +171,12 @@ export const useCollab = create<CollabState>()((set, get) => {
                 if (seedOnWelcome && roomEmpty) {
                     // A new room starts with the sharer's scene.
                     const diff = diffDocs({ ...scene.doc, objects: [], lights: [], environment: "none", animation: emptyAnimation() }, scene.doc);
-                    if (!isEmptyDiff(diff)) sendOps(diffToOps(diff));
+                    // Imported meshes go up first, so people joining can load them.
+                    const hashes = meshHashes(scene.doc);
+                    if (!isEmptyDiff(diff)) {
+                        if (hashes.length) void uploadMeshes(hashes).catch(() => {}).finally(() => sendOps(diffToOps(diff)));
+                        else sendOps(diffToOps(diff));
+                    }
                 } else {
                     applyRemote(() => {
                         scene.applyRemote(syncDiff(scene.doc, msg.objects, msg.lights, msg.environment ?? "none", msg.animation ?? emptyAnimation()));

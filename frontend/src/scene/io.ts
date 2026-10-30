@@ -1,8 +1,9 @@
 import * as THREE from "three";
-import { buildGeometry, toMeshGeometry } from "./geometry";
+import { buildGeometry } from "./geometry";
 import { animationClip } from "./clip";
-import { DEFAULT_MATERIAL } from "./commands";
-import { SceneDoc, type SceneObject } from "@shapeshift/shared/scene/schema";
+import { SceneDoc } from "@shapeshift/shared/scene/schema";
+import { gunzip, gzip, meshHash } from "@shapeshift/shared/scene/meshes";
+import { loadMesh, meshBuffer, meshHashes, putMeshes } from "./meshStore";
 
 export function download(data: BlobPart, filename: string, type: string) {
     const url = URL.createObjectURL(new Blob([data], { type }));
@@ -13,8 +14,48 @@ export function download(data: BlobPart, filename: string, type: string) {
     URL.revokeObjectURL(url);
 }
 
-export function saveSceneFile(doc: SceneDoc) {
-    download(JSON.stringify(doc, null, 2), "scene.shapeshift.json", "application/json");
+function toBase64(bytes: Uint8Array) {
+    let text = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return btoa(text);
+}
+
+const fromBase64 = (text: string) => Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
+
+// A scene file carries the imported meshes it uses, gzipped, so it opens
+// anywhere on its own.
+export async function sceneFileText(doc: SceneDoc): Promise<string> {
+    const hashes = meshHashes(doc);
+    if (!hashes.length) return JSON.stringify(doc, null, 2);
+    const meshes: Record<string, string> = {};
+    for (const hash of hashes) {
+        if (!meshBuffer(hash)) await loadMesh(hash);
+        const buffer = meshBuffer(hash);
+        if (buffer) meshes[hash] = toBase64(await gzip(new Uint8Array(buffer)));
+    }
+    return JSON.stringify({ ...doc, meshes });
+}
+
+export async function saveSceneFile(doc: SceneDoc) {
+    download(await sceneFileText(doc), "scene.shapeshift.json", "application/json");
+}
+
+// Stores any meshes carried in a scene file.
+export async function readSceneFileMeshes(text: string): Promise<void> {
+    let meshes: unknown;
+    try {
+        meshes = (JSON.parse(text) as { meshes?: unknown }).meshes;
+    } catch {
+        return;
+    }
+    if (!meshes || typeof meshes !== "object") return;
+    const found: { hash: string; buffer: ArrayBuffer }[] = [];
+    for (const [hash, data] of Object.entries(meshes as Record<string, unknown>)) {
+        if (typeof data !== "string") continue;
+        const bytes = await gunzip(fromBase64(data)).catch(() => null);
+        if (bytes && (await meshHash(bytes)) === hash) found.push({ hash, buffer: bytes.buffer as ArrayBuffer });
+    }
+    await putMeshes(found);
 }
 
 export function parseSceneFile(text: string): SceneDoc | null {
@@ -73,33 +114,6 @@ export async function exportGLB(doc: SceneDoc) {
     const clip = animationClip(doc);
     const result = await new GLTFExporter().parseAsync(toThreeScene(doc), { binary: true, ...(clip ? { animations: [clip] } : {}) });
     download(result as ArrayBuffer, "scene.glb", "model/gltf-binary");
-}
-
-export async function importModel(file: File): Promise<SceneObject[]> {
-    const { GLTFLoader } = await import("three/examples/jsm/loaders/GLTFLoader.js");
-    const gltf = await new GLTFLoader().parseAsync(await file.arrayBuffer(), "");
-    gltf.scene.updateMatrixWorld(true);
-    const objects: SceneObject[] = [];
-    gltf.scene.traverse((node) => {
-        if (!(node instanceof THREE.Mesh)) return;
-        const position = new THREE.Vector3();
-        const quaternion = new THREE.Quaternion();
-        const scale = new THREE.Vector3();
-        node.matrixWorld.decompose(position, quaternion, scale);
-        const rotation = new THREE.Euler().setFromQuaternion(quaternion);
-        const material = Array.isArray(node.material) ? node.material[0] : node.material;
-        const color = material && "color" in material ? `#${(material.color as THREE.Color).getHexString()}` : DEFAULT_MATERIAL.color;
-        objects.push({
-            id: "",
-            name: node.name || file.name.replace(/\.[^.]+$/, ""),
-            geometry: toMeshGeometry(node.geometry),
-            position: position.toArray(),
-            rotation: [rotation.x, rotation.y, rotation.z],
-            scale: scale.toArray(),
-            material: { ...DEFAULT_MATERIAL, color },
-        });
-    });
-    return objects;
 }
 
 export type PrintOptions = {
