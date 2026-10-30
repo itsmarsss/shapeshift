@@ -244,7 +244,7 @@ export function PartsPanel() {
 
     // Reveal what's picked in the viewport.
     useEffect(() => {
-        if (!show || !selectedId) return;
+        if (!show || !selectedId || useScene.getState().selectedIds.length !== 1) return;
         const o = useScene.getState().doc.objects.find((x) => x.id === selectedId);
         if (!o) return;
         const keys = ancestorKeys(o);

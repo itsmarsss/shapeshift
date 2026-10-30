@@ -1,5 +1,5 @@
 import { COMPACT } from "../ui/compact";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import styled from "styled-components";
 import { Intersect, Subtract, Unite } from "@phosphor-icons/react";
 import { useScene } from "../scene/store";
@@ -35,7 +35,10 @@ const OPS = [
 ] as const;
 
 export function BooleanPanel() {
-    const objects = useScene((s) => s.doc.objects);
+    const all = useScene((s) => s.doc.objects);
+    // Imported models are only for viewing; combining them would copy their
+    // meshes into the scene document.
+    const objects = useMemo(() => all.filter((o) => o.geometry.type !== "asset"), [all]);
     const mode = useScene((s) => s.mode);
     const run = useScene((s) => s.run);
     const [a, setA] = useState("");

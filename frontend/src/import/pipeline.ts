@@ -9,7 +9,7 @@ const MATERIAL: Omit<Material, "color"> = { metalness: 0.1, roughness: 0.55, opa
 
 type Mesh = { positions: Float32Array; normals: Float32Array; indices: Uint32Array; colors?: Float32Array };
 
-type Copy = { matrix: THREE.Matrix4; name: string; path: string[]; color: RGB };
+type Copy = { matrix: THREE.Matrix4; name: string; path: string[]; color: RGB; order: number };
 
 type Unique = { mesh: Mesh; copies: Copy[]; signature: string };
 
@@ -188,7 +188,7 @@ export async function buildImport(model: RawModel, progress: Progress = () => {}
                 byKey.set(part.shared.key, unique);
                 uniques.push(unique);
             }
-            unique.copies.push({ matrix, name: part.name, path: part.path, color });
+            unique.copies.push({ matrix, name: part.name, path: part.path, color, order: index });
             continue;
         }
 
@@ -202,13 +202,13 @@ export async function buildImport(model: RawModel, progress: Progress = () => {}
             if (!sameColors(candidate.mesh.colors, mesh.colors)) continue;
             const match = rigidMatch(candidate.mesh.positions, mesh.positions);
             if (match) {
-                candidate.copies.push({ matrix: match, name: part.name, path: part.path, color });
+                candidate.copies.push({ matrix: match, name: part.name, path: part.path, color, order: index });
                 placed = true;
                 break;
             }
         }
         if (placed) continue;
-        const unique: Unique = { mesh, copies: [{ matrix: new THREE.Matrix4(), name: part.name, path: part.path, color }], signature };
+        const unique: Unique = { mesh, copies: [{ matrix: new THREE.Matrix4(), name: part.name, path: part.path, color, order: index }], signature };
         candidates.push(unique);
         bySignature.set(signature, candidates);
         uniques.push(unique);
@@ -235,7 +235,7 @@ export async function buildImport(model: RawModel, progress: Progress = () => {}
     const center = world.getCenter(new THREE.Vector3());
     const shift = new THREE.Matrix4().makeTranslation(-center.x, -world.min.y, -center.z);
 
-    const objects: SceneObject[] = [];
+    const objects: { object: SceneObject; order: number }[] = [];
     const meshes = new Map<string, ArrayBuffer>();
     let triangles = 0;
     for (let i = 0; i < uniques.length; i++) {
@@ -255,7 +255,7 @@ export async function buildImport(model: RawModel, progress: Progress = () => {}
             const scale = new THREE.Vector3();
             m.decompose(position, quaternion, scale);
             const color = colors ? [1, 1, 1] as RGB : (single ?? copy.color);
-            objects.push({
+            const object: SceneObject = {
                 id: "",
                 name: copy.name || model.name,
                 geometry: { type: "asset", hash, min: vec(box.min), max: vec(box.max), triangles: count },
@@ -264,9 +264,12 @@ export async function buildImport(model: RawModel, progress: Progress = () => {}
                 scale: vec(scale),
                 material: { ...MATERIAL, color: hex(color) },
                 path: [model.name, ...copy.path].slice(0, 32),
-            });
+            };
+            objects.push({ object, order: copy.order });
             triangles += count;
         }
     }
-    return { objects, meshes: [...meshes].map(([hash, buffer]) => ({ hash, buffer })), triangles };
+    // Keep the parts in the order the file lists them.
+    objects.sort((a, b) => a.order - b.order);
+    return { objects: objects.map((o) => o.object), meshes: [...meshes].map(([hash, buffer]) => ({ hash, buffer })), triangles };
 }
