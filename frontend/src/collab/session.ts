@@ -3,6 +3,7 @@ import { nanoid } from "nanoid";
 import { diffDocs, isEmptyDiff } from "../scene/diff";
 import { useScene } from "../scene/store";
 import { meshHashes, uploadMeshes } from "../scene/meshStore";
+import { frameScene } from "../viewport/frame";
 import { parseSceneFile } from "../scene/io";
 import { emptyAnimation } from "@shapeshift/shared/scene/schema";
 import { diffToOps, opsToDiff, syncDiff } from "./ops";
@@ -183,6 +184,7 @@ export const useCollab = create<CollabState>()((set, get) => {
                         // Edits made while offline aren't in the room's copy yet; keep them.
                         for (const ops of pending.values()) useScene.getState().applyRemote(opsToDiff(ops));
                     });
+                    if (msg.objects.some((o) => o.path)) frameScene();
                 }
                 seedOnWelcome = false;
                 for (const [id, ops] of pending) send({ type: "ops", id, ops });

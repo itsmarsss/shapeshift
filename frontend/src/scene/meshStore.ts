@@ -50,7 +50,9 @@ function buildTrees() {
     const start = performance.now();
     while (treeQueue.length && performance.now() - start < 30) {
         const g = treeQueue.shift()!;
-        if (!g.boundsTree) g.computeBoundsTree();
+        // Indirect, because a plain bounds tree reorders the index in place,
+        // which would change the stored bytes and so their hash.
+        if (!g.boundsTree) g.computeBoundsTree({ indirect: true });
     }
     if (treeQueue.length) treeTimer = idle(buildTrees);
 }

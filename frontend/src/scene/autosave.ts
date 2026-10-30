@@ -1,6 +1,7 @@
 import { parseSceneFile } from "./io";
 import { useScene } from "./store";
 import { useSettings } from "../settings/store";
+import { frameScene } from "../viewport/frame";
 
 const KEY = "shapeshift-scene";
 
@@ -9,6 +10,8 @@ export function startAutosave() {
         const saved = localStorage.getItem(KEY);
         const doc = saved ? parseSceneFile(saved) : null;
         if (doc) useScene.getState().load(doc);
+        // An opened model is usually far from the default view.
+        if (doc?.objects.some((o) => o.path)) frameScene();
     } catch {
         localStorage.removeItem(KEY);
     }
