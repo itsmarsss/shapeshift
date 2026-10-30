@@ -4,6 +4,7 @@ import { ArrowCounterClockwise, Check, ClockCounterClockwise, Copy, FloppyDisk, 
 import { useShallow } from "zustand/react/shallow";
 import { Button, Input } from "../components/ui";
 import { roomLink, useCollab } from "./session";
+import { COMPACT } from "../ui/compact";
 import type { Peer } from "./protocol";
 
 const Wrap = styled.div`
@@ -27,6 +28,12 @@ const ShareButton = styled.button<{ $live: boolean }>`
 
     &:hover {
         opacity: 0.9;
+    }
+`;
+
+const ShareLabel = styled.span`
+    @media ${COMPACT} {
+        display: none;
     }
 `;
 
@@ -67,6 +74,7 @@ const Popover = styled.div`
     top: calc(100% + 8px);
     right: 0;
     width: 300px;
+    max-width: calc(100vw - 24px);
     padding: 12px;
     display: flex;
     flex-direction: column;
@@ -311,7 +319,7 @@ export function CollabBar() {
                 ) : (
                     <>
                         <UsersThree size={16} weight="bold" />
-                        Share
+                        <ShareLabel>Share</ShareLabel>
                     </>
                 )}
             </ShareButton>
