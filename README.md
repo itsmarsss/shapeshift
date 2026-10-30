@@ -1,12 +1,12 @@
 # ShapeShift
 
-Try it at [shapeshift.hanzpo.com](https://shapeshift.hanzpo.com).
+Try it at [tryshapeshift.com](https://tryshapeshift.com).
 
 ## 🚀 Join the ShapeShift Waitlist
 
 ### We’re getting ready to launch ShapeShift! Be among the first to try it out by joining the waitlist:
 
-### 👉 [Sign up here](https://shapeshift.hanzpo.com/waitlist)
+### 👉 [Sign up here](https://tryshapeshift.com/waitlist)
 
 ## How to run
 
@@ -64,7 +64,7 @@ It's one pnpm workspace. Run `pnpm dev`, `pnpm test`, `pnpm lint`, `pnpm typeche
 
 ## How to deploy
 
-From `backend`, run `pnpm exec wrangler secret put ANTHROPIC_API_KEY` once, then `pnpm deploy` from the root. This builds the app and deploys the Worker to `shapeshift.hanzpo.com`. `AGENT_MODEL` and `AGENT_EFFORT` in `wrangler.jsonc` pick the Claude model and effort.
+From `backend`, run `pnpm exec wrangler secret put ANTHROPIC_API_KEY` once, then `pnpm deploy` from the root. This builds the app and deploys the Worker to `tryshapeshift.com`. `AGENT_MODEL` and `AGENT_EFFORT` in `wrangler.jsonc` pick the Claude model and effort.
 
 ## Inspiration
 

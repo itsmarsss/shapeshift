@@ -10,7 +10,7 @@ export async function sendEmail(env: Env, email: Email): Promise<{ ok: boolean; 
     const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ from: env.EMAIL_FROM || "ShapeShift <hello@shapeshift.hanzpo.com>", to: [email.to], subject: email.subject, text: email.text, html: email.html }),
+        body: JSON.stringify({ from: env.EMAIL_FROM || "ShapeShift <hello@tryshapeshift.com>", to: [email.to], subject: email.subject, text: email.text, html: email.html }),
     });
     if (!res.ok) console.error("Email failed", res.status, await res.text().catch(() => ""));
     return { ok: res.ok };

@@ -31,7 +31,7 @@ export async function handleWaitlist(request: Request, env: Env): Promise<Respon
         await sendEmail(env, {
             to: email,
             subject: "You're on the ShapeShift waitlist",
-            text: "Thanks for joining the ShapeShift waitlist. We'll email you when there's something new to try.\n\nYou can already build in the browser at https://shapeshift.hanzpo.com",
+            text: "Thanks for joining the ShapeShift waitlist. We'll email you when there's something new to try.\n\nYou can already build in the browser at https://tryshapeshift.com",
         });
     }
     return json({ ok: true, already: !joined });
