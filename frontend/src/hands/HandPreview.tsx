@@ -175,6 +175,8 @@ export function HandPreview() {
                     <span>Next mode</span>
                     <b>Thumb + pinky</b>
                     <span>Undo</span>
+                    <b>Pinch + reach</b>
+                    <span>Push or pull what you hold</span>
                 </Legend>
             )}
         </Box>
