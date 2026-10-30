@@ -2,6 +2,7 @@ import { AgentRequest, LIMITS, type AgentErrorCode, type AgentEvent } from "@sha
 import { anthropicProvider } from "./anthropic";
 import { ProviderError, type Provider } from "./provider";
 import { workersAiProvider } from "./workersAi";
+import { quotaMessage, refund, spend, subjectFor } from "./usage";
 
 export function pickProvider(env: Env): Provider | null {
     if (env.ANTHROPIC_API_KEY) return anthropicProvider({ ...env, ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY });
@@ -16,6 +17,7 @@ const STATUS: Record<AgentErrorCode, number> = {
     upstream: 502,
     not_configured: 503,
     internal: 500,
+    quota: 402,
 };
 
 function fail(code: AgentErrorCode, error: string, retryAfter?: number) {
@@ -55,6 +57,12 @@ export async function agentStep(request: Request, env: Env): Promise<Response> {
     const provider = pickProvider(env);
     if (!provider) return fail("not_configured", "No model is configured.");
 
+    // Only a new message from the person counts as a prompt; the steps that
+    // follow it carry tool results.
+    const fresh = messages[messages.length - 1].role === "user";
+    const subject = await subjectFor(env, request);
+    if (!(await spend(env, subject, fresh))) return fail("quota", quotaMessage(subject.plan));
+
     const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
     const writer = writable.getWriter();
     const encoder = new TextEncoder();
@@ -71,6 +79,8 @@ export async function agentStep(request: Request, env: Env): Promise<Response> {
         } catch (err) {
             const e = err instanceof ProviderError ? err : new ProviderError("internal", "Something went wrong.");
             if (!(err instanceof ProviderError)) console.error("Agent step failed", err);
+            // A failure on our side or the model's doesn't use up the allowance.
+            if (!request.signal.aborted) await refund(env, subject, fresh).catch(() => {});
             await emit({ type: "error", code: e.code, error: e.message, ...(e.retryAfter ? { retryAfter: e.retryAfter } : {}) });
         } finally {
             await writer.close().catch(() => {});
