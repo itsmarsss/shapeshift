@@ -1,6 +1,7 @@
 import { agentInfo, agentStep } from "./agent";
 import { ROOM_ID } from "../src/collab/protocol";
 import { handleAccounts } from "./accounts";
+import { handleScenes } from "./scenes";
 
 export { Room } from "./room";
 
@@ -14,6 +15,8 @@ export default {
         }
         const accounts = await handleAccounts(request, env);
         if (accounts) return accounts;
+        const scenes = await handleScenes(request, env);
+        if (scenes) return scenes;
         const room = pathname.match(/^\/api\/rooms\/([^/]+)$/);
         if (room) {
             if (!ROOM_ID.test(room[1])) return Response.json({ error: "Invalid room id", code: "bad_request" }, { status: 400 });

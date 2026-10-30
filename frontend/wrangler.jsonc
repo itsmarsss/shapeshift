@@ -27,6 +27,7 @@
   "d1_databases": [
     { "binding": "DB", "database_name": "shapeshift", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations" }
   ],
+  "r2_buckets": [{ "binding": "SCENES", "bucket_name": "shapeshift-scenes" }],
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
   "vars": {
     "AGENT_MODEL": "claude-opus-5-5",
