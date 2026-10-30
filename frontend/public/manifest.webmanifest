@@ -1,0 +1,11 @@
+{
+  "name": "ShapeShift",
+  "short_name": "ShapeShift",
+  "description": "A 3D editor in the browser that you can drive with your hands, your voice or plain language.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0d0e10",
+  "theme_color": "#0d0e10",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
