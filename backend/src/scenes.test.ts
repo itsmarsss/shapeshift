@@ -64,6 +64,20 @@ describe("cloud scenes", () => {
         expect((await read((await handleScenes(req("/api/scenes", { cookie }), e))!)).scenes).toEqual([]);
     });
 
+    it("limits free accounts to a few cloud scenes", async () => {
+        const e = env();
+        const cookie = await signIn(e, "free@example.com");
+        for (let i = 0; i < 10; i++) {
+            expect((await handleScenes(req("/api/scenes", { method: "POST", body: { doc: scene() }, cookie }), e))!.status).toBe(201);
+        }
+        const over = (await handleScenes(req("/api/scenes", { method: "POST", body: { doc: scene() }, cookie }), e))!;
+        expect(over.status).toBe(409);
+        expect(await over.json()).toMatchObject({ code: "plan_limit" });
+
+        await e.DB.prepare("UPDATE users SET plan = 'pro' WHERE email = 'free@example.com'").run();
+        expect((await handleScenes(req("/api/scenes", { method: "POST", body: { doc: scene() }, cookie }), e))!.status).toBe(201);
+    });
+
     it("keeps each person's scenes private", async () => {
         const e = env();
         const ann = await signIn(e, "ann@example.com");
