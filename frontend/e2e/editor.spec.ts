@@ -62,3 +62,15 @@ test('exports a shape for 3D printing', async ({ page }) => {
   await dialog.getByRole('button', { name: 'Download STL' }).click()
   expect((await download).suggestedFilename()).toBe('scene.stl')
 })
+
+test('offers a way to start on an empty scene', async ({ page }) => {
+  await openEditor(page)
+  const card = page.getByRole('region', { name: 'Get started' })
+  await expect(card).toBeVisible()
+  await card.getByRole('button', { name: 'Add a box' }).click()
+  await expect(card).toHaveCount(0)
+  await page.getByTitle('Undo').click()
+  await expect(card).toBeVisible()
+  await card.getByRole('button', { name: /Try saying/ }).click()
+  await expect(page.getByText('Build a snowman with a hat and a carrot nose').first()).toBeVisible()
+})
