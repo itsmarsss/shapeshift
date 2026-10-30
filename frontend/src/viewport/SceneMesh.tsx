@@ -14,10 +14,13 @@ type Props = {
     peerColor?: string;
     showSelection: boolean;
     onSelect: (id: string, event: MouseEvent) => void;
+    // Pressing starts a drag; see useObjectDrag.
+    onPress?: (id: string, event: ThreeEvent<PointerEvent>) => void;
+    onHover?: (over: boolean) => void;
     meshRef?: (mesh: THREE.Mesh | null) => void;
 };
 
-export const SceneMesh = memo(function SceneMesh({ object, selected, hovered, peerColor, showSelection, onSelect, meshRef }: Props) {
+export const SceneMesh = memo(function SceneMesh({ object, selected, hovered, peerColor, showSelection, onSelect, onPress, onHover, meshRef }: Props) {
     const geometry = useMemo(() => buildGeometry(object.geometry), [object.geometry]);
     useEffect(() => () => geometry.dispose(), [geometry]);
     const { color, metalness, roughness, opacity, emissive, emissiveIntensity = 0, transmission = 0 } = object.material;
@@ -38,6 +41,9 @@ export const SceneMesh = memo(function SceneMesh({ object, selected, hovered, pe
                 e.stopPropagation();
                 onSelect(object.id, e.nativeEvent);
             }}
+            onPointerDown={onPress && ((e: ThreeEvent<PointerEvent>) => onPress(object.id, e))}
+            onPointerOver={onHover && ((e: ThreeEvent<PointerEvent>) => (e.stopPropagation(), onHover(true)))}
+            onPointerOut={onHover && (() => onHover(false))}
         >
             {transmission > 0 ? (
                 // Physical materials cost more, so only glass gets one.
