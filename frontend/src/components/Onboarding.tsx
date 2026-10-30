@@ -74,6 +74,11 @@ const Actions = styled.div`
 
 const STEPS = [
     {
+        image: "model",
+        title: "Open a file from your CAD app",
+        text: "Drop a STEP, STL, OBJ, 3MF, glTF or SVG file anywhere here. The Parts panel lists its parts and can cut through or pull apart the model.",
+    },
+    {
         image: "assistant",
         title: "Ask for it",
         text: "Type what you want in the assistant panel and it builds it in the scene. Press / to jump there.",

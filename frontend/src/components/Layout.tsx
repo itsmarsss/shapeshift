@@ -11,6 +11,8 @@ import Toolbar from "./Toolbar";
 import Inspector from "./Inspector";
 import BooleanPanel from "./BooleanPanel";
 import { HistoryPanel } from "./HistoryPanel";
+import { PartsPanel } from "./PartsPanel";
+import { DropZone, ImportStatus } from "./ImportStatus";
 import { StartCard } from "./StartCard";
 import { Viewport } from "../viewport/Viewport";
 import { useShortcuts } from "../hooks/useShortcuts";
@@ -72,6 +74,9 @@ export function Layout() {
             <Inspector />
             <BooleanPanel />
             <HistoryPanel />
+            <PartsPanel />
+            <ImportStatus />
+            <DropZone />
             <Timeline />
             <OfflineNote />
             <StartCard />

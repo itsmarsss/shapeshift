@@ -18,12 +18,14 @@ type UIState = {
     showSettings: boolean;
     showTemplates: boolean;
     showHistory: boolean;
+    showParts: boolean;
     showOnboarding: boolean;
     setShowInspector: (v: boolean) => void;
     setShowChat: (v: boolean) => void;
     setShowSettings: (v: boolean) => void;
     setShowTemplates: (v: boolean) => void;
     setShowHistory: (v: boolean) => void;
+    setShowParts: (v: boolean) => void;
     setShowOnboarding: (v: boolean) => void;
 };
 
@@ -36,9 +38,12 @@ export const useUI = create<UIState>()((set) => ({
     showOnboarding: needsOnboarding(),
     showTemplates: false,
     showHistory: false,
-    setShowInspector: (showInspector) => set(showInspector && isCompact() ? { showInspector, showChat: false, showHistory: false } : { showInspector }),
-    setShowChat: (showChat) => set(showChat && isCompact() ? { showChat, showInspector: false, showHistory: false } : { showChat }),
-    setShowHistory: (showHistory) => set(showHistory && isCompact() ? { showHistory, showInspector: false, showChat: false } : { showHistory }),
+    showParts: false,
+    setShowInspector: (showInspector) => set(showInspector && isCompact() ? { showInspector, showChat: false, showHistory: false, showParts: false } : { showInspector }),
+    setShowChat: (showChat) => set(showChat && isCompact() ? { showChat, showInspector: false, showHistory: false, showParts: false } : { showChat }),
+    // The part list and the history sit in the same place.
+    setShowHistory: (showHistory) => set(showHistory ? { showHistory, showParts: false, ...(isCompact() ? { showInspector: false, showChat: false } : {}) } : { showHistory }),
+    setShowParts: (showParts) => set(showParts ? { showParts, showHistory: false, ...(isCompact() ? { showInspector: false, showChat: false } : {}) } : { showParts }),
     setShowSettings: (showSettings) => set({ showSettings }),
     setShowTemplates: (showTemplates) => set({ showTemplates }),
     setShowOnboarding: (showOnboarding) => {

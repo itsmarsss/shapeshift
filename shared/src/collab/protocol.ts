@@ -6,10 +6,11 @@ import { Animation, Environment, Light, SceneObject, Vec3 } from "../scene/schem
 export const ROOM_ID = /^[A-Za-z0-9_-]{8,40}$/;
 
 export const ROOM_LIMITS = {
-    objects: 2000,
+    // Imported assemblies can have thousands of parts.
+    objects: 10_000,
     lights: 64,
     peers: 16,
-    messageBytes: 1_000_000,
+    messageBytes: 4_000_000,
     nameChars: 32,
     chatTurns: 40,
     versions: 30,

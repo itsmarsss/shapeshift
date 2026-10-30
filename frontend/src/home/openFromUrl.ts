@@ -20,7 +20,7 @@ export function openFromUrl() {
         void useAccount
             .getState()
             .openScene(scene)
-            .then(frameScene)
+            .then(() => frameScene())
             .catch(() => {});
         return;
     }

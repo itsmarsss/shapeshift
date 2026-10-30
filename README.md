@@ -1,5 +1,7 @@
 # ShapeShift
 
+ShapeShift is a 3D editor in the browser. It's technically a working CAD tool, but it's mainly for looking at things you made somewhere else. Design a part in SolidWorks, Fusion, Onshape, FreeCAD or Blender, drop the file on ShapeShift, and look around it with your mouse or your hands. Cut through it, pull it apart, hide parts, and send someone a link.
+
 Try it at [tryshapeshift.com](https://tryshapeshift.com).
 
 ## 🚀 Join the ShapeShift Waitlist
@@ -19,9 +21,28 @@ Try it at [tryshapeshift.com](https://tryshapeshift.com).
     - No Cloudflare login? `pnpm dev:offline` runs everything locally except Workers AI
 3. Open the browser and go to `http://localhost:5173`
 
+## Opening models
+
+Drop a file anywhere on the editor, or use the open button in the top bar. ShapeShift reads STEP and IGES (with [occt-import-js](https://github.com/kovacsv/occt-import-js), loaded only when needed), STL, OBJ with its MTL, 3MF, glTF and GLB, and SVG, which it extrudes into solids. Files are read in a Web Worker, except SVG.
+
+- **Units:** STEP and IGES carry their units and are converted to meters. 3MF uses its own `unit`. STL and OBJ are assumed to be millimeters. Files from Z-up tools are turned so Y is up
+- **Placement:** the model is centered on the floor and the camera frames it, whether it's a 2 m machine or a 5 mm part. The near plane follows the camera so small parts stay visible up close
+- **Parts:** assemblies keep their tree and part names in the Parts panel, where you can select, hide and isolate any part or sub-assembly
+- **Viewing:** the Parts panel also has a section cut (pick X, Y or Z, drag to move it, flip the side) and an exploded view. With the panel open, pinch with both hands and pull them apart to explode the model
+
+### Big models
+
+Meshes never go into the scene document. Each part's mesh is packed into a compact binary form (float positions, 8-bit normals, 16 or 32-bit indices) and named by the SHA-256 of its bytes. The scene only stores that hash, the part's bounds and its transform, so undo history, autosave, cloud saves, share links and room messages stay small.
+
+- The browser keeps meshes in IndexedDB, so a model survives a reload
+- `POST /api/meshes/missing` and `POST /api/meshes` upload gzipped meshes to R2 under `meshes/<hash>`. The Worker checks every hash before storing it. `GET /api/meshes/<hash>` serves them with a year-long cache
+- Cloud saves and new rooms upload missing meshes first. Anyone opening a share link or joining a room fetches meshes by hash, retrying for a short while in case they're still uploading
+- CAD files repeat parts like bolts as separate copies. The importer spots copies that are the same shape turned and moved, stores the shape once, and draws all copies of it in one instanced draw call
+- Saved scene files (`.shapeshift.json`) carry their meshes, so they open anywhere
+
 ## Hand control
 
-Turn it on with the hand button in the top bar. Pinch an object with your right hand to drag it. In Edit mode, point your right hand at a vertex to highlight it and pinch to drag it. Pinch with your left hand, or pinch empty space, to orbit. Pinch with both hands to zoom and pan.
+Turn it on with the hand button in the top bar. Pinch an object with your right hand to drag it. In Edit mode, point your right hand at a vertex to highlight it and pinch to drag it. Pinch with your left hand, or pinch empty space, to orbit. Pinch with both hands to zoom and pan, or, with the Parts panel open, to explode the model.
 
 Hand tracking runs MediaPipe in a Web Worker, smooths landmarks with a One Euro filter, and detects pinches with a state machine that needs two frames to start or end a pinch. Add `?record` to the URL to record landmark streams or replay one. The gesture tests in `src/hands` replay recorded streams.
 

@@ -13,9 +13,9 @@ test('adds a shape from the toolbar and undoes it', async ({ page }) => {
 test('shows the intro once to new visitors', async ({ page }) => {
   await page.goto('/')
   const intro = page.getByRole('dialog', { name: 'Welcome to ShapeShift' })
-  await expect(intro).toContainText('1 of 4')
+  await expect(intro).toContainText('1 of 5')
   await intro.getByRole('button', { name: 'Next' }).click()
-  await expect(intro).toContainText('2 of 4')
+  await expect(intro).toContainText('2 of 5')
   await intro.getByRole('button', { name: 'Back' }).click()
   await intro.getByRole('button', { name: 'Skip' }).click()
   await expect(intro).toHaveCount(0)
@@ -123,6 +123,8 @@ test('picks colors from the palette or by hex, as one undo step', async ({ page 
   await openEditor(page)
   await page.getByTitle('Add sphere').click()
   const color = () => page.evaluate(() => JSON.parse(localStorage.getItem('shapeshift-scene') ?? '{"objects":[]}').objects[0]?.material.color)
+  // Autosave is debounced, so wait for the new sphere to be saved.
+  await expect.poll(color).toBeTruthy()
   const before = await color()
 
   await page.getByRole('button', { name: /^Color: #/ }).click()

@@ -168,8 +168,10 @@ export class Room extends DurableObject<Env> {
         for (const { entity } of ops.objects.upsert) puts[`o:${entity.id}`] = entity;
         for (const { entity } of ops.lights.upsert) puts[`l:${entity.id}`] = entity;
         const deletes = [...ops.objects.remove.map((id) => `o:${id}`), ...ops.lights.remove.map((id) => `l:${id}`)];
-        await this.ctx.storage.put(puts);
-        if (deletes.length) await this.ctx.storage.delete(deletes);
+        // Storage takes at most 128 keys per call, and an imported model can add thousands.
+        const entries = Object.entries(puts);
+        for (let i = 0; i < entries.length; i += 128) await this.ctx.storage.put(Object.fromEntries(entries.slice(i, i + 128)));
+        for (let i = 0; i < deletes.length; i += 128) await this.ctx.storage.delete(deletes.slice(i, i + 128));
     }
 
     // Saves the current scene as a version and tells everyone. Returns an error message on failure.

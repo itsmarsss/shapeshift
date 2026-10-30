@@ -1,7 +1,7 @@
 {
   "name": "ShapeShift",
   "short_name": "ShapeShift",
-  "description": "A 3D editor in the browser that you can drive with your hands, your voice or plain language.",
+  "description": "Open models from your CAD app in the browser and look around them with your mouse or your hands. Also a 3D editor.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

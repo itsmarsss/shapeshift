@@ -5,7 +5,7 @@ import type { Pose } from "../scene/animation";
 import type { Light, SceneObject, Vec3 } from "@shapeshift/shared/scene/schema";
 import { useShallow } from "zustand/react/shallow";
 import { useCollab } from "../collab/session";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas, useThree, type ThreeEvent } from "@react-three/fiber";
 import { CameraControls, Grid, Line, TransformControls } from "@react-three/drei";
 import type * as THREE from "three";
 import { useScene } from "../scene/store";
@@ -19,6 +19,11 @@ import { SnapshotBridge } from "./SnapshotBridge";
 import { FrameBridge } from "./FrameBridge";
 import { useObjectDrag } from "./useObjectDrag";
 import { useGizmoColors } from "./GizmoTheme";
+import { AssetBatch } from "./AssetBatch";
+import { batchKey } from "./batching";
+import { AutoNear, SectionCut } from "./ViewTools";
+import { useView } from "./view";
+import { explodeOffsets, withOffsets } from "./viewing";
 import { useHands } from "../hands/tracker";
 import { useHandHover } from "../hands/tracker";
 import { DPR, useSettings } from "../settings/store";
@@ -95,7 +100,34 @@ function SceneItems({ objects, lights, selectedIds, selectedId, hoveredId, peerC
     const drawn = useRef(new Map<string, Vec3>());
     drawn.current = new Map([...objects.map((o) => [o.id, o.position] as const), ...lights.map((l) => [l.id, l.position] as const)]);
     const positions = useCallback(() => drawn.current, []);
-    const { onPointerDown, onHover } = useObjectDrag({ positions, pick, busy });
+    const drag = useObjectDrag({ positions, pick, busy });
+    const onHover = drag.onHover;
+    // Exploded parts are drawn away from where they are, so they can be picked but not dragged.
+    const exploded = useView((s) => s.explode > 0);
+    const onPointerDown = exploded ? pickOnly(pick) : drag.onPointerDown;
+    // Copies of the same imported part are drawn together, apart from ones
+    // that need their own outline.
+    const { singles, batches } = useMemo(() => {
+        const marked = new Set([...selectedIds, ...peerColors.keys(), ...(hoveredId ? [hoveredId] : [])]);
+        const groups = new Map<string, SceneObject[]>();
+        const singles: SceneObject[] = [];
+        for (const o of objects) {
+            const key = marked.has(o.id) ? null : batchKey(o);
+            if (key === null) singles.push(o);
+            else {
+                const list = groups.get(key);
+                if (list) list.push(o);
+                else groups.set(key, [o]);
+            }
+        }
+        const batches: [string, SceneObject[]][] = [];
+        for (const [key, members] of groups) {
+            if (members.length > 1) batches.push([key, members]);
+            else singles.push(members[0]);
+        }
+        return { singles, batches };
+    }, [objects, selectedIds, hoveredId, peerColors]);
+
     // In object mode a press selects (and may drag); clicks only select in the other modes.
     const click = mode === "object" ? noop : pick;
     const clickLight = mode === "object" ? noop : (id: string) => pick(id, new MouseEvent("click"));
@@ -113,7 +145,7 @@ function SceneItems({ objects, lights, selectedIds, selectedId, hoveredId, peerC
                     markerRef={l.id === selectedId ? setSelectedMesh : undefined}
                 />
             ))}
-            {objects.map((o) => (
+            {singles.map((o) => (
                 <SceneMesh
                     key={o.id}
                     object={o}
@@ -127,11 +159,20 @@ function SceneItems({ objects, lights, selectedIds, selectedId, hoveredId, peerC
                     meshRef={o.id === selectedId ? setSelectedMesh : undefined}
                 />
             ))}
+            {batches.map(([key, members]) => (
+                <AssetBatch key={key} hash={(members[0].geometry as { hash: string }).hash} objects={members} onSelect={click} onPress={onPointerDown} onHover={onHover} />
+            ))}
         </>
     );
 }
 
 const noop = () => {};
+
+const pickOnly = (pick: (id: string, event: MouseEvent) => void) => (id: string, e: ThreeEvent<PointerEvent>) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    pick(id, e.nativeEvent);
+};
 
 export function Viewport() {
     const gizmoColors = useGizmoColors();
@@ -139,15 +180,22 @@ export function Viewport() {
     const baseLights = useScene((s) => s.doc.lights);
     const poses = useTimeline((s) => s.poses);
     // Animated objects show where the timeline puts them.
-    const objects = useMemo(() => withPoses(baseObjects, poses), [baseObjects, poses]);
+    const posed = useMemo(() => withPoses(baseObjects, poses), [baseObjects, poses]);
+    const hidden = useView((s) => s.hidden);
+    const explode = useView((s) => s.explode);
+    const visible = useMemo(() => (hidden.size ? posed.filter((o) => !hidden.has(o.id)) : posed), [posed, hidden]);
+    const objects = useMemo(() => withOffsets(visible, explodeOffsets(visible, explode)), [visible, explode]);
     const lights = useMemo(() => withLightPoses(baseLights, poses), [baseLights, poses]);
     const environment = useScene((s) => s.doc.environment);
     const selectedId = useScene((s) => s.selectedId);
     const handsOn = useHands((s) => s.status !== "off");
     const selectedIds = useScene(useShallow((s) => s.selectedIds));
     const peers = useCollab((s) => s.peers);
-    const peerColors = new Map<string, string>();
-    for (const p of Object.values(peers)) for (const id of p.presence.selection) peerColors.set(id, p.color);
+    const peerColors = useMemo(() => {
+        const colors = new Map<string, string>();
+        for (const p of Object.values(peers)) for (const id of p.presence.selection) colors.set(id, p.color);
+        return colors;
+    }, [peers]);
     const selectMany = useScene((s) => s.selectMany);
     const mode = useScene((s) => s.mode);
     const transformMode = useScene((s) => s.transformMode);
@@ -166,6 +214,9 @@ export function Viewport() {
     const selectedObject = objects.find((o) => o.id === selectedId);
     const selectedLight = lights.find((l) => l.id === selectedId);
     const selectedObjects = objects.filter((o) => selectedIds.includes(o.id));
+    // Exploded parts are drawn away from where they really are, so moving
+    // them would be confusing.
+    const canTransform = explode === 0;
 
     // Shift-click adds or removes one object. Clicking a grouped object picks
     // its whole group; Alt-click picks just that part.
@@ -242,6 +293,8 @@ export function Viewport() {
                 busy={gizmoBusy}
                 setSelectedMesh={setSelectedMesh}
             />
+            <SectionCut objects={visible} />
+            <AutoNear />
 
             {editing && settings.showGrid && (
                 <Grid
@@ -266,9 +319,9 @@ export function Viewport() {
 
             {mode === "edit" && selectedObject && <EditOverlay object={selectedObject} gizmoBusy={gizmoBusy} />}
 
-            {mode === "object" && selectedObjects.length > 1 && <MultiTransform objects={selectedObjects} gizmoBusy={gizmoBusy} />}
+            {mode === "object" && canTransform && selectedObjects.length > 1 && <MultiTransform objects={selectedObjects} gizmoBusy={gizmoBusy} />}
 
-            {mode === "object" && selectedObjects.length <= 1 && selectedId && selectedMesh && (
+            {mode === "object" && canTransform && selectedObjects.length <= 1 && selectedId && selectedMesh && (
                 <TransformControls
                     ref={gizmoColors}
                     object={selectedMesh}

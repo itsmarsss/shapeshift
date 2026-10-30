@@ -11,6 +11,7 @@ import { worldBounds } from "../assistant/assistant";
 import { SceneMesh } from "../viewport/SceneMesh";
 import { SceneLight } from "../viewport/SceneLight";
 import { SceneEnvironment } from "../viewport/SceneEnvironment";
+import { AutoNear } from "../viewport/ViewTools";
 import { REMIX_KEY } from "./remix";
 import { embedCode } from "./embed";
 
@@ -172,7 +173,8 @@ function Frame({ doc }: { doc: SceneDoc }) {
             const b = worldBounds(o);
             box.expandByPoint(new THREE.Vector3(...b.min)).expandByPoint(new THREE.Vector3(...b.max));
         }
-        void controls.fitToBox(box, false, { paddingTop: 0.4, paddingBottom: 0.4, paddingLeft: 0.4, paddingRight: 0.4 });
+        const pad = box.getSize(new THREE.Vector3()).length() * 0.1;
+        void controls.fitToBox(box, false, { paddingTop: pad, paddingBottom: pad, paddingLeft: pad, paddingRight: pad });
     }, [controls, doc]);
     return null;
 }
@@ -213,6 +215,7 @@ function Scene({ doc }: { doc: SceneDoc }) {
                 <shadowMaterial opacity={0.35} />
             </mesh>
             <CameraControls makeDefault />
+            <AutoNear />
             <Frame doc={doc} />
         </>
     );

@@ -28,6 +28,9 @@ export default defineConfig({
       remoteBindings,
     }),
   ],
+  // Workers load the CAD reader on demand, so they're ES modules.
+  worker: { format: 'es' },
+  optimizeDeps: { include: ['occt-import-js', 'three/examples/jsm/libs/fflate.module.js'] },
   environments: {
     client: {
       build: {
