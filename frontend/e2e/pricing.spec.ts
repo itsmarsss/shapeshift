@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test'
 import { openEditor, signIn, uniqueEmail } from './helpers'
 
 test('says Pro is coming when billing is off', async ({ page }) => {
+  // Stands in for a server without Stripe keys, whatever this machine has set.
+  await page.route('/api/billing', (route) => route.fulfill({ json: { available: false } }))
   await page.goto('/pricing')
   const pro = page.getByRole('region', { name: 'Pro plan' })
   await expect(pro.getByRole('button', { name: 'Coming soon' })).toBeDisabled()
