@@ -25,7 +25,21 @@ test('signs in, saves to the cloud, shares a link and remixes it', async ({ page
 
   await page.goto(`/s/${slug}`)
   await expect(page.getByText('Untitled scene')).toBeVisible()
+  await page.getByText('Embed', { exact: true }).click()
+  await expect(page.getByLabel('Embed code')).toHaveValue(new RegExp(`/s/${slug}\\?embed=1`))
+
+  await page.goto(`/s/${slug}?embed=1`)
+  const badge = page.getByRole('link', { name: /Made with ShapeShift/ })
+  await expect(badge).toHaveAttribute('href', `/s/${slug}?remix=1`)
+  await expect(page.getByText('Remix in ShapeShift')).toHaveCount(0)
+  await page.goto(`/s/${slug}`)
   await page.getByRole('link', { name: /Remix/ }).or(page.getByText('Remix in ShapeShift')).first().click()
+  await expect(page.getByTitle('Add box')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.locator('select option', { hasText: 'Cone' })).toHaveCount(1)
+
+  // The embed's remix link opens a copy straight in the editor.
+  await page.goto(`/s/${slug}?remix=1`)
   await expect(page.getByTitle('Add box')).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(page.locator('select option', { hasText: 'Cone' })).toHaveCount(1)
