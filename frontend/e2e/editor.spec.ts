@@ -41,3 +41,15 @@ test('explains it when the assistant is unavailable', async ({ page }) => {
   await expect(page.getByRole('alert')).toBeVisible({ timeout: 30_000 })
   await expect(page.getByText('add a red sphere')).toBeVisible()
 })
+
+test('exports a shape for 3D printing', async ({ page }) => {
+  await openEditor(page)
+  await page.getByTitle('Add box').click()
+  await page.getByTitle('Export for 3D printing').click()
+  const dialog = page.getByRole('dialog', { name: 'Export for 3D printing' })
+  await dialog.getByRole('button', { name: 'Small' }).click()
+  await expect(dialog).toContainText('50 × 50 × 50 mm')
+  const download = page.waitForEvent('download')
+  await dialog.getByRole('button', { name: 'Download STL' }).click()
+  expect((await download).suggestedFilename()).toBe('scene.stl')
+})

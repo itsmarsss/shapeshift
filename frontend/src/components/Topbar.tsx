@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import {
     DotsThree,
@@ -14,6 +14,7 @@ import {
     FolderOpen,
     GearSix,
     Hand,
+    Printer,
     SlidersHorizontal,
     TrayArrowDown,
 } from "@phosphor-icons/react";
@@ -152,6 +153,8 @@ function MoreMenu({ items }: { items: MenuItem[] }) {
     );
 }
 
+const PrintDialog = lazy(() => import("./PrintDialog"));
+
 const MODES: { mode: EditorMode; label: string }[] = [
     { mode: "object", label: "Object" },
     { mode: "edit", label: "Edit" },
@@ -187,6 +190,7 @@ export function Topbar() {
     const setShowHistory = useUI((s) => s.setShowHistory);
     const handStatus = useHands((s) => s.status);
     const setHands = useHands((s) => s.setEnabled);
+    const [printing, setPrinting] = useState(false);
     const openRef = useRef<HTMLInputElement>(null);
     const importRef = useRef<HTMLInputElement>(null);
 
@@ -229,6 +233,7 @@ export function Topbar() {
         { label: "Import model", icon: <TrayArrowDown size={18} />, onClick: () => importRef.current?.click() },
         { label: "Save image", icon: <Camera size={18} />, onClick: saveImage },
         { label: "Export as GLB", icon: <Export size={18} />, onClick: () => exportGLB(useScene.getState().doc) },
+        { label: "Export for 3D printing", icon: <Printer size={18} />, onClick: () => setPrinting(true) },
         { label: "Redo", icon: <ArrowUUpRight size={18} />, onClick: redo },
         { label: "History", icon: <ClockCounterClockwise size={18} />, onClick: () => setShowHistory(!showHistory), active: showHistory },
         { label: "Animation timeline", icon: <FilmStrip size={18} />, onClick: () => setTimelineOpen(!timelineOpen), active: timelineOpen },
@@ -267,8 +272,16 @@ export function Topbar() {
                     <IconButton title="Export as GLB" onClick={() => exportGLB(useScene.getState().doc)}>
                         <Export size={18} />
                     </IconButton>
+                    <IconButton title="Export for 3D printing" onClick={() => setPrinting(true)}>
+                        <Printer size={18} />
+                    </IconButton>
                 </Wide>
                 <input ref={openRef} type="file" accept=".json" hidden onChange={onOpen} />
+                {printing && (
+                    <Suspense fallback={null}>
+                        <PrintDialog onClose={() => setPrinting(false)} />
+                    </Suspense>
+                )}
                 <input ref={importRef} type="file" accept=".glb,.gltf" hidden onChange={onImport} />
             </Group>
             <Segmented>
