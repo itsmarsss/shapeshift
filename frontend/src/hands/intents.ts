@@ -1,10 +1,20 @@
 import type { Handedness, HandState } from "./gestures";
 
 export type Intent =
-    | { type: "start"; handedness: Handedness; x: number; y: number }
-    | { type: "move"; x: number; y: number; dx: number; dy: number }
+    | { type: "start"; handedness: Handedness; x: number; y: number; depth: number | null }
+    // `depth` is how much closer to the camera the hand is than when the pinch started, in meters.
+    | { type: "move"; x: number; y: number; dx: number; dy: number; depth: number }
     | { type: "end" }
     | { type: "pair"; zoom: number; panX: number; panY: number };
+
+// Ignore small changes so a steady hand doesn't drift objects.
+const DEPTH_DEAD_ZONE = 0.015;
+
+function closer(h: HandState): number {
+    if (h.depth === null || h.startDepth === null) return 0;
+    const d = h.startDepth - h.depth;
+    return Math.abs(d) < DEPTH_DEAD_ZONE ? 0 : d - Math.sign(d) * DEPTH_DEAD_ZONE;
+}
 
 export class IntentTracker {
     private used = new Map<Handedness, number>();
@@ -33,7 +43,7 @@ export class IntentTracker {
             const { handedness, pinchId } = this.active;
             const h = pinching.find((p) => p.handedness === handedness && p.pinchId === pinchId);
             if (h) {
-                intents.push({ type: "move", x: h.x, y: h.y, dx: h.x - this.active.x, dy: h.y - this.active.y });
+                intents.push({ type: "move", x: h.x, y: h.y, dx: h.x - this.active.x, dy: h.y - this.active.y, depth: closer(h) });
                 this.active.x = h.x;
                 this.active.y = h.y;
                 return intents;
@@ -46,8 +56,8 @@ export class IntentTracker {
         if (fresh) {
             this.used.set(fresh.handedness, fresh.pinchId);
             this.active = { handedness: fresh.handedness, pinchId: fresh.pinchId, x: fresh.x, y: fresh.y };
-            intents.push({ type: "start", handedness: fresh.handedness, x: fresh.startX, y: fresh.startY });
-            intents.push({ type: "move", x: fresh.x, y: fresh.y, dx: fresh.x - fresh.startX, dy: fresh.y - fresh.startY });
+            intents.push({ type: "start", handedness: fresh.handedness, x: fresh.startX, y: fresh.startY, depth: fresh.startDepth });
+            intents.push({ type: "move", x: fresh.x, y: fresh.y, dx: fresh.x - fresh.startX, dy: fresh.y - fresh.startY, depth: closer(fresh) });
         }
         return intents;
     }

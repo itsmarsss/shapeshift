@@ -4,7 +4,7 @@ const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.0/was
 const MODEL_URL =
     "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
 
-export type WorkerHand = { handedness: "Left" | "Right"; score: number; landmarks: number[] };
+export type WorkerHand = { handedness: "Left" | "Right"; score: number; landmarks: number[]; world?: number[] };
 export type WorkerMessage = { type: "ready"; delegate: string } | { type: "hands"; time: number; hands: WorkerHand[] } | { type: "error"; message: string };
 
 let landmarker: HandLandmarker | null = null;
@@ -62,6 +62,8 @@ self.onmessage = (e: MessageEvent<{ frame: ImageBitmap; time: number }>) => {
             handedness: category?.categoryName === "Right" ? "Right" : "Left",
             score: category?.score ?? 0,
             landmarks: points.flatMap((p) => [p.x, p.y, p.z]),
+            // Real-space positions in meters, used to estimate distance.
+            world: result.worldLandmarks[i]?.flatMap((p) => [p.x, p.y, p.z]),
         };
     });
     post({ type: "hands", time, hands });
