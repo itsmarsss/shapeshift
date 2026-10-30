@@ -22,10 +22,8 @@
   "durable_objects": {
     "bindings": [{ "name": "ROOMS", "class_name": "Room" }]
   },
-  // Create with `wrangler d1 create shapeshift` and paste its id here before
-  // deploying; local development uses a local copy automatically.
   "d1_databases": [
-    { "binding": "DB", "database_name": "shapeshift", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations" }
+    { "binding": "DB", "database_name": "shapeshift", "database_id": "156c4e4e-c513-4852-9c7a-f55ab99538e9", "migrations_dir": "migrations" }
   ],
   "r2_buckets": [{ "binding": "SCENES", "bucket_name": "shapeshift-scenes" }],
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
