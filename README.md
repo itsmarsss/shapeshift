@@ -42,6 +42,18 @@ The editor runs entirely in the browser. Accounts (sign in with an email code), 
 
 Before the first deploy: `wrangler secret put RESEND_API_KEY`.
 
+## Plans and billing
+
+Visitors get 10 assistant prompts a month, free accounts 50 and Pro 300 (`shared/src/billing/plans.ts`). Free accounts keep 10 cloud scenes, Pro 200. Everything that runs in the browser is free for everyone.
+
+Pro is sold through Stripe Checkout, and people manage or cancel it in the Stripe customer portal. To turn it on:
+
+1. In Stripe, make a Pro product with a monthly and a yearly price matching `PRO_PRICES`, and turn on the customer portal
+2. Add a webhook endpoint for `https://<your domain>/api/billing/webhook` with `checkout.session.completed` and `customer.subscription.created`, `.updated` and `.deleted`
+3. From `backend`, set the secrets: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_MONTHLY` and `STRIPE_PRICE_YEARLY` (`pnpm exec wrangler secret put <name>`)
+
+Without them the pricing page says Pro isn't available yet and everyone stays on the free plan. Locally, put test-mode values in `backend/.dev.vars` and forward webhooks with `stripe listen --forward-to localhost:5173/api/billing/webhook`.
+
 ## Project layout
 
 - `frontend/` is the editor: React, three.js and hand tracking. It runs entirely in the browser
