@@ -11,7 +11,6 @@ export type Settings = {
     theme: Theme;
     showGrid: boolean;
     showAxes: boolean;
-    gridCell: number;
     fov: number;
     quality: Quality;
     shadows: boolean;
@@ -36,7 +35,6 @@ export const DEFAULT_SETTINGS: Settings = {
     theme: "system",
     showGrid: true,
     showAxes: true,
-    gridCell: 0.5,
     fov: 45,
     quality: "sharp",
     shadows: true,

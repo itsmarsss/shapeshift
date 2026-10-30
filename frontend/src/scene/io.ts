@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import { buildGeometry, toMeshGeometry } from "./geometry";
+import { boundsIn, flipWinding, toMeshGeometry } from "./geometry";
+import { solidMeshes } from "./holes";
 import { animationClip } from "./clip";
 import { DEFAULT_MATERIAL } from "./commands";
 import { SceneDoc, type SceneObject } from "@shapeshift/shared/scene/schema";
@@ -28,9 +29,9 @@ export function parseSceneFile(text: string): SceneDoc | null {
 
 export function toThreeScene(doc: SceneDoc): THREE.Scene {
     const scene = new THREE.Scene();
-    for (const o of doc.objects) {
+    for (const { object: o, geometry } of solidMeshes(doc.objects)) {
         const mesh = new THREE.Mesh(
-            buildGeometry(o.geometry),
+            geometry,
             new THREE.MeshPhysicalMaterial({
                 color: o.material.color,
                 metalness: o.material.metalness,
@@ -109,22 +110,11 @@ export type PrintOptions = {
     ids?: string[];
 };
 
-// Objects to print with their real-world size in scene units (metres).
+// Objects to print with their real-world size in scene units (metres). Holes
+// aren't printed.
 export function printableBounds(doc: SceneDoc, ids: string[] = []) {
-    const objects = ids.length ? doc.objects.filter((o) => ids.includes(o.id)) : doc.objects;
-    const box = new THREE.Box3();
-    for (const o of objects) {
-        const geometry = buildGeometry(o.geometry);
-        geometry.computeBoundingBox();
-        const matrix = new THREE.Matrix4().compose(
-            new THREE.Vector3(...o.position),
-            new THREE.Quaternion().setFromEuler(new THREE.Euler(...o.rotation)),
-            new THREE.Vector3(...o.scale),
-        );
-        box.union(geometry.boundingBox!.clone().applyMatrix4(matrix));
-        geometry.dispose();
-    }
-    return { objects, box };
+    const objects = (ids.length ? doc.objects.filter((o) => ids.includes(o.id)) : doc.objects).filter((o) => !o.hole);
+    return { objects, box: boundsIn(objects) };
 }
 
 // Builds a binary STL scaled to the requested size. Slicers expect Z up and
@@ -132,10 +122,13 @@ export function printableBounds(doc: SceneDoc, ids: string[] = []) {
 export async function stlBuffer(doc: SceneDoc, { size, ids }: PrintOptions): Promise<DataView> {
     const { STLExporter } = await import("three/examples/jsm/exporters/STLExporter.js");
     const { objects, box } = printableBounds(doc, ids);
+    const chosen = new Set(objects.map((o) => o.id));
     const root = new THREE.Group();
     const inner = new THREE.Group();
-    for (const o of objects) {
-        const mesh = new THREE.Mesh(buildGeometry(o.geometry));
+    for (const { object: o, geometry } of solidMeshes(doc.objects)) {
+        if (!chosen.has(o.id)) continue;
+        const mirrored = o.scale[0] * o.scale[1] * o.scale[2] < 0;
+        const mesh = new THREE.Mesh(mirrored ? flipWinding(geometry) : geometry);
         mesh.position.set(...o.position);
         mesh.rotation.set(...o.rotation);
         mesh.scale.set(...o.scale);

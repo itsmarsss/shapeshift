@@ -9,6 +9,7 @@ import { evaluate } from "../scene/animation";
 import { SceneDoc } from "@shapeshift/shared/scene/schema";
 import { worldBounds } from "../assistant/assistant";
 import { SceneMesh } from "../viewport/SceneMesh";
+import { cutGeometries } from "../scene/holes";
 import { SceneLight } from "../viewport/SceneLight";
 import { SceneEnvironment } from "../viewport/SceneEnvironment";
 import { REMIX_KEY } from "./remix";
@@ -192,6 +193,7 @@ function Scene({ doc }: { doc: SceneDoc }) {
         const p = poses.get(o.id);
         return p ? { ...o, position: p.position ?? o.position, rotation: p.rotation ?? o.rotation, scale: p.scale ?? o.scale, material: p.color ? { ...o.material, color: p.color } : o.material } : o;
     });
+    const cuts = cutGeometries(objects);
     const lights = doc.lights.map((l) => {
         const p = poses.get(l.id);
         return p ? { ...l, position: p.position ?? l.position, color: p.color ?? l.color, intensity: p.intensity ?? l.intensity } : l;
@@ -205,9 +207,9 @@ function Scene({ doc }: { doc: SceneDoc }) {
                 <SceneLight key={l.id} light={l} selected={false} showMarker={false} onSelect={() => {}} />
             ))}
             <SceneEnvironment preset={doc.environment} />
-            {objects.map((o) => (
-                <SceneMesh key={o.id} object={o} selected={false} hovered={false} showSelection={false} onSelect={() => {}} />
-            ))}
+            {objects.map((o) =>
+                o.hole ? null : <SceneMesh key={o.id} object={o} selected={false} hovered={false} showSelection={false} onSelect={() => {}} cut={cuts.get(o.id)} />
+            )}
             <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
                 <planeGeometry args={[200, 200]} />
                 <shadowMaterial opacity={0.35} />

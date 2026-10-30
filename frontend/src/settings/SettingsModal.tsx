@@ -359,16 +359,6 @@ function Section({ id }: { id: SectionId }) {
                         <Row label="Grid">
                             <Toggle k="showGrid" />
                         </Row>
-                        <Row label="Grid cell size">
-                            <Choice
-                                k="gridCell"
-                                options={[
-                                    { value: 0.25, label: "25 cm" },
-                                    { value: 0.5, label: "50 cm" },
-                                    { value: 1, label: "1 m" },
-                                ]}
-                            />
-                        </Row>
                         <Row label="Axis lines">
                             <Toggle k="showAxes" />
                         </Row>

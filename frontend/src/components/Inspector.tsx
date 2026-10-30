@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { NumberInput } from "./NumberInput";
+import { ArrangeSection, HoleToggle, ShapeSection } from "./ModelingSections";
 import styled from "styled-components";
 import { Copy, SelectionPlus, SelectionSlash, Trash, X } from "@phosphor-icons/react";
 import { useShallow } from "zustand/react/shallow";
@@ -6,8 +8,8 @@ import { COMPACT } from "../ui/compact";
 import { useTimeline } from "../scene/timeline";
 import { transformCommand } from "../scene/autokey";
 import { selectSelected, selectSelectedLight, selectSelectedObjects, useScene } from "../scene/store";
-import { duplicateSelection, groupSelection, removeSelection, ungroupSelection } from "../scene/selection";
-import { ENVIRONMENTS, type Command, type Environment, type Light, type Vec3 } from "@shapeshift/shared/scene/schema";
+import { duplicateSelection, groupSelection, removeSelection, selectionTargets, ungroupSelection } from "../scene/selection";
+import { ENVIRONMENTS, type Command, type Environment, type Light, type SceneObject, type Vec3 } from "@shapeshift/shared/scene/schema";
 import { useUI } from "../ui/store";
 import { UNIT_SCALE, useSettings } from "../settings/store";
 import { Button, Divider, FieldLabel, IconButton, Input, Panel, PanelHeader, PanelTitle, Select } from "./ui";
@@ -105,44 +107,6 @@ const DEG = 180 / Math.PI;
 const AXES = ["x", "y", "z"] as const;
 
 const round = (n: number) => Math.round(n * 1000) / 1000;
-const clamp = (n: number, min = -Infinity, max = Infinity) => Math.min(max, Math.max(min, n));
-
-function NumberInput({
-    value,
-    step,
-    min,
-    max,
-    onChange,
-    onCommit,
-}: {
-    value: number;
-    step: number;
-    min?: number;
-    max?: number;
-    onChange: (v: number) => void;
-    onCommit?: () => void;
-}) {
-    const [draft, setDraft] = useState<string | null>(null);
-    return (
-        <Input
-            type="number"
-            step={step}
-            min={min}
-            max={max}
-            value={draft ?? String(round(value))}
-            onFocus={() => setDraft(String(round(value)))}
-            onChange={(e) => {
-                setDraft(e.target.value);
-                const n = parseFloat(e.target.value);
-                if (Number.isFinite(n)) onChange(clamp(n, min, max));
-            }}
-            onBlur={() => {
-                setDraft(null);
-                onCommit?.();
-            }}
-        />
-    );
-}
 
 function VectorField({
     value,
@@ -268,7 +232,9 @@ function LightSection({ light }: { light: Light }) {
     );
 }
 
-function SelectionSection({ count, groups }: { count: number; groups: string[] }) {
+function SelectionSection({ objects, groups }: { objects: SceneObject[]; groups: string[] }) {
+    const count = objects.length;
+    const units = useScene(() => selectionTargets().length);
     const [name, setName] = useState("");
     const run = useScene((s) => s.run);
     const endCoalesce = useScene((s) => s.endCoalesce);
@@ -306,6 +272,8 @@ function SelectionSection({ count, groups }: { count: number; groups: string[] }
                     onBlur={endCoalesce}
                 />
             </div>
+            <HoleToggle objects={objects} />
+            <ArrangeSection canAlign={units > 1} />
             <Actions>
                 <Button onClick={duplicateSelection}>
                     <Copy size={16} />
@@ -431,7 +399,7 @@ export function Inspector() {
 
                 {selectedLight && <LightSection light={selectedLight} />}
 
-                {multi && <SelectionSection count={selectedObjects.length} groups={groups} />}
+                {multi && <SelectionSection objects={selectedObjects} groups={groups} />}
 
                 {selected && !multi && mode === "edit" && <Muted>Click a vertex to move it. Shift-click to select more.</Muted>}
 
@@ -449,7 +417,11 @@ export function Inspector() {
                             />
                             {selected.group && <Muted style={{ marginTop: 6 }}>In group “{selected.group}”. Alt-click picks one part.</Muted>}
                             {pose && <Muted style={{ marginTop: 6 }}>Animated. Moving it adds a keyframe at {time.toFixed(1)}s.</Muted>}
+                            <div style={{ marginTop: 8 }}>
+                                <HoleToggle objects={[selected]} />
+                            </div>
                         </div>
+                        <ShapeSection object={selected} />
                         <div>
                             <FieldLabel>Position ({units})</FieldLabel>
                             <VectorField
@@ -479,6 +451,7 @@ export function Inspector() {
                                 onChange={(scale) => edit("scale", transformCommand(selected.id, { scale }))}
                             />
                         </div>
+                        <ArrangeSection canAlign={false} />
                         <div>
                             <FieldLabel>Material</FieldLabel>
                             <Grid $cols={2}>

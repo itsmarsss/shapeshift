@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { useScene } from "../scene/store";
 import { PRIMITIVES } from "@shapeshift/shared/scene/schema";
-import { duplicateSelection, groupSelection, removeSelection, selectAll, ungroupSelection } from "../scene/selection";
+import { addShape, dropSelection, duplicateSelection, groupSelection, removeSelection, selectAll, ungroupSelection } from "../scene/selection";
+import { useTools } from "../viewport/tools";
 import { useUI } from "../ui/store";
 
 const TRANSFORM_KEYS = { w: "translate", e: "rotate", r: "scale" } as const;
@@ -51,9 +52,12 @@ export function useShortcuts() {
                 ui.setShowChat(true);
                 setTimeout(() => document.querySelector<HTMLTextAreaElement>("[data-chat-input]")?.focus(), 50);
             } else if (!mod && /^[1-6]$/.test(key) && s.mode !== "render") {
-                s.run({ type: "add", primitive: PRIMITIVES[Number(key) - 1] });
+                addShape(PRIMITIVES[Number(key) - 1]);
+            } else if (!mod && key === "d" && s.selectedIds.length && s.mode === "object") {
+                dropSelection();
             } else if (key === "escape") {
-                s.select(null);
+                if (useTools.getState().tool !== "select") useTools.getState().setTool("select");
+                else s.select(null);
             } else if (!mod && key in TRANSFORM_KEYS) {
                 s.setTransformMode(TRANSFORM_KEYS[key as keyof typeof TRANSFORM_KEYS]);
             }
