@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { emptyOps, ClientMessage, type Ops } from "../src/collab/protocol";
+import { emptyOps, ClientMessage, type Ops } from "@shapeshift/shared/collab/protocol";
 import { RoomState, VersionList } from "./roomState";
-import type { SceneObject } from "../src/scene/schema";
+import type { SceneObject } from "@shapeshift/shared/scene/schema";
 
 const box = (id: string, x = 0): SceneObject => ({
     id,

@@ -1,7 +1,7 @@
 import { useScene } from "../scene/store";
 import { describeScene } from "./assistant";
 import { executeToolCalls, type Activity, type TurnContext } from "./executor";
-import { LIMITS, type StopReason, type WireMessage } from "./protocol";
+import { LIMITS, type StopReason, type WireMessage } from "@shapeshift/shared/assistant/protocol";
 import { AgentError, type Transport } from "./transport";
 
 export type TurnHandlers = {

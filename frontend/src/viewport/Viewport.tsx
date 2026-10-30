@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useTimeline } from "../scene/timeline";
 import { transformCommand } from "../scene/autokey";
 import type { Pose } from "../scene/animation";
-import type { Light, SceneObject } from "../scene/schema";
+import type { Light, SceneObject } from "@shapeshift/shared/scene/schema";
 import { useShallow } from "zustand/react/shallow";
 import { useCollab } from "../collab/session";
 import { Canvas, useThree } from "@react-three/fiber";

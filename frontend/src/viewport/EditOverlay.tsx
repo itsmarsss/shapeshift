@@ -4,7 +4,7 @@ import { TransformControls } from "@react-three/drei";
 import { useGizmoColors } from "./GizmoTheme";
 import * as THREE from "three";
 import { editableMesh } from "../scene/geometry";
-import type { SceneObject } from "../scene/schema";
+import type { SceneObject } from "@shapeshift/shared/scene/schema";
 import { useScene } from "../scene/store";
 import { useEditSelection } from "./editSelection";
 import { usePalette } from "../settings/theme";

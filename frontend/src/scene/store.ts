@@ -3,7 +3,7 @@ import { produce } from "immer";
 import { nanoid } from "nanoid";
 import { applyCommand, type CommandResult } from "./commands";
 import { applyDiff, diffDocs, isEmptyDiff, mergeDiffs, type DocDiff } from "./diff";
-import { emptyAnimation, type Command, type SceneDoc } from "./schema";
+import { emptyAnimation, type Command, type SceneDoc } from "@shapeshift/shared/scene/schema";
 
 export type EditorMode = "object" | "edit" | "render";
 export type TransformMode = "translate" | "rotate" | "scale";

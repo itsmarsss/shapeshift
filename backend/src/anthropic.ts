@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { StopReason, WireAssistantMessage, WireMessage } from "../src/assistant/protocol";
-import { TOOLS } from "../src/assistant/tools";
+import type { StopReason, WireAssistantMessage, WireMessage } from "@shapeshift/shared/assistant/protocol";
+import { TOOLS } from "@shapeshift/shared/assistant/tools";
 import { SYSTEM_PROMPT } from "./prompt";
 import { ProviderError, userText, type Provider, type StepCallbacks } from "./provider";
 

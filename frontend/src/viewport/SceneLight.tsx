@@ -2,7 +2,7 @@ import { memo, useEffect, useMemo, useRef } from "react";
 import type { ThreeEvent } from "@react-three/fiber";
 import { Line } from "@react-three/drei";
 import * as THREE from "three";
-import type { Light } from "../scene/schema";
+import type { Light } from "@shapeshift/shared/scene/schema";
 import { usePalette } from "../settings/theme";
 
 type Props = {

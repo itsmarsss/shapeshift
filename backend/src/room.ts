@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
-import { ClientMessage, PEER_COLORS, ROOM_LIMITS, type Ops, type Peer, type ServerMessage, type SharedTurn, type VersionMeta } from "../src/collab/protocol";
-import type { Animation, Environment, Light, SceneObject } from "../src/scene/schema";
+import { ClientMessage, PEER_COLORS, ROOM_LIMITS, type Ops, type Peer, type ServerMessage, type SharedTurn, type VersionMeta } from "@shapeshift/shared/collab/protocol";
+import type { Animation, Environment, Light, SceneObject } from "@shapeshift/shared/scene/schema";
 import { RoomState, VersionList, type VersionData } from "./roomState";
 
 // Per connection, refilled continuously. Generous enough for gizmo drags.

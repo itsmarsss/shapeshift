@@ -3,9 +3,9 @@ import { nanoid } from "nanoid";
 import { diffDocs, isEmptyDiff } from "../scene/diff";
 import { useScene } from "../scene/store";
 import { parseSceneFile } from "../scene/io";
-import { emptyAnimation } from "../scene/schema";
+import { emptyAnimation } from "@shapeshift/shared/scene/schema";
 import { diffToOps, opsToDiff, syncDiff } from "./ops";
-import { ROOM_ID, ROOM_LIMITS, type ClientMessage, type Ops, type Peer, type ServerMessage, type SharedTurn, type VersionMeta } from "./protocol";
+import { ROOM_ID, ROOM_LIMITS, type ClientMessage, type Ops, type Peer, type ServerMessage, type SharedTurn, type VersionMeta } from "@shapeshift/shared/collab/protocol";
 
 export type CollabStatus = "off" | "connecting" | "live" | "reconnecting" | "error";
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type Anthropic from "@anthropic-ai/sdk";
-import type { AgentEvent, WireMessage } from "../src/assistant/protocol";
+import type { AgentEvent, WireMessage } from "@shapeshift/shared/assistant/protocol";
 import { agentStep } from "./agent";
 import { toParams, toWire } from "./anthropic";
 

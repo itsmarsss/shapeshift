@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { View } from "./views";
+import type { View } from "@shapeshift/shared/viewport/views";
 
 export type { View };
 

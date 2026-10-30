@@ -1,4 +1,4 @@
-import type { AgentErrorCode, AgentInfo, StopReason, WireAssistantMessage, WireMessage } from "../src/assistant/protocol";
+import type { AgentErrorCode, AgentInfo, StopReason, WireAssistantMessage, WireMessage } from "@shapeshift/shared/assistant/protocol";
 
 export type StepCallbacks = {
     onText: (text: string) => void;

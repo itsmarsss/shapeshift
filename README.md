@@ -12,10 +12,9 @@ Try it at [shapeshift.hanzpo.com](https://shapeshift.hanzpo.com).
 
 1. Ensure you have Node and pnpm installed
 2. Run the following commands:
-    - `cd frontend`
-    - `pnpm install`
+    - `pnpm install` (from the repo root)
     - `pnpm exec wrangler login` (needed for the Workers AI binding in dev)
-    - `cp .dev.vars.example .dev.vars` and set `ANTHROPIC_API_KEY` to use Claude. Without a key the assistant falls back to Workers AI
+    - `cp backend/.dev.vars.example backend/.dev.vars` and set `ANTHROPIC_API_KEY` to use Claude. Without a key the assistant falls back to Workers AI
     - `pnpm dev`
     - No Cloudflare login? `pnpm dev:offline` runs everything locally except Workers AI
 3. Open the browser and go to `http://localhost:5173`
@@ -43,9 +42,17 @@ The editor runs entirely in the browser. Accounts (sign in with an email code), 
 
 Before the first deploy: `wrangler d1 create shapeshift` (put the id in `wrangler.jsonc`), `pnpm db:migrate:remote`, `wrangler r2 bucket create shapeshift-scenes` and `wrangler secret put RESEND_API_KEY`.
 
+## Project layout
+
+- `frontend/` is the editor: React, three.js and hand tracking. It runs entirely in the browser
+- `backend/` is the Cloudflare Worker: the assistant, shared rooms, accounts, cloud saves, share links and the waitlist, plus its D1 migrations and `wrangler.jsonc`
+- `shared/` is the contract between them: the scene schema, the AI tool definitions and the agent and room protocols, imported as `@shapeshift/shared/...`
+
+It's one pnpm workspace. Run `pnpm dev`, `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm e2e` and `pnpm build` from the root.
+
 ## How to deploy
 
-From `frontend`, run `pnpm exec wrangler secret put ANTHROPIC_API_KEY` once, then `pnpm run deploy`. This builds the app and deploys the Worker to `shapeshift.hanzpo.com`. `AGENT_MODEL` and `AGENT_EFFORT` in `wrangler.jsonc` pick the Claude model and effort.
+From `backend`, run `pnpm exec wrangler secret put ANTHROPIC_API_KEY` once, then `pnpm deploy` from the root. This builds the app and deploys the Worker to `shapeshift.hanzpo.com`. `AGENT_MODEL` and `AGENT_EFFORT` in `wrangler.jsonc` pick the Claude model and effort.
 
 ## Inspiration
 

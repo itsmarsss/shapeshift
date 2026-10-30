@@ -14,7 +14,7 @@ export default defineConfig({
     { name: 'phone', use: { ...devices['Pixel 7'] }, testMatch: /phone\.spec\.ts/ },
   ],
   webServer: {
-    command: 'npx wrangler d1 migrations apply DB --local && CF_REMOTE_BINDINGS=0 npx vite build && CF_REMOTE_BINDINGS=0 npx vite preview --port 4173 --strictPort',
+    command: '(cd ../backend && npx wrangler d1 migrations apply DB --local --persist-to ../.wrangler/state) && CF_REMOTE_BINDINGS=0 npx vite build && CF_REMOTE_BINDINGS=0 npx vite preview --port 4173 --strictPort',
     url: 'http://localhost:4173',
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { buildGeometry, toMeshGeometry } from "./geometry";
 import { animationClip } from "./clip";
 import { DEFAULT_MATERIAL } from "./commands";
-import { SceneDoc, type SceneObject } from "./schema";
+import { SceneDoc, type SceneObject } from "@shapeshift/shared/scene/schema";
 
 export function download(data: BlobPart, filename: string, type: string) {
     const url = URL.createObjectURL(new Blob([data], { type }));

@@ -3,7 +3,7 @@ import type { ThreeEvent } from "@react-three/fiber";
 import { Edges } from "@react-three/drei";
 import type * as THREE from "three";
 import { buildGeometry } from "../scene/geometry";
-import type { SceneObject } from "../scene/schema";
+import type { SceneObject } from "@shapeshift/shared/scene/schema";
 import { usePalette } from "../settings/theme";
 
 type Props = {

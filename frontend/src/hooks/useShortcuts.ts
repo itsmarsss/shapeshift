@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useScene } from "../scene/store";
-import { PRIMITIVES } from "../scene/schema";
+import { PRIMITIVES } from "@shapeshift/shared/scene/schema";
 import { duplicateSelection, groupSelection, removeSelection, selectAll, ungroupSelection } from "../scene/selection";
 import { useUI } from "../ui/store";
 

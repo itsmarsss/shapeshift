@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { Command, SceneDoc } from "./schema";
+import { Command, SceneDoc } from "@shapeshift/shared/scene/schema";
 import { emptyDoc, useScene } from "./store";
 
 const s = () => useScene.getState();

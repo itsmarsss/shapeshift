@@ -1,5 +1,5 @@
 import { agentInfo, agentStep } from "./agent";
-import { ROOM_ID } from "../src/collab/protocol";
+import { ROOM_ID } from "@shapeshift/shared/collab/protocol";
 import { handleAccounts } from "./accounts";
 import { handleScenes } from "./scenes";
 import { handleWaitlist } from "./waitlist";

@@ -6,7 +6,7 @@ import * as THREE from "three";
 import { ArrowSquareOut, Copy, Cube } from "@phosphor-icons/react";
 import { GlobalStyle } from "../components/ui";
 import { evaluate } from "../scene/animation";
-import { SceneDoc } from "../scene/schema";
+import { SceneDoc } from "@shapeshift/shared/scene/schema";
 import { worldBounds } from "../assistant/assistant";
 import { SceneMesh } from "../viewport/SceneMesh";
 import { SceneLight } from "../viewport/SceneLight";

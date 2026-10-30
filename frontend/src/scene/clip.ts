@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { evaluateTrack } from "./animation";
-import type { SceneDoc } from "./schema";
+import type { SceneDoc } from "@shapeshift/shared/scene/schema";
 
 const FPS = 30;
 

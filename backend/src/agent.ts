@@ -1,4 +1,4 @@
-import { AgentRequest, LIMITS, type AgentErrorCode, type AgentEvent } from "../src/assistant/protocol";
+import { AgentRequest, LIMITS, type AgentErrorCode, type AgentEvent } from "@shapeshift/shared/assistant/protocol";
 import { anthropicProvider } from "./anthropic";
 import { ProviderError, type Provider } from "./provider";
 import { workersAiProvider } from "./workersAi";

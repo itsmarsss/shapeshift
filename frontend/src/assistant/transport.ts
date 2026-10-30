@@ -1,4 +1,4 @@
-import type { AgentErrorCode, AgentEvent, AgentInfo, AgentRequest, StopReason, WireAssistantMessage } from "./protocol";
+import type { AgentErrorCode, AgentEvent, AgentInfo, AgentRequest, StopReason, WireAssistantMessage } from "@shapeshift/shared/assistant/protocol";
 
 export type StepResult = { message: WireAssistantMessage; stop: StopReason; model: string };
 

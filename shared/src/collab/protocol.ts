@@ -101,4 +101,6 @@ export type ServerMessage =
     | { type: "pong" }
     | { type: "error"; error: string };
 
-export { PEOPLE as PEER_COLORS } from "../ui/palette";
+// Colors for people in a room: the same brightness and saturation, so none of
+// them stands out or disappears.
+export const PEER_COLORS = ["#ff8b3e", "#4cc38a", "#ff6b8a", "#a78bfa", "#4cb3ff", "#f5c33b", "#2ec4b6", "#f472b6"];

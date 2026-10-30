@@ -1,4 +1,4 @@
-import type { Command, Geometry, Light, LightType, Material, Primitive, SceneDoc, SceneObject, Vec3 } from "./schema";
+import type { Command, Geometry, Light, LightType, Material, Primitive, SceneDoc, SceneObject, Vec3 } from "@shapeshift/shared/scene/schema";
 import { current, isDraft } from "immer";
 import * as THREE from "three";
 import { booleanGeometry } from "./geometry";

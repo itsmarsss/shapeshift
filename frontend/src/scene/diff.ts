@@ -1,4 +1,4 @@
-import type { Animation, Environment, Light, SceneDoc, SceneObject } from "./schema";
+import type { Animation, Environment, Light, SceneDoc, SceneObject } from "@shapeshift/shared/scene/schema";
 
 // A change to one object or light, by id. `before` is missing for something
 // that was added and `after` for something that was removed. Working per
