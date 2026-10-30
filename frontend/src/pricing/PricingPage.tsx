@@ -177,6 +177,7 @@ export default function PricingPage() {
     const [available, setAvailable] = useState<boolean | null>(null);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [slow, setSlow] = useState(false);
     const upgraded = new URLSearchParams(location.search).has("upgraded");
     const theme = useResolvedTheme();
     const pro = user?.plan === "pro";
@@ -196,7 +197,11 @@ export default function PricingPage() {
         if (!upgraded || pro) return;
         let tries = 0;
         const timer = setInterval(() => {
-            if (++tries > 10) return clearInterval(timer);
+            if (++tries > 10) {
+                clearInterval(timer);
+                setSlow(true);
+                return;
+            }
             void useAccount.getState().load();
         }, 1500);
         return () => clearInterval(timer);
@@ -259,7 +264,11 @@ export default function PricingPage() {
                 </Segmented>
             </Head>
 
-            {upgraded && <Banner role="status">{pro ? "You're on Pro. Thanks for supporting ShapeShift!" : "Finishing your upgrade…"}</Banner>}
+            {upgraded && <Banner role="status">{pro
+                        ? "You're on Pro. Thanks for supporting ShapeShift!"
+                        : slow
+                          ? "Your payment went through, but your plan hasn't updated yet. Refresh this page in a minute."
+                          : "Finishing your upgrade…"}</Banner>}
 
             <Cards>
                 <Card aria-label="Free plan">
