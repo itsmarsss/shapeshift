@@ -19,3 +19,38 @@ describe("export", () => {
         expect(forward.y).toBeCloseTo(-1);
     });
 });
+
+describe("animation export", () => {
+    it("samples transform tracks into a clip named after each object", async () => {
+        const { animationClip } = await import("./clip");
+        const clip = animationClip({
+            version: 2,
+            environment: "none",
+            lights: [],
+            objects: [
+                {
+                    id: "b",
+                    name: "Box",
+                    geometry: { type: "box", width: 1, height: 1, depth: 1 },
+                    position: [0, 0, 0],
+                    rotation: [0, 0, 0],
+                    scale: [1, 1, 1],
+                    material: { color: "#ffffff", metalness: 0, roughness: 0.5, opacity: 1 },
+                },
+            ],
+            animation: {
+                duration: 2,
+                loop: true,
+                tracks: [
+                    { target: "b", property: "position", keys: [{ time: 0, value: [0, 0, 0], easing: "linear" }, { time: 1, value: [3, 0, 0] }] },
+                    { target: "b", property: "rotation", keys: [{ time: 0, value: [0, 0, 0] }, { time: 2, value: [0, Math.PI, 0] }] },
+                    { target: "b", property: "color", keys: [{ time: 0, value: "#000000" }] },
+                ],
+            },
+        })!;
+        expect(clip.duration).toBe(2);
+        expect(clip.tracks.map((t) => t.name)).toEqual(["Box.position", "Box.quaternion"]);
+        expect(clip.tracks[0].times).toHaveLength(31);
+        expect(Array.from(clip.tracks[0].values.slice(-3))).toEqual([3, 0, 0]);
+    });
+});
