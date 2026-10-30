@@ -23,6 +23,7 @@ const HandUI = lazy(() => import("../hands/HandUI"));
 const SignInDialog = lazy(() => import("../account/SignInDialog"));
 const ScenesDialog = lazy(() => import("../account/ScenesDialog"));
 const SettingsModal = lazy(() => import("../settings/SettingsModal"));
+const TemplatesDialog = lazy(() => import("./TemplatesDialog"));
 
 const Root = styled.div`
     position: relative;
@@ -40,6 +41,7 @@ export function Layout() {
     const showChat = useUI((s) => s.showChat);
     const handsOn = useHands((s) => s.status !== "off");
     const showSettings = useUI((s) => s.showSettings);
+    const showTemplates = useUI((s) => s.showTemplates);
     const timelineOpen = useTimeline((s) => s.open);
     const compact = useCompact();
     const showSignIn = useAccount((s) => s.showSignIn);
@@ -73,6 +75,7 @@ export function Layout() {
                 <ChatPanel />
                 {handsOn && <HandUI />}
                 {showSettings && <SettingsModal />}
+                {showTemplates && <TemplatesDialog />}
                 {showSignIn && <SignInDialog />}
                 {showScenes && <ScenesDialog />}
             </Suspense>

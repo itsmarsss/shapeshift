@@ -16,6 +16,7 @@ import { PeerCursors } from "./PeerCursors";
 import { SceneEnvironment } from "./SceneEnvironment";
 import { EditOverlay } from "./EditOverlay";
 import { SnapshotBridge } from "./SnapshotBridge";
+import { FrameBridge } from "./FrameBridge";
 import { useGizmoColors } from "./GizmoTheme";
 import { useHands } from "../hands/tracker";
 import { useHandHover } from "../hands/tracker";
@@ -172,6 +173,7 @@ export function Viewport() {
             <CameraSettings />
             <SceneEnvironment preset={environment} />
             <SnapshotBridge />
+            <FrameBridge />
             <PeerCursors />
             {handsOn && (
                 <Suspense fallback={null}>

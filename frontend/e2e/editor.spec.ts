@@ -42,6 +42,15 @@ test('explains it when the assistant is unavailable', async ({ page }) => {
   await expect(page.getByText('add a red sphere')).toBeVisible()
 })
 
+test('starts from a template and undoes it', async ({ page }) => {
+  await openEditor(page)
+  await page.getByTitle('Start from a template').click()
+  await page.getByRole('dialog', { name: 'Start from a template' }).getByRole('button', { name: /Snowman/ }).click()
+  await expect(page.locator('select option', { hasText: 'Carrot nose' }).first()).toBeAttached()
+  await page.getByTitle('Undo').click()
+  await expect(page.locator('select option', { hasText: 'Carrot nose' })).toHaveCount(0)
+})
+
 test('exports a shape for 3D printing', async ({ page }) => {
   await openEditor(page)
   await page.getByTitle('Add box').click()

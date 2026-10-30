@@ -15,6 +15,7 @@ import {
     GearSix,
     Hand,
     Printer,
+    Shapes,
     SlidersHorizontal,
     TrayArrowDown,
 } from "@phosphor-icons/react";
@@ -186,6 +187,7 @@ export function Topbar() {
     const setShowInspector = useUI((s) => s.setShowInspector);
     const setShowChat = useUI((s) => s.setShowChat);
     const setShowSettings = useUI((s) => s.setShowSettings);
+    const setShowTemplates = useUI((s) => s.setShowTemplates);
     const showHistory = useUI((s) => s.showHistory);
     const setShowHistory = useUI((s) => s.setShowHistory);
     const handStatus = useHands((s) => s.status);
@@ -228,6 +230,7 @@ export function Topbar() {
                 if (empty || !useSettings.getState().confirmNew || confirm("Start a new scene? You can undo this.")) run({ type: "clear" });
             },
         },
+        { label: "Start from a template", icon: <Shapes size={18} />, onClick: () => setShowTemplates(true) },
         { label: "Open scene", icon: <FolderOpen size={18} />, onClick: () => openRef.current?.click() },
         { label: "Save scene", icon: <FloppyDisk size={18} />, onClick: () => saveSceneFile(useScene.getState().doc) },
         { label: "Import model", icon: <TrayArrowDown size={18} />, onClick: () => importRef.current?.click() },
@@ -255,6 +258,9 @@ export function Topbar() {
                         }}
                     >
                         <FilePlus size={18} />
+                    </IconButton>
+                    <IconButton title="Start from a template" onClick={() => setShowTemplates(true)}>
+                        <Shapes size={18} />
                     </IconButton>
                     <IconButton title="Open scene" onClick={() => openRef.current?.click()}>
                         <FolderOpen size={18} />
