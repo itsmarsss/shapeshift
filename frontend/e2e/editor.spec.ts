@@ -142,3 +142,21 @@ test('picks colors from the palette or by hex, as one undo step', async ({ page 
   await page.getByTitle('Undo').click()
   await expect.poll(color).toBe(before)
 })
+
+test('turns the camera from the view cube and fits the scene in view', async ({ page }) => {
+  await openEditor(page)
+  await page.getByTitle('Add box').click()
+  const cube = page.getByTitle('View from the front').locator('..')
+  const turn = () => cube.evaluate((el) => (el as HTMLElement).style.transform)
+
+  await page.getByTitle('View from the right').click()
+  // Looking from the right turns the cube a quarter turn, so Right faces you.
+  await expect.poll(turn).toMatch(/rotateY\(-89\.\d+deg\)|rotateY\(-90deg\)/)
+  await page.getByTitle('Reset the view').click()
+  await expect.poll(turn).not.toMatch(/rotateY\(-9\d/)
+
+  // Fitting only moves the camera in or out; it names what it fits.
+  await expect(page.getByTitle('Fit the selection in view (F)')).toBeEnabled()
+  await page.keyboard.press('Escape')
+  await expect(page.getByTitle('Fit everything in view (F)')).toBeEnabled()
+})

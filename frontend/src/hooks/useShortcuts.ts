@@ -3,6 +3,7 @@ import { useScene } from "../scene/store";
 import { PRIMITIVES } from "@shapeshift/shared/scene/schema";
 import { duplicateSelection, groupSelection, removeSelection, selectAll, ungroupSelection } from "../scene/selection";
 import { useUI } from "../ui/store";
+import { frameSelection } from "../viewport/frame";
 
 const TRANSFORM_KEYS = { w: "translate", e: "rotate", r: "scale" } as const;
 
@@ -54,6 +55,8 @@ export function useShortcuts() {
                 s.run({ type: "add", primitive: PRIMITIVES[Number(key) - 1] });
             } else if (key === "escape") {
                 s.select(null);
+            } else if (!mod && key === "f") {
+                frameSelection();
             } else if (!mod && key in TRANSFORM_KEYS) {
                 s.setTransformMode(TRANSFORM_KEYS[key as keyof typeof TRANSFORM_KEYS]);
             }
