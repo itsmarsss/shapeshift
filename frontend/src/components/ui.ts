@@ -1,4 +1,18 @@
 import styled, { createGlobalStyle, css } from "styled-components";
+import { PALETTE, type ThemeName } from "../ui/palette";
+
+const tokens = (t: ThemeName) => `
+        --accent: ${PALETTE[t].accent};
+        --accent-hover: ${PALETTE[t].accentHover};
+        --accent-text: ${PALETTE[t].accentText};
+        --accent-soft: color-mix(in srgb, ${PALETTE[t].accent} 16%, transparent);
+        --danger: ${PALETTE[t].danger};
+        --success: ${PALETTE[t].success};
+        --warning: ${PALETTE[t].warning};
+        --axis-x: ${PALETTE[t].axisX};
+        --axis-y: ${PALETTE[t].axisY};
+        --axis-z: ${PALETTE[t].axisZ};
+`;
 
 export const GlobalStyle = createGlobalStyle`
     :root {
@@ -11,13 +25,7 @@ export const GlobalStyle = createGlobalStyle`
         --text: #ececee;
         --text-muted: #8e9099;
         --text-faint: #5d5f66;
-        --accent: #4f7cff;
-        --accent-text: #ffffff;
-        --danger: #e5484d;
-        --success: #46a758;
-        --axis-x: #e5484d;
-        --axis-y: #46a758;
-        --axis-z: #4f7cff;
+        ${tokens("dark")}
         --radius: 8px;
         --radius-lg: 12px;
         --topbar: 48px;
@@ -36,6 +44,7 @@ export const GlobalStyle = createGlobalStyle`
         --text-muted: #6b6d75;
         --text-faint: #a5a7ae;
         --cursor: rgba(24, 24, 27, 0.8);
+        ${tokens("light")}
         color-scheme: light;
     }
     html, body, #root {

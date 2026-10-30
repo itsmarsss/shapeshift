@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSettings } from "./store";
+import { PALETTE } from "../ui/palette";
 
 export type ResolvedTheme = "dark" | "light";
 
@@ -15,6 +16,11 @@ export function useResolvedTheme(): ResolvedTheme {
         return () => mq.removeEventListener("change", onChange);
     }, []);
     return theme === "system" ? system : theme;
+}
+
+// Palette colors for the current theme, for the 3D view.
+export function usePalette() {
+    return PALETTE[useResolvedTheme()];
 }
 
 export const SCENE_COLORS: Record<ResolvedTheme, { background: string; cell: string; section: string; ground: string; handle: string }> = {
