@@ -13,9 +13,9 @@ test('adds a shape from the toolbar and undoes it', async ({ page }) => {
 test('shows the intro once to new visitors', async ({ page }) => {
   await page.goto('/')
   const intro = page.getByRole('dialog', { name: 'Welcome to ShapeShift' })
-  await expect(intro).toContainText('1 of 4')
+  await expect(intro).toContainText('1 of 5')
   await intro.getByRole('button', { name: 'Next' }).click()
-  await expect(intro).toContainText('2 of 4')
+  await expect(intro).toContainText('2 of 5')
   await intro.getByRole('button', { name: 'Back' }).click()
   await intro.getByRole('button', { name: 'Skip' }).click()
   await expect(intro).toHaveCount(0)
