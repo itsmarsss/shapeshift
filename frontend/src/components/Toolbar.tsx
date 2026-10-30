@@ -15,6 +15,7 @@ import { ConeIcon, TorusIcon } from "./icons";
 import { useScene, type TransformMode } from "../scene/store";
 import type { LightType, Primitive } from "../scene/schema";
 import { IconButton } from "./ui";
+import { COMPACT } from "../ui/compact";
 
 const Rail = styled.div`
     position: absolute;
@@ -24,6 +25,22 @@ const Rail = styled.div`
     flex-direction: column;
     gap: 8px;
     z-index: 20;
+
+    @media ${COMPACT} {
+        top: auto;
+        left: var(--gap);
+        right: var(--gap);
+        bottom: calc(var(--gap) + env(safe-area-inset-bottom, 0px) + var(--bottom-offset, 0px));
+        flex-direction: row;
+        justify-content: flex-start;
+        overflow-x: auto;
+        scrollbar-width: none;
+
+        > div {
+            flex-direction: row;
+            flex-shrink: 0;
+        }
+    }
 `;
 
 const Group = styled.div`

@@ -1,3 +1,4 @@
+import { COMPACT } from "../ui/compact";
 import { useState } from "react";
 import styled from "styled-components";
 import { Intersect, Subtract, Unite } from "@phosphor-icons/react";
@@ -17,6 +18,10 @@ const Bar = styled.div`
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     z-index: 20;
+
+    @media ${COMPACT} {
+        display: none;
+    }
 `;
 
 const Picker = styled(Select)`

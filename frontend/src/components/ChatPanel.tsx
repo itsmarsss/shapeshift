@@ -5,6 +5,7 @@ import { selectSelected, useScene } from "../scene/store";
 import { useAssistant } from "../assistant/store";
 import type { AgentInfo } from "../assistant/protocol";
 import { useUI } from "../ui/store";
+import { COMPACT } from "../ui/compact";
 import { IconButton, Panel } from "./ui";
 import { Composer, type ComposerHandle } from "./assistant/Composer";
 import { TurnView } from "./assistant/TurnView";
@@ -16,6 +17,20 @@ const Root = styled(Panel)`
     width: var(--chat-width);
     z-index: 50;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+
+    @media ${COMPACT} {
+        top: auto;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: auto;
+        border-radius: 16px 16px 0 0;
+        border-bottom: 0;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.4);
+        z-index: 60;
+        height: 72vh;
+    }
 `;
 
 const Header = styled.div`
