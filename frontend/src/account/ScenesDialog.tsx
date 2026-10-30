@@ -4,6 +4,7 @@ import { Check, CloudArrowUp, Cube, LinkSimple, PencilSimple, Trash } from "@pho
 import { Button, Input } from "../components/ui";
 import { api } from "./api";
 import { Dialog } from "./Dialog";
+import { embedCode } from "../viewer/embed";
 import { useAccount } from "./store";
 
 const Top = styled.div`
@@ -128,14 +129,17 @@ function SceneCard({ id, title, updatedAt, publicSlug }: { id: string; title: st
     const renameScene = useAccount((s) => s.renameScene);
     const deleteScene = useAccount((s) => s.deleteScene);
     const setShared = useAccount((s) => s.setShared);
-    const [copied, setCopied] = useState(false);
+    const [copied, setCopied] = useState<"link" | "embed" | null>(null);
+
+    async function copy(text: string, what: "link" | "embed") {
+        await navigator.clipboard?.writeText(text).catch(() => {});
+        setCopied(what);
+        setTimeout(() => setCopied(null), 1600);
+    }
 
     async function share() {
         const link = await setShared(id, true);
-        if (!link) return;
-        await navigator.clipboard?.writeText(link).catch(() => {});
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1600);
+        if (link) await copy(link, "link");
     }
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState(title);
@@ -169,7 +173,7 @@ function SceneCard({ id, title, updatedAt, publicSlug }: { id: string; title: st
                 {!editing && !confirm && (
                     <>
                         <button title={publicSlug ? "Copy the view-only link" : "Share a view-only link"} onClick={() => void share()}>
-                            {copied ? <Check size={14} color="var(--success)" /> : <LinkSimple size={14} />}
+                            {copied === "link" ? <Check size={14} color="var(--success)" /> : <LinkSimple size={14} />}
                         </button>
                         <button title="Rename" onClick={() => setEditing(true)}>
                             <PencilSimple size={14} />
@@ -187,7 +191,11 @@ function SceneCard({ id, title, updatedAt, publicSlug }: { id: string; title: st
             </Info>
             {publicSlug && (
                 <Shared>
-                    {copied ? "Link copied" : "Anyone with the link can view"}
+                    {copied === "link" ? "Link copied" : copied === "embed" ? "Embed code copied" : "Anyone with the link can view"}
+                    <span>·</span>
+                    <button title="Copy HTML to show this scene on another site" onClick={() => void copy(embedCode(location.origin, publicSlug, title), "embed")}>
+                        Embed
+                    </button>
                     <span>·</span>
                     <button onClick={() => void setShared(id, false)}>Stop sharing</button>
                 </Shared>
