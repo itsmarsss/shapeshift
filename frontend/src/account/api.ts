@@ -1,5 +1,5 @@
 import type { SceneDoc } from "@shapeshift/shared/scene/schema";
-import type { PlanId, Usage } from "@shapeshift/shared/billing/plans";
+import type { BillingInterval, PlanId, Usage } from "@shapeshift/shared/billing/plans";
 
 export type User = { id: string; email: string; name: string | null; plan: PlanId };
 export type CloudScene = { id: string; title: string; size: number; createdAt: number; updatedAt: number; publicSlug: string | null };
@@ -34,6 +34,9 @@ async function call<T>(path: string, init: { method?: string; body?: unknown } =
 export const api = {
     me: () => call<{ user: User | null }>("/api/me"),
     usage: () => call<Usage>("/api/usage"),
+    billing: () => call<{ available: boolean }>("/api/billing"),
+    checkout: (interval: BillingInterval) => call<{ url: string }>("/api/billing/checkout", { method: "POST", body: { interval } }),
+    portal: () => call<{ url: string }>("/api/billing/portal", { method: "POST" }),
     start: (email: string) => call<{ ok: true; devCode?: string }>("/api/auth/start", { method: "POST", body: { email } }),
     verify: (email: string, code: string) => call<{ user: User }>("/api/auth/verify", { method: "POST", body: { email, code } }),
     signOut: () => call<{ ok: true }>("/api/auth/signout", { method: "POST" }),
