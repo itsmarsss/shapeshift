@@ -1,6 +1,7 @@
 import { Timeline, TIMELINE_HEIGHT } from "./timeline/Timeline";
 import { useTimeline } from "../scene/timeline";
 import { useCompact } from "../ui/compact";
+import { useAccount } from "../account/store";
 import { lazy, Suspense, useEffect, type CSSProperties } from "react";
 import styled from "styled-components";
 import { GlobalStyle } from "./ui";
@@ -17,6 +18,8 @@ import { useResolvedTheme } from "../settings/theme";
 // Loaded after the editor so they don't hold up the first frame.
 const ChatPanel = lazy(() => import("./ChatPanel"));
 const HandUI = lazy(() => import("../hands/HandUI"));
+const SignInDialog = lazy(() => import("../account/SignInDialog"));
+const ScenesDialog = lazy(() => import("../account/ScenesDialog"));
 const SettingsModal = lazy(() => import("../settings/SettingsModal"));
 
 const Root = styled.div`
@@ -37,6 +40,8 @@ export function Layout() {
     const showSettings = useUI((s) => s.showSettings);
     const timelineOpen = useTimeline((s) => s.open);
     const compact = useCompact();
+    const showSignIn = useAccount((s) => s.showSignIn);
+    const showScenes = useAccount((s) => s.showScenes);
     const theme = useResolvedTheme();
     useEffect(() => {
         document.documentElement.dataset.theme = theme;
@@ -64,6 +69,8 @@ export function Layout() {
                 <ChatPanel />
                 {handsOn && <HandUI />}
                 {showSettings && <SettingsModal />}
+                {showSignIn && <SignInDialog />}
+                {showScenes && <ScenesDialog />}
             </Suspense>
         </Root>
     );

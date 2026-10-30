@@ -24,6 +24,8 @@ import { useHands } from "../hands/tracker";
 import { useSettings } from "../settings/store";
 import { IconButton, Segment, Segmented } from "./ui";
 import { CollabBar } from "../collab/CollabBar";
+import { useAccount } from "../account/store";
+import { AccountButton } from "../account/AccountButton";
 import { useTimeline } from "../scene/timeline";
 import { COMPACT, useCompact } from "../ui/compact";
 
@@ -190,8 +192,11 @@ export function Topbar() {
         e.target.value = "";
         if (!file) return;
         const doc = parseSceneFile(await file.text());
-        if (doc) load(doc);
-        else alert("That file isn't a ShapeShift scene.");
+        if (doc) {
+            // An opened file is its own scene, not the one saved in the cloud.
+            useAccount.getState().unlink();
+            load(doc);
+        } else alert("That file isn't a ShapeShift scene.");
     }
 
     async function onImport(e: React.ChangeEvent<HTMLInputElement>) {
@@ -270,6 +275,7 @@ export function Topbar() {
                 ))}
             </Segmented>
             <Group $end>
+                <AccountButton />
                 <CollabBar />
                 <IconButton title="Undo" disabled={!canUndo} onClick={undo}>
                     <ArrowUUpLeft size={18} />
