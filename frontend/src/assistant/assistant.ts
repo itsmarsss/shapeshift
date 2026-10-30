@@ -1,7 +1,8 @@
 // How the assistant sees the scene, and how its actions are described back to
 // the user.
 import * as THREE from "three";
-import { findLight, findObject } from "../scene/commands";
+import { findLight, findObject, groupMembers, groupNames } from "../scene/commands";
+import { localBounds } from "../scene/geometry";
 import type { Command, Geometry, Light, SceneDoc, SceneObject, Vec3 } from "@shapeshift/shared/scene/schema";
 
 const round = (v: number) => {
@@ -26,12 +27,26 @@ function size(g: Geometry): string {
             return `radius ${round(g.radius)}, tube ${round(g.tube)}`;
         case "plane":
             return `${round(g.width)}x${round(g.height)}`;
+        case "wedge":
+        case "roof":
+        case "pyramid":
+            return `${round(g.width)}x${round(g.height)}x${round(g.depth)}`;
+        case "halfSphere":
+            return `radius ${round(g.radius)}`;
+        case "tube":
+            return `radius ${round(g.radius)}, wall ${round(g.thickness)}, height ${round(g.height)}`;
+        case "polygon":
+            return `${g.sides} sides, radius ${round(g.radius)}, height ${round(g.height)}`;
+        case "star":
+            return `${g.points} points, radius ${round(g.radius)}, inner ${round(g.innerRadius)}, height ${round(g.height)}`;
+        case "text":
+            return `"${g.text}" size ${round(g.size)}, height ${round(g.height)}`;
+        case "paraboloid":
+            return `radius ${round(g.radius)}, height ${round(g.height)}`;
         case "mesh":
             return `${Math.floor(g.indices.length / 3)} triangles`;
     }
 }
-
-const meshBoxes = new WeakMap<Geometry, THREE.Box3>();
 
 function localBox(g: Geometry): THREE.Box3 {
     const box = new THREE.Box3();
@@ -52,14 +67,8 @@ function localBox(g: Geometry): THREE.Box3 {
         }
         case "plane":
             return box.set(new THREE.Vector3(-g.width / 2, -g.height / 2, 0), new THREE.Vector3(g.width / 2, g.height / 2, 0));
-        case "mesh": {
-            let cached = meshBoxes.get(g);
-            if (!cached) {
-                cached = new THREE.Box3().setFromArray(g.positions);
-                meshBoxes.set(g, cached);
-            }
-            return box.copy(cached);
-        }
+        default:
+            return localBounds(g);
     }
 }
 
@@ -81,6 +90,7 @@ export function describeObject(o: SceneObject, selectedId: string | null = null)
     return [
         `"${o.name}" id=${o.id}`,
         o.group ? `in group "${o.group}"` : null,
+        o.hole ? "hole" : null,
         `${o.geometry.type} ${size(o.geometry)}`,
         `at ${fmt(o.position)}`,
         o.rotation.some((r) => r !== 0) ? `rotation ${fmt(o.rotation)}` : null,
@@ -137,6 +147,10 @@ export function describeScene(doc: SceneDoc, selectedId: string | null, selected
     if (selected && !listed.includes(selected)) listed.push(selected);
     const lines = listed.map((o) => describeObject(o, selectedId));
     if (doc.objects.length > listed.length) lines.push(`…and ${doc.objects.length - listed.length} more objects. Use inspect to read them.`);
+    for (const group of groupNames(doc)) {
+        const members = groupMembers(doc, group);
+        if (members.some((o) => o.hole) && members.some((o) => !o.hole)) lines.push(`Group "${group}" shows and exports as its solids with its holes cut out.`);
+    }
     lines.push(...lights);
     if (selectedIds.length > 1) lines.push(`${selectedIds.length} objects are selected; "these" or "them" means all of them: ${selectedIds.join(", ")}.`);
     else if (!selected && !doc.lights.some((l) => l.id === selectedId)) lines.push("Nothing is selected.");
@@ -208,6 +222,14 @@ export function describeCommand(cmd: Command, doc: SceneDoc): string {
             return `Added ${cmd.name ?? `a ${cmd.light} light`}`;
         case "updateLight":
             return `Adjusted ${name}`;
+        case "hole":
+            return cmd.hole ? `Made ${name} a hole` : `Made ${name} solid`;
+        case "align":
+            return `Aligned ${cmd.targets.length} items on ${cmd.axis.toUpperCase()}`;
+        case "mirror":
+            return `Mirrored ${cmd.targets.length === 1 ? (findObject(doc, cmd.targets[0])?.name ?? cmd.targets[0]) : `${cmd.targets.length} items`} on ${cmd.axis.toUpperCase()}`;
+        case "drop":
+            return `Dropped ${cmd.targets.length === 1 ? (findObject(doc, cmd.targets[0])?.name ?? cmd.targets[0]) : `${cmd.targets.length} items`}`;
         case "insert":
             return `Inserted ${cmd.objects.length} objects`;
         case "clear":

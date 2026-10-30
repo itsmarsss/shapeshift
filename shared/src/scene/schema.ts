@@ -3,7 +3,23 @@ import { z } from "zod";
 export const Vec3 = z.tuple([z.number(), z.number(), z.number()]);
 export type Vec3 = z.infer<typeof Vec3>;
 
-export const PRIMITIVES = ["box", "sphere", "cylinder", "cone", "torus", "plane"] as const;
+export const PRIMITIVES = [
+    "box",
+    "sphere",
+    "cylinder",
+    "cone",
+    "torus",
+    "plane",
+    "wedge",
+    "roof",
+    "pyramid",
+    "halfSphere",
+    "tube",
+    "polygon",
+    "star",
+    "text",
+    "paraboloid",
+] as const;
 export const Primitive = z.enum(PRIMITIVES);
 export type Primitive = z.infer<typeof Primitive>;
 
@@ -14,6 +30,21 @@ const PRIMITIVE_GEOMETRIES = [
     z.object({ type: z.literal("cone"), radius: z.number().positive(), height: z.number().positive() }),
     z.object({ type: z.literal("torus"), radius: z.number().positive(), tube: z.number().positive() }),
     z.object({ type: z.literal("plane"), width: z.number().positive(), height: z.number().positive() }),
+    z.object({ type: z.literal("wedge"), width: z.number().positive(), height: z.number().positive(), depth: z.number().positive() }).describe("A ramp sloping down toward +X"),
+    z.object({ type: z.literal("roof"), width: z.number().positive(), height: z.number().positive(), depth: z.number().positive() }).describe("A gable roof with its ridge along Z"),
+    z.object({ type: z.literal("pyramid"), width: z.number().positive(), height: z.number().positive(), depth: z.number().positive() }),
+    z.object({ type: z.literal("halfSphere"), radius: z.number().positive() }).describe("A dome with a flat base"),
+    z.object({ type: z.literal("tube"), radius: z.number().positive(), thickness: z.number().positive().describe("Wall thickness, less than radius"), height: z.number().positive() }),
+    z.object({ type: z.literal("polygon"), radius: z.number().positive(), sides: z.number().int().min(3).max(64), height: z.number().positive() }).describe("A prism with a regular polygon base"),
+    z.object({
+        type: z.literal("star"),
+        radius: z.number().positive(),
+        innerRadius: z.number().positive().describe("Less than radius"),
+        points: z.number().int().min(3).max(32),
+        height: z.number().positive(),
+    }),
+    z.object({ type: z.literal("text"), text: z.string().min(1).max(100), size: z.number().positive(), height: z.number().positive().describe("Extrusion thickness") }).describe("Text lying flat, extruded upward"),
+    z.object({ type: z.literal("paraboloid"), radius: z.number().positive(), height: z.number().positive() }),
 ] as const;
 
 export const PrimitiveGeometry = z.discriminatedUnion("type", PRIMITIVE_GEOMETRIES);
@@ -49,6 +80,7 @@ export const SceneObject = z.object({
     scale: Vec3,
     material: Material,
     group: z.string().min(1).optional(),
+    hole: z.boolean().optional(),
 });
 export type SceneObject = z.infer<typeof SceneObject>;
 
@@ -117,6 +149,11 @@ export const SceneDoc = z.object({
 export type SceneDoc = z.infer<typeof SceneDoc>;
 
 const Target = z.string().describe("Object id or exact name");
+const Targets = z.array(z.string()).min(1).describe("Object ids, exact names or group names");
+
+export const AXES = ["x", "y", "z"] as const;
+export const Axis = z.enum(AXES);
+export type Axis = z.infer<typeof Axis>;
 
 export const Command = z.discriminatedUnion("type", [
     z.object({
@@ -217,9 +254,23 @@ export const Command = z.discriminatedUnion("type", [
         targets: z.array(Target).min(1),
     }),
     z.object({ type: z.literal("ungroup"), target: Target.describe("Group name") }),
+    z.object({ type: z.literal("hole"), target: Target.describe("Object or group"), hole: z.boolean().describe("true makes it a hole, false a solid") }),
+    z.object({
+        type: z.literal("align"),
+        targets: Targets.describe("Objects or groups to line up. A group moves as one piece"),
+        axis: Axis,
+        to: z.enum(["min", "center", "max"]).describe("Line up their low sides, centers or high sides"),
+    }),
+    z.object({ type: z.literal("mirror"), targets: Targets, axis: Axis.describe("Flip across the plane through their center that is perpendicular to this axis") }),
+    z.object({
+        type: z.literal("drop"),
+        targets: Targets.describe("Objects or groups. A group drops as one piece"),
+        origin: Vec3.optional().describe("A point on the surface to drop onto. Defaults to the ground"),
+        normal: Vec3.optional().describe("Up direction of that surface. Defaults to [0, 1, 0]"),
+    }),
     z.object({ type: z.literal("insert"), objects: z.array(SceneObject) }),
     z.object({ type: z.literal("clear") }),
 ]);
 
-export const AI_COMMANDS = ["add", "remove", "duplicate", "transform", "material", "rename", "boolean", "addLight", "updateLight", "group", "ungroup", "environment", "animate", "keyframe", "removeKeyframe", "clearAnimation", "timeline"] as const;
+export const AI_COMMANDS = ["add", "remove", "duplicate", "transform", "material", "rename", "hole", "align", "mirror", "drop", "boolean", "addLight", "updateLight", "group", "ungroup", "environment", "animate", "keyframe", "removeKeyframe", "clearAnimation", "timeline"] as const;
 export type Command = z.infer<typeof Command>;

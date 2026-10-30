@@ -1,7 +1,7 @@
-import type { Command, Geometry, Light, LightType, Material, Primitive, SceneDoc, SceneObject, Vec3 } from "@shapeshift/shared/scene/schema";
+import type { Axis, Command, Geometry, Light, LightType, Material, Primitive, SceneDoc, SceneObject, Vec3 } from "@shapeshift/shared/scene/schema";
 import { current, isDraft } from "immer";
 import * as THREE from "three";
-import { booleanGeometry } from "./geometry";
+import { booleanGeometry, boundsIn, hullPoints, localBounds, objectMatrix } from "./geometry";
 import { LIGHT_PROPERTIES, OBJECT_PROPERTIES, currentValue, removeKeysAt, removeTracksFor, resolveAnimationTargets, setKey, valueFits } from "./animation";
 
 export const DEFAULT_GEOMETRY: Record<Primitive, Geometry> = {
@@ -11,6 +11,15 @@ export const DEFAULT_GEOMETRY: Record<Primitive, Geometry> = {
     cone: { type: "cone", radius: 0.5, height: 1 },
     torus: { type: "torus", radius: 0.5, tube: 0.2 },
     plane: { type: "plane", width: 1, height: 1 },
+    wedge: { type: "wedge", width: 1, height: 1, depth: 1 },
+    roof: { type: "roof", width: 1, height: 1, depth: 1 },
+    pyramid: { type: "pyramid", width: 1, height: 1, depth: 1 },
+    halfSphere: { type: "halfSphere", radius: 0.5 },
+    tube: { type: "tube", radius: 0.5, thickness: 0.1, height: 1 },
+    polygon: { type: "polygon", radius: 0.5, sides: 6, height: 1 },
+    star: { type: "star", radius: 0.5, innerRadius: 0.25, points: 5, height: 0.2 },
+    text: { type: "text", text: "Text", size: 0.5, height: 0.1 },
+    paraboloid: { type: "paraboloid", radius: 0.5, height: 1 },
 };
 
 export const DEFAULT_MATERIAL: Material = {
@@ -20,16 +29,25 @@ export const DEFAULT_MATERIAL: Material = {
     opacity: 1,
 };
 
-const LABELS: Record<Primitive, string> = {
+export const SHAPE_LABELS: Record<Primitive, string> = {
     box: "Box",
     sphere: "Sphere",
     cylinder: "Cylinder",
     cone: "Cone",
     torus: "Torus",
     plane: "Plane",
+    wedge: "Wedge",
+    roof: "Roof",
+    pyramid: "Pyramid",
+    halfSphere: "Half sphere",
+    tube: "Tube",
+    polygon: "Polygon",
+    star: "Star",
+    text: "Text",
+    paraboloid: "Paraboloid",
 };
 
-function restingPose(geometry: Geometry, scaleY: number): { position: Vec3; rotation: Vec3 } {
+export function restingPose(geometry: Geometry, scaleY: number): { position: Vec3; rotation: Vec3 } {
     switch (geometry.type) {
         case "plane":
             return { position: [0, 0.001, 0], rotation: [-Math.PI / 2, 0, 0] };
@@ -42,7 +60,7 @@ function restingPose(geometry: Geometry, scaleY: number): { position: Vec3; rota
         case "cone":
             return { position: [0, (geometry.height / 2) * scaleY, 0], rotation: [0, 0, 0] };
         default:
-            return { position: [0, 0.5, 0], rotation: [0, 0, 0] };
+            return { position: [0, -localBounds(geometry).min.y * scaleY, 0], rotation: [0, 0, 0] };
     }
 }
 
@@ -278,7 +296,90 @@ function applyAnimation(doc: SceneDoc, cmd: Extract<Command, { type: "keyframe" 
     return { ok: true, created: [] };
 }
 
+function resolveUnits(doc: SceneDoc, targets: string[]): SceneObject[][] | string {
+    const seen = new Set<string>();
+    const units: SceneObject[][] = [];
+    for (const t of targets) {
+        const obj = findObject(doc, t);
+        const members = obj ? [obj] : groupMembers(doc, t);
+        if (!members.length) return `No object or group named "${t}"`;
+        const fresh = members.filter((o) => !seen.has(o.id));
+        for (const o of fresh) seen.add(o.id);
+        if (fresh.length) units.push(fresh);
+    }
+    return units;
+}
+
+const AXIS_INDEX: Record<Axis, number> = { x: 0, y: 1, z: 2 };
+
+function translate(objects: SceneObject[], delta: THREE.Vector3) {
+    for (const o of objects) o.position = [o.position[0] + delta.x, o.position[1] + delta.y, o.position[2] + delta.z];
+}
+
+function setMatrix(o: SceneObject, m: THREE.Matrix4) {
+    const position = new THREE.Vector3();
+    const quaternion = new THREE.Quaternion();
+    const scale = new THREE.Vector3();
+    m.decompose(position, quaternion, scale);
+    const rotation = new THREE.Euler().setFromQuaternion(quaternion);
+    o.position = position.toArray() as Vec3;
+    o.rotation = [rotation.x, rotation.y, rotation.z];
+    o.scale = scale.toArray() as Vec3;
+}
+
+function applyArrange(doc: SceneDoc, cmd: Extract<Command, { type: "align" | "mirror" | "drop" }>): CommandResult {
+    const units = resolveUnits(doc, cmd.targets);
+    if (typeof units === "string") return { ok: false, error: units };
+    if (cmd.type === "align") {
+        if (units.length < 2) return { ok: false, error: "Align needs at least two objects or groups" };
+        const i = AXIS_INDEX[cmd.axis];
+        const boxes = units.map((u) => boundsIn(u));
+        const all = boxes.reduce((acc, b) => acc.union(b), new THREE.Box3());
+        const pick = (b: THREE.Box3) => (cmd.to === "min" ? b.min.getComponent(i) : cmd.to === "max" ? b.max.getComponent(i) : (b.min.getComponent(i) + b.max.getComponent(i)) / 2);
+        const goal = pick(all);
+        units.forEach((u, k) => translate(u, new THREE.Vector3().setComponent(i, goal - pick(boxes[k]))));
+        return { ok: true, created: [] };
+    }
+    if (cmd.type === "mirror") {
+        const objects = units.flat();
+        const center = boundsIn(objects).getCenter(new THREE.Vector3());
+        const flip = new THREE.Vector3(1, 1, 1).setComponent(AXIS_INDEX[cmd.axis], -1);
+        const reflect = new THREE.Matrix4()
+            .makeTranslation(center.x, center.y, center.z)
+            .multiply(new THREE.Matrix4().makeScale(flip.x, flip.y, flip.z))
+            .multiply(new THREE.Matrix4().makeTranslation(-center.x, -center.y, -center.z));
+        for (const o of objects) setMatrix(o, reflect.clone().multiply(objectMatrix(o)));
+        return { ok: true, created: [] };
+    }
+    const origin = new THREE.Vector3(...(cmd.origin ?? [0, 0, 0]));
+    const normal = new THREE.Vector3(...(cmd.normal ?? [0, 1, 0]));
+    if (normal.lengthSq() < 1e-12) return { ok: false, error: "normal can't be [0, 0, 0]" };
+    normal.normalize();
+    const v = new THREE.Vector3();
+    for (const unit of units) {
+        let low = Infinity;
+        for (const o of unit) {
+            const m = objectMatrix(o);
+            const points = hullPoints(o.geometry);
+            for (let i = 0; i < points.length; i += 3) low = Math.min(low, v.set(points[i], points[i + 1], points[i + 2]).applyMatrix4(m).sub(origin).dot(normal));
+        }
+        if (Number.isFinite(low)) translate(unit, normal.clone().multiplyScalar(-low));
+    }
+    return { ok: true, created: [] };
+}
+
 export function applyCommand(doc: SceneDoc, cmd: Command, newId: () => string): CommandResult {
+    if (cmd.type === "align" || cmd.type === "mirror" || cmd.type === "drop") return applyArrange(doc, cmd);
+    if (cmd.type === "hole") {
+        const obj = findObject(doc, cmd.target);
+        const members = obj ? [obj] : groupMembers(doc, cmd.target);
+        if (!members.length) return { ok: false, error: `No object or group named "${cmd.target}"` };
+        for (const o of members) {
+            if (cmd.hole) o.hole = true;
+            else delete o.hole;
+        }
+        return { ok: true, created: [] };
+    }
     if (cmd.type === "keyframe" || cmd.type === "animate" || cmd.type === "removeKeyframe" || cmd.type === "clearAnimation" || cmd.type === "timeline") {
         return applyAnimation(doc, cmd);
     }
@@ -295,7 +396,7 @@ export function applyCommand(doc: SceneDoc, cmd: Command, newId: () => string): 
         }
         doc.objects.push({
             id,
-            name: uniqueName(doc, cmd.name ?? LABELS[cmd.primitive]),
+            name: uniqueName(doc, cmd.name ?? SHAPE_LABELS[cmd.primitive]),
             geometry,
             position: cmd.position ?? pose.position,
             rotation: cmd.rotation ?? pose.rotation,

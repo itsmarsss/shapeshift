@@ -21,11 +21,14 @@ beforeEach(() => s().load(emptyDoc()));
 describe("tools", () => {
     it("declares every command and agent tool with an object schema", () => {
         const names = TOOLS.map((t) => t.name);
-        expect(names).toEqual(["add", "remove", "duplicate", "transform", "material", "rename", "boolean", "addLight", "updateLight", "group", "ungroup", "environment", "animate", "keyframe", "removeKeyframe", "clearAnimation", "timeline", "inspect", "select", "look", "undo"]);
+        expect(names).toEqual(["add", "remove", "duplicate", "transform", "material", "rename", "hole", "align", "mirror", "drop", "boolean", "addLight", "updateLight", "group", "ungroup", "environment", "animate", "keyframe", "removeKeyframe", "clearAnimation", "timeline", "inspect", "select", "look", "undo"]);
         for (const t of TOOLS) expect(t.parameters.type).toBe("object");
         const add = TOOLS.find((t) => t.name === "add")!.parameters as { properties: Record<string, unknown> };
         expect(add.properties.geometry).toBeDefined();
         expect(JSON.stringify(add)).not.toContain('"mesh"');
+        expect(JSON.stringify(add)).toContain('"paraboloid"');
+        expect(parseToolCall("drop", '{"targets":["Box"]}')).toEqual({ ok: true, request: { kind: "command", command: { type: "drop", targets: ["Box"] } } });
+        expect(parseToolCall("align", '{"targets":["A","B"],"axis":"w","to":"min"}').ok).toBe(false);
     });
 
     it("validates arguments and reports why they failed", () => {

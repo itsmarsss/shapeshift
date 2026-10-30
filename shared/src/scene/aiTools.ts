@@ -2,7 +2,7 @@ import { z } from "zod";
 import { AI_COMMANDS, Command } from "./schema";
 
 const DESCRIPTIONS: Record<(typeof AI_COMMANDS)[number], string> = {
-    add: "Add a primitive. Set geometry for exact dimensions (its type must match the primitive), or scale to stretch it. Without a position it rests on the ground in the nearest free spot.",
+    add: "Add a shape. Set geometry for exact dimensions (its type must match the primitive), or scale to stretch it. Without a position it rests on the ground in the nearest free spot.",
     remove: "Delete an object.",
     duplicate: "Copy an object, offset by `offset` (default [0.5, 0, 0.5]).",
     transform: "Set position, rotation (radians) and scale. With relative: true, position and rotation are added and scale is multiplied.",
@@ -19,7 +19,11 @@ const DESCRIPTIONS: Record<(typeof AI_COMMANDS)[number], string> = {
     group: "Group objects under a name. Every other command can then target the group by that name to change all of its parts at once, such as moving or recoloring a whole chair.",
     ungroup: "Dissolve a group. Its objects stay where they are.",
     updateLight: "Change a light's position, aim, color, intensity, range or spot angle.",
-    boolean: "Combine two objects. union merges them, subtract cuts `tool` out of `target`, intersect keeps the overlap. `tool` is removed.",
+    hole: "Mark an object or every part of a group as a hole or back as a solid. A group that has both renders and exports as its solids with the holes cut out, and the parts stay editable. Lone holes are not exported.",
+    align: "Line up objects or groups along one axis by their world bounds: min, center or max of all of them together.",
+    mirror: "Flip objects or groups across one axis, around their shared center.",
+    drop: "Move objects or groups straight down until their lowest point rests on the ground, or on the surface given by origin and normal.",
+    boolean: "Combine two objects into one mesh for good. union merges them, subtract cuts `tool` out of `target`, intersect keeps the overlap. `tool` is removed.",
 };
 
 type JsonSchema = Record<string, unknown> & { items?: unknown };
