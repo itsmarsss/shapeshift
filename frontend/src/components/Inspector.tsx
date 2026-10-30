@@ -2,6 +2,8 @@ import { useState } from "react";
 import styled from "styled-components";
 import { Copy, SelectionPlus, SelectionSlash, Trash, X } from "@phosphor-icons/react";
 import { useShallow } from "zustand/react/shallow";
+import { useTimeline } from "../scene/timeline";
+import { transformCommand } from "../scene/autokey";
 import { selectSelected, selectSelectedLight, selectSelectedObjects, useScene } from "../scene/store";
 import { duplicateSelection, groupSelection, removeSelection, ungroupSelection } from "../scene/selection";
 import { ENVIRONMENTS, type Command, type Environment, type Light, type Vec3 } from "../scene/schema";
@@ -13,7 +15,7 @@ const Root = styled(Panel)`
     top: calc(var(--topbar) + var(--gap));
     left: calc(var(--gap) * 2 + 46px);
     width: 272px;
-    max-height: calc(100% - var(--topbar) - var(--gap) * 2);
+    max-height: calc(100% - var(--topbar) - var(--gap) * 2 - var(--bottom-offset, 0px));
     z-index: 30;
 `;
 
@@ -360,6 +362,8 @@ export function Inspector() {
     const setShow = useUI((s) => s.setShowInspector);
     const objects = useScene((s) => s.doc.objects);
     const selected = useScene(selectSelected);
+    const pose = useTimeline((s) => (selected ? s.poses.get(selected.id) : undefined));
+    const time = useTimeline((s) => s.time);
     const selectedLight = useScene(selectSelectedLight);
     const selectedObjects = useScene(useShallow(selectSelectedObjects));
     const multi = selectedObjects.length > 1;
@@ -429,34 +433,35 @@ export function Inspector() {
                                 onBlur={endCoalesce}
                             />
                             {selected.group && <Muted style={{ marginTop: 6 }}>In group “{selected.group}”. Alt-click picks one part.</Muted>}
+                            {pose && <Muted style={{ marginTop: 6 }}>Animated. Moving it adds a keyframe at {time.toFixed(1)}s.</Muted>}
                         </div>
                         <div>
                             <FieldLabel>Position ({units})</FieldLabel>
                             <VectorField
-                                value={selected.position}
+                                value={pose?.position ?? selected.position}
                                 scale={unit}
                                 step={(snap.enabled ? snap.translate : 0.1) * unit}
                                 onCommit={endCoalesce}
-                                onChange={(position) => edit("position", { type: "transform", target: selected.id, position })}
+                                onChange={(position) => edit("position", transformCommand(selected.id, { position }))}
                             />
                         </div>
                         <div>
                             <FieldLabel>Rotation ({angleUnit === "deg" ? "degrees" : "radians"})</FieldLabel>
                             <VectorField
-                                value={selected.rotation}
+                                value={pose?.rotation ?? selected.rotation}
                                 scale={angle}
                                 step={snap.enabled ? round(snap.rotate * angle) : angleUnit === "deg" ? 1 : 0.05}
                                 onCommit={endCoalesce}
-                                onChange={(rotation) => edit("rotation", { type: "transform", target: selected.id, rotation })}
+                                onChange={(rotation) => edit("rotation", transformCommand(selected.id, { rotation }))}
                             />
                         </div>
                         <div>
                             <FieldLabel>Scale</FieldLabel>
                             <VectorField
-                                value={selected.scale}
+                                value={pose?.scale ?? selected.scale}
                                 step={snap.enabled ? snap.scale : 0.1}
                                 onCommit={endCoalesce}
-                                onChange={(scale) => edit("scale", { type: "transform", target: selected.id, scale })}
+                                onChange={(scale) => edit("scale", transformCommand(selected.id, { scale }))}
                             />
                         </div>
                         <div>

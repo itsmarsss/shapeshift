@@ -1,4 +1,8 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useTimeline } from "../scene/timeline";
+import { transformCommand } from "../scene/autokey";
+import type { Pose } from "../scene/animation";
+import type { Light, SceneObject } from "../scene/schema";
 import { useShallow } from "zustand/react/shallow";
 import { useCollab } from "../collab/session";
 import { Canvas, useThree } from "@react-three/fiber";
@@ -44,9 +48,36 @@ function Axes() {
 
 const HandControls = lazy(() => import("../hands/HandControls").then((m) => ({ default: m.HandControls })));
 
+function withPoses(objects: SceneObject[], poses: Map<string, Pose>): SceneObject[] {
+    if (!poses.size) return objects;
+    return objects.map((o) => {
+        const p = poses.get(o.id);
+        if (!p) return o;
+        return {
+            ...o,
+            position: p.position ?? o.position,
+            rotation: p.rotation ?? o.rotation,
+            scale: p.scale ?? o.scale,
+            material: p.color ? { ...o.material, color: p.color } : o.material,
+        };
+    });
+}
+
+function withLightPoses(lights: Light[], poses: Map<string, Pose>): Light[] {
+    if (!poses.size) return lights;
+    return lights.map((l) => {
+        const p = poses.get(l.id);
+        return p ? { ...l, position: p.position ?? l.position, color: p.color ?? l.color, intensity: p.intensity ?? l.intensity } : l;
+    });
+}
+
 export function Viewport() {
-    const objects = useScene((s) => s.doc.objects);
-    const lights = useScene((s) => s.doc.lights);
+    const baseObjects = useScene((s) => s.doc.objects);
+    const baseLights = useScene((s) => s.doc.lights);
+    const poses = useTimeline((s) => s.poses);
+    // Animated objects show where the timeline puts them.
+    const objects = useMemo(() => withPoses(baseObjects, poses), [baseObjects, poses]);
+    const lights = useMemo(() => withLightPoses(baseLights, poses), [baseLights, poses]);
     const environment = useScene((s) => s.doc.environment);
     const selectedId = useScene((s) => s.selectedId);
     const handsOn = useHands((s) => s.status !== "off");
@@ -202,20 +233,15 @@ export function Viewport() {
                     onObjectChange={() => {
                         const m = selectedMesh;
                         if (selectedLight) {
-                            run(
-                                { type: "transform", target: selectedId, position: [m.position.x, m.position.y, m.position.z] },
-                                { coalesce: `gizmo:${selectedId}` }
-                            );
+                            run(transformCommand(selectedId, { position: [m.position.x, m.position.y, m.position.z] }), { coalesce: `gizmo:${selectedId}` });
                             return;
                         }
                         run(
-                            {
-                                type: "transform",
-                                target: selectedId,
+                            transformCommand(selectedId, {
                                 position: [m.position.x, m.position.y, m.position.z],
                                 rotation: [m.rotation.x, m.rotation.y, m.rotation.z],
                                 scale: [m.scale.x, m.scale.y, m.scale.z],
-                            },
+                            }),
                             { coalesce: `gizmo:${selectedId}` }
                         );
                     }}

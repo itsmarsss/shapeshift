@@ -6,7 +6,7 @@ import { IconButton, Select } from "./ui";
 
 const Bar = styled.div`
     position: absolute;
-    bottom: var(--gap);
+    bottom: calc(var(--gap) + var(--bottom-offset, 0px));
     left: 50%;
     transform: translateX(calc(-50% - var(--chat-width) / 2));
     display: flex;

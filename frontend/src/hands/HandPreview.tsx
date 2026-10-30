@@ -8,7 +8,7 @@ import { useSettings } from "../settings/store";
 
 const Box = styled.div`
     position: absolute;
-    bottom: var(--gap);
+    bottom: calc(var(--gap) + var(--bottom-offset, 0px));
     left: var(--gap);
     width: 220px;
     padding: 4px;

@@ -60,3 +60,25 @@ describe("animation", () => {
         expect(SceneDoc.parse({ version: 2, objects: [] }).animation).toEqual({ duration: 4, loop: true, tracks: [] });
     });
 });
+
+describe("auto-key", () => {
+    it("turns edits of animated objects into keyframes at the current time", async () => {
+        const { transformCommand } = await import("./autokey");
+        const { useTimeline } = await import("./timeline");
+        s().run([
+            { type: "add", primitive: "box", name: "Still", position: [5, 0.5, 0] },
+            { type: "add", primitive: "box", name: "Moving", position: [0, 0.5, 0] },
+        ]);
+        const [still, moving] = s().doc.objects.map((o) => o.id);
+        s().run({ type: "keyframe", target: moving, time: 0 });
+        useTimeline.getState().seek(2);
+        expect(transformCommand(still, { position: [1, 0, 0] })).toEqual({ type: "transform", target: still, position: [1, 0, 0] });
+        s().run(transformCommand(moving, { position: [3, 0.5, 0] }));
+        const track = s().doc.animation.tracks.find((t) => t.target === moving && t.property === "position")!;
+        expect(track.keys.map((k) => [k.time, k.value])).toEqual([
+            [0, [0, 0.5, 0]],
+            [2, [3, 0.5, 0]],
+        ]);
+        expect(useTimeline.getState().poses.get(moving)?.position).toEqual([3, 0.5, 0]);
+    });
+});
