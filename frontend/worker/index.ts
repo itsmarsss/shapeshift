@@ -2,6 +2,7 @@ import { agentInfo, agentStep } from "./agent";
 import { ROOM_ID } from "../src/collab/protocol";
 import { handleAccounts } from "./accounts";
 import { handleScenes } from "./scenes";
+import { handleWaitlist } from "./waitlist";
 
 export { Room } from "./room";
 
@@ -15,6 +16,8 @@ export default {
         }
         const accounts = await handleAccounts(request, env);
         if (accounts) return accounts;
+        const waitlist = await handleWaitlist(request, env);
+        if (waitlist) return waitlist;
         const scenes = await handleScenes(request, env);
         if (scenes) return scenes;
         const room = pathname.match(/^\/api\/rooms\/([^/]+)$/);

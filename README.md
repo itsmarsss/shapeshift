@@ -6,7 +6,7 @@ Try it at [shapeshift.hanzpo.com](https://shapeshift.hanzpo.com).
 
 ### We’re getting ready to launch ShapeShift! Be among the first to try it out by joining the waitlist:
 
-### 👉 [Sign up here](https://forms.gle/iuHUNXTYS36t82Hh8)
+### 👉 [Sign up here](https://shapeshift.hanzpo.com/waitlist)
 
 ## How to run
 
@@ -29,6 +29,17 @@ Hand tracking runs MediaPipe in a Web Worker, smooths landmarks with a One Euro 
 
 - `pnpm test` runs the unit tests (scene commands, undo, the assistant's agent loop and Worker, gestures)
 - `pnpm lint` and `pnpm build` must pass before merging
+
+## Accounts and cloud saves
+
+The editor runs entirely in the browser. Accounts (sign in with an email code), cloud saves, shared rooms and the waitlist run on the Worker:
+
+- **D1** holds users, sessions, sign-in codes, the waitlist and the scene index. Run `pnpm db:migrate` once for local development
+- **R2** stores saved scenes and their previews
+- **Durable Objects** host shared rooms
+- **Email** goes through Resend. Without `RESEND_API_KEY`, sign-in codes are printed and shown on localhost only
+
+Before the first deploy: `wrangler d1 create shapeshift` (put the id in `wrangler.jsonc`), `pnpm db:migrate:remote`, `wrangler r2 bucket create shapeshift-scenes` and `wrangler secret put RESEND_API_KEY`.
 
 ## How to deploy
 
