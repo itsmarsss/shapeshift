@@ -16,6 +16,7 @@ import {
     Hand,
     Printer,
     Shapes,
+    SquaresFour,
     SlidersHorizontal,
     TrayArrowDown,
 } from "@phosphor-icons/react";
@@ -57,9 +58,15 @@ const Group = styled.div<{ $end?: boolean }>`
     justify-self: ${(p) => (p.$end ? "end" : "start")};
 `;
 
-const Brand = styled.div`
+const Brand = styled.a`
     font-weight: 600;
     margin-right: 12px;
+    color: var(--text);
+    text-decoration: none;
+
+    &[href]:hover {
+        color: var(--accent);
+    }
 
     @media ${COMPACT} {
         display: none;
@@ -193,6 +200,7 @@ export function Topbar() {
     const handStatus = useHands((s) => s.status);
     const setHands = useHands((s) => s.setEnabled);
     const [printing, setPrinting] = useState(false);
+    const signedIn = useAccount((s) => s.user !== null);
     const openRef = useRef<HTMLInputElement>(null);
     const importRef = useRef<HTMLInputElement>(null);
 
@@ -222,6 +230,7 @@ export function Topbar() {
 
     const compact = useCompact();
     const menuItems: MenuItem[] = [
+        ...(signedIn ? [{ label: "All scenes", icon: <SquaresFour size={18} />, onClick: () => location.assign("/") }] : []),
         {
             label: "New scene",
             icon: <FilePlus size={18} />,
@@ -247,7 +256,9 @@ export function Topbar() {
     return (
         <Bar>
             <Group>
-                <Brand>ShapeShift</Brand>
+                <Brand href={signedIn ? "/" : undefined} title={signedIn ? "All your scenes" : undefined}>
+                    ShapeShift
+                </Brand>
                 {compact && <MoreMenu items={menuItems} />}
                 <Wide>
                     <IconButton
