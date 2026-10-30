@@ -1,7 +1,7 @@
 import type { SceneDoc } from "../scene/schema";
 
 export type User = { id: string; email: string; name: string | null };
-export type CloudScene = { id: string; title: string; size: number; createdAt: number; updatedAt: number };
+export type CloudScene = { id: string; title: string; size: number; createdAt: number; updatedAt: number; publicSlug: string | null };
 
 export class ApiError extends Error {
     readonly status: number;
@@ -40,6 +40,8 @@ export const api = {
     open: (id: string) => call<{ scene: CloudScene; doc: SceneDoc }>(`/api/scenes/${id}`),
     create: (title: string, doc: SceneDoc, thumbnail?: string) => call<{ scene: CloudScene }>("/api/scenes", { method: "POST", body: { title, doc, thumbnail } }),
     update: (id: string, patch: { title?: string; doc?: SceneDoc; thumbnail?: string }) => call<{ scene: CloudScene }>(`/api/scenes/${id}`, { method: "PUT", body: patch }),
+    publish: (id: string) => call<{ scene: CloudScene }>(`/api/scenes/${id}/publish`, { method: "POST" }),
+    unpublish: (id: string) => call<{ scene: CloudScene }>(`/api/scenes/${id}/publish`, { method: "DELETE" }),
     remove: (id: string) => call<{ ok: true }>(`/api/scenes/${id}`, { method: "DELETE" }),
     thumbnailUrl: (id: string, version: number) => `/api/scenes/${id}/thumbnail?v=${version}`,
 };

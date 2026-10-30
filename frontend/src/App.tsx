@@ -3,12 +3,18 @@ import Layout from './components/Layout'
 import { ErrorBoundary } from './components/ErrorBoundary'
 
 const WaitlistPage = lazy(() => import('./waitlist/WaitlistPage'))
+const ViewerPage = lazy(() => import('./viewer/ViewerPage'))
 
 function App() {
-  const waitlist = location.pathname.replace(/\/$/, '') === '/waitlist'
+  const path = location.pathname.replace(/\/$/, '')
+  const share = path.match(/^\/s\/([A-Za-z0-9]{10})$/)
   return (
     <ErrorBoundary>
-      {waitlist ? (
+      {share ? (
+        <Suspense fallback={null}>
+          <ViewerPage slug={share[1]} />
+        </Suspense>
+      ) : path === '/waitlist' ? (
         <Suspense fallback={null}>
           <WaitlistPage />
         </Suspense>
