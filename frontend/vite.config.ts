@@ -18,7 +18,16 @@ const remoteBindings = env.CF_REMOTE_BINDINGS !== '0'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), cloudflare({ remoteBindings })],
+  plugins: [
+    react(),
+    cloudflare({
+      // The Worker lives in ../backend. Local D1, R2 and Durable Object data
+      // is kept at the repo root so the backend's migrate script sees it too.
+      configPath: '../backend/wrangler.jsonc',
+      persistState: { path: '../.wrangler/state' },
+      remoteBindings,
+    }),
+  ],
   environments: {
     client: {
       build: {
