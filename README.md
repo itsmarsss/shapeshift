@@ -17,6 +17,7 @@ Try it at [shapeshift.hanzpo.com](https://shapeshift.hanzpo.com).
     - `pnpm exec wrangler login` (needed for the Workers AI binding in dev)
     - `cp .dev.vars.example .dev.vars` and set `ANTHROPIC_API_KEY` to use Claude. Without a key the assistant falls back to Workers AI
     - `pnpm dev`
+    - No Cloudflare login? `pnpm dev:offline` runs everything locally except Workers AI
 3. Open the browser and go to `http://localhost:5173`
 
 ## Hand control
@@ -28,6 +29,7 @@ Hand tracking runs MediaPipe in a Web Worker, smooths landmarks with a One Euro 
 ## Development
 
 - `pnpm test` runs the unit tests (scene commands, undo, the assistant's agent loop and Worker, gestures)
+- `pnpm e2e` runs the browser tests against a local production build (Worker, D1 and R2 included)
 - `pnpm lint` and `pnpm build` must pass before merging
 
 ## Accounts and cloud saves
