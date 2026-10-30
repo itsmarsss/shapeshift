@@ -341,7 +341,8 @@ export function applyCommand(doc: SceneDoc, cmd: Command, newId: () => string): 
         const created: string[] = [];
         for (const o of cmd.objects) {
             const id = newId();
-            doc.objects.push({ ...structuredClone(o), id, name: uniqueName(doc, o.name) });
+            // Parts of an imported model keep the names they have in the file.
+            doc.objects.push({ ...structuredClone(o), id, name: o.path ? o.name : uniqueName(doc, o.name) });
             created.push(id);
         }
         return { ok: true, created };

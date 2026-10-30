@@ -4,6 +4,7 @@ import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import { useCollab } from "../collab/session";
 import { useScene } from "../scene/store";
+import { hitObjectId } from "./batching";
 
 const GROUND = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
@@ -24,7 +25,7 @@ function useBroadcastCursor() {
             ndc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
             raycaster.setFromCamera(ndc, camera);
             const ids = new Set(useScene.getState().doc.objects.map((o) => o.id));
-            const hit = raycaster.intersectObjects(scene.children, true).find((i) => ids.has(i.object.name));
+            const hit = raycaster.intersectObjects(scene.children, true).find((i) => ids.has(hitObjectId(i) ?? ""));
             const point = hit?.point ?? raycaster.ray.intersectPlane(GROUND, new THREE.Vector3());
             useCollab.getState().moveCursor(point ? (point.toArray() as [number, number, number]) : null);
         };

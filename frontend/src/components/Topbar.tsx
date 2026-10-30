@@ -19,9 +19,12 @@ import {
     SquaresFour,
     SlidersHorizontal,
     TrayArrowDown,
+    TreeView,
 } from "@phosphor-icons/react";
 import { useScene, type EditorMode } from "../scene/store";
-import { download, exportGLB, importModel, parseSceneFile, saveSceneFile } from "../scene/io";
+import { download, exportGLB, parseSceneFile, readSceneFileMeshes, saveSceneFile } from "../scene/io";
+import { openFiles } from "../import/state";
+import { ACCEPT } from "../import/formats";
 import { takeSnapshot } from "../viewport/snapshot";
 import { useUI } from "../ui/store";
 import { useHands } from "../hands/tracker";
@@ -197,6 +200,8 @@ export function Topbar() {
     const setShowTemplates = useUI((s) => s.setShowTemplates);
     const showHistory = useUI((s) => s.showHistory);
     const setShowHistory = useUI((s) => s.setShowHistory);
+    const showParts = useUI((s) => s.showParts);
+    const setShowParts = useUI((s) => s.setShowParts);
     const handStatus = useHands((s) => s.status);
     const setHands = useHands((s) => s.setEnabled);
     const [printing, setPrinting] = useState(false);
@@ -208,24 +213,20 @@ export function Topbar() {
         const file = e.target.files?.[0];
         e.target.value = "";
         if (!file) return;
-        const doc = parseSceneFile(await file.text());
+        const text = await file.text();
+        const doc = parseSceneFile(text);
         if (doc) {
+            await readSceneFileMeshes(text);
             // An opened file is its own scene, not the one saved in the cloud.
             useAccount.getState().unlink();
             load(doc);
         } else alert("That file isn't a ShapeShift scene.");
     }
 
-    async function onImport(e: React.ChangeEvent<HTMLInputElement>) {
-        const file = e.target.files?.[0];
+    function onImport(e: React.ChangeEvent<HTMLInputElement>) {
+        const files = [...(e.target.files ?? [])];
         e.target.value = "";
-        if (!file) return;
-        try {
-            const objects = await importModel(file);
-            if (objects.length) run({ type: "insert", objects });
-        } catch {
-            alert("Couldn't read that model. Use a .glb or .gltf file.");
-        }
+        if (files.length) openFiles(files);
     }
 
     const compact = useCompact();
@@ -241,13 +242,14 @@ export function Topbar() {
         },
         { label: "Start from a template", icon: <Shapes size={18} />, onClick: () => setShowTemplates(true) },
         { label: "Open scene", icon: <FolderOpen size={18} />, onClick: () => openRef.current?.click() },
-        { label: "Save scene", icon: <FloppyDisk size={18} />, onClick: () => saveSceneFile(useScene.getState().doc) },
-        { label: "Import model", icon: <TrayArrowDown size={18} />, onClick: () => importRef.current?.click() },
+        { label: "Save scene", icon: <FloppyDisk size={18} />, onClick: () => void saveSceneFile(useScene.getState().doc) },
+        { label: "Open a model file", icon: <TrayArrowDown size={18} />, onClick: () => importRef.current?.click() },
         { label: "Save image", icon: <Camera size={18} />, onClick: saveImage },
         { label: "Export as GLB", icon: <Export size={18} />, onClick: () => exportGLB(useScene.getState().doc) },
         { label: "Export for 3D printing", icon: <Printer size={18} />, onClick: () => setPrinting(true) },
         { label: "Redo", icon: <ArrowUUpRight size={18} />, onClick: redo },
         { label: "History", icon: <ClockCounterClockwise size={18} />, onClick: () => setShowHistory(!showHistory), active: showHistory },
+        { label: "Parts", icon: <TreeView size={18} />, onClick: () => setShowParts(!showParts), active: showParts },
         { label: "Animation timeline", icon: <FilmStrip size={18} />, onClick: () => setTimelineOpen(!timelineOpen), active: timelineOpen },
         { label: handStatus === "off" ? "Hand control" : "Turn off hand control", icon: <Hand size={18} />, onClick: () => setHands(handStatus === "off"), active: handStatus !== "off" },
         { label: "Settings", icon: <GearSix size={18} />, onClick: () => setShowSettings(true) },
@@ -276,11 +278,11 @@ export function Topbar() {
                     <IconButton title="Open scene" onClick={() => openRef.current?.click()}>
                         <FolderOpen size={18} />
                     </IconButton>
-                    <IconButton title="Save scene" onClick={() => saveSceneFile(useScene.getState().doc)}>
+                    <IconButton title="Save scene" onClick={() => void saveSceneFile(useScene.getState().doc)}>
                         <FloppyDisk size={18} />
                     </IconButton>
                     <Sep />
-                    <IconButton title="Import model" onClick={() => importRef.current?.click()}>
+                    <IconButton title="Open a model file" onClick={() => importRef.current?.click()}>
                         <TrayArrowDown size={18} />
                     </IconButton>
                     <IconButton title="Save an image of the view" onClick={saveImage}>
@@ -299,7 +301,7 @@ export function Topbar() {
                         <PrintDialog onClose={() => setPrinting(false)} />
                     </Suspense>
                 )}
-                <input ref={importRef} type="file" accept=".glb,.gltf" hidden onChange={onImport} />
+                <input ref={importRef} type="file" accept={`${ACCEPT},.mtl,.bin`} multiple hidden onChange={onImport} />
             </Group>
             <Segmented>
                 {MODES.map(({ mode: m, label }) => (
@@ -320,6 +322,9 @@ export function Topbar() {
                     </IconButton>
                     <IconButton title="History" $active={showHistory} onClick={() => setShowHistory(!showHistory)}>
                         <ClockCounterClockwise size={18} />
+                    </IconButton>
+                    <IconButton title="Parts" $active={showParts} onClick={() => setShowParts(!showParts)}>
+                        <TreeView size={18} />
                     </IconButton>
                     <Sep />
                     <IconButton title="Animation timeline" $active={timelineOpen} onClick={() => setTimelineOpen(!timelineOpen)}>

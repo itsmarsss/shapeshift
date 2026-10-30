@@ -9,6 +9,10 @@ import { live, useHandHover } from "./tracker";
 import { editableMesh } from "../scene/geometry";
 import { nearestVertex, objectMatrix, useEditSelection } from "../viewport/editSelection";
 import { useSettings } from "../settings/store";
+import { hitObjectId } from "../viewport/batching";
+import { useView } from "../viewport/view";
+import { useUI } from "../ui/store";
+import { spreadExplode } from "./explode";
 
 type Drag =
     | { kind: "object"; id: string; plane: THREE.Plane; offset: THREE.Vector3; reach: number }
@@ -38,7 +42,11 @@ export function HandControls() {
     function pick(x: number, y: number) {
         aim(x, y);
         const ids = new Set(useScene.getState().doc.objects.map((o) => o.id));
-        return raycaster.current.intersectObjects(scene.children, false).find((i) => ids.has(i.object.name));
+        for (const hit of raycaster.current.intersectObjects(scene.children, false)) {
+            const id = hitObjectId(hit);
+            if (id && ids.has(id)) return { id, point: hit.point };
+        }
+        return null;
     }
 
     function vertexAt(x: number, y: number) {
@@ -54,7 +62,7 @@ export function HandControls() {
         const h = live.hands.find((hand) => hand.handedness === objectHand() && !hand.pinching);
         const idle = h && useScene.getState().mode !== "render" && !drag.current;
         const vertex = idle ? vertexAt(h.x, h.y) : null;
-        const id = idle && !vertex ? pick(h.x, h.y)?.object.name ?? null : null;
+        const id = idle && !vertex ? pick(h.x, h.y)?.id ?? null : null;
         if (useHandHover.getState().hoveredId !== id) useHandHover.setState({ hoveredId: id });
         const index = vertex?.index ?? null;
         if (useEditSelection.getState().hoverVertex !== index) useEditSelection.setState({ hoverVertex: index });
@@ -81,17 +89,19 @@ export function HandControls() {
         const state = useScene.getState();
         const hit = pick(x, y);
         if (!hit || state.mode === "render") return;
-        state.select(hit.object.name);
-        if (state.mode !== "object") return;
-        const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()), hit.object.position);
+        state.select(hit.id);
+        const object = state.doc.objects.find((o) => o.id === hit.id);
+        if (state.mode !== "object" || !object || useView.getState().explode > 0) return;
+        const origin = new THREE.Vector3(...object.position);
+        const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()), origin);
         const onPlane = raycaster.current.ray.intersectPlane(plane, new THREE.Vector3());
         if (onPlane)
             drag.current = {
                 kind: "object",
-                id: hit.object.name,
+                id: hit.id,
                 plane,
-                offset: hit.object.position.clone().sub(onPlane),
-                reach: camera.position.distanceTo(hit.object.position),
+                offset: origin.clone().sub(onPlane),
+                reach: camera.position.distanceTo(origin),
             };
     }
 
@@ -144,7 +154,10 @@ export function HandControls() {
             if (intent.type === "start") start(intent.handedness, intent.x, intent.y);
             else if (intent.type === "move") move(intent.x, intent.y, intent.dx, intent.dy, intent.depth);
             else if (intent.type === "end") end();
-            else if (controls) {
+            else if (useUI.getState().showParts) {
+                const view = useView.getState();
+                view.setExplode(spreadExplode(view.explode, intent.zoom));
+            } else if (controls) {
                 controls.dolly(intent.zoom * ZOOM_SPEED * useSettings.getState().handZoomSpeed, false);
                 controls.truck(-intent.panX * PAN_SPEED, -intent.panY * PAN_SPEED, false);
             }
