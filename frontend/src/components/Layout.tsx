@@ -10,6 +10,7 @@ import Topbar from "./Topbar";
 import Toolbar from "./Toolbar";
 import Inspector from "./Inspector";
 import BooleanPanel from "./BooleanPanel";
+import { HistoryPanel } from "./HistoryPanel";
 import { Viewport } from "../viewport/Viewport";
 import { useShortcuts } from "../hooks/useShortcuts";
 import { useUI } from "../ui/store";
@@ -65,6 +66,7 @@ export function Layout() {
             <Toolbar />
             <Inspector />
             <BooleanPanel />
+            <HistoryPanel />
             <Timeline />
             <OfflineNote />
             <Suspense fallback={null}>
