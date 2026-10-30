@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { PlanId } from "@shapeshift/shared/billing/plans";
-import { sendEmail } from "./email";
+import { emailConfigured, sendEmail } from "./email";
 
 // Passwordless sign-in: we email a 6-digit code, the user types it in, and we
 // set a session cookie. Nothing to remember, nothing to leak.
@@ -60,7 +60,7 @@ export async function startSignIn(env: Env, request: Request, rawEmail: unknown)
     // Without an email provider, only local development may sign in, since the
     // code comes back in the response there.
     const local = isLocal(request);
-    if (!env.RESEND_API_KEY && !local) return fail(503, "Sign-in isn't set up on this server yet.", "not_configured");
+    if (!emailConfigured(env) && !local) return fail(503, "Sign-in isn't set up on this server yet.", "not_configured");
 
     const pending = await env.DB.prepare("SELECT sent_at FROM login_codes WHERE email = ?1").bind(email).first<{ sent_at: number }>();
     if (pending && now() - pending.sent_at < RESEND_SECONDS * 1000) {
