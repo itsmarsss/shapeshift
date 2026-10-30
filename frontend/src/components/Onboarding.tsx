@@ -1,10 +1,10 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import styled from "styled-components";
-import { ArrowRight, Cube, Cylinder, Hand, Sparkle, Sphere, Square, UsersThree, X } from "@phosphor-icons/react";
-import { ConeIcon, TorusIcon } from "./icons";
-import { Button, IconButton } from "./ui";
+import { ArrowRight } from "@phosphor-icons/react";
+import { Button } from "./ui";
 import { useUI } from "../ui/store";
 import { useAssistant } from "../assistant/store";
+import { useResolvedTheme } from "../settings/theme";
 
 const Backdrop = styled.div`
     position: fixed;
@@ -18,8 +18,7 @@ const Backdrop = styled.div`
 `;
 
 const Dialog = styled.div`
-    position: relative;
-    width: min(440px, 100%);
+    width: min(560px, 100%);
     display: flex;
     flex-direction: column;
     background: var(--surface);
@@ -28,20 +27,17 @@ const Dialog = styled.div`
     overflow: hidden;
 `;
 
-const Close = styled(IconButton)`
-    position: absolute;
-    top: 8px;
-    right: 8px;
-`;
-
 const Stage = styled.div`
-    height: 200px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
+    aspect-ratio: 7 / 4;
     background: var(--bg);
     border-bottom: 1px solid var(--border);
+`;
+
+const Shot = styled.img`
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 `;
 
 const Body = styled.div`
@@ -86,114 +82,44 @@ const Actions = styled.div`
     gap: 6px;
 `;
 
-const Key = styled.kbd`
-    min-width: 26px;
-    height: 26px;
-    padding: 0 7px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--border-strong);
-    border-radius: 6px;
-    background: var(--surface);
-    font: inherit;
-    font-size: 12px;
-    color: var(--text-muted);
-`;
-
-const Prompt = styled.div`
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 14px;
-    border: 1px solid var(--border-strong);
-    border-radius: 10px;
-    background: var(--surface);
-`;
-
-const Mark = styled.span`
-    width: 28px;
-    height: 28px;
-    flex-shrink: 0;
-    display: grid;
-    place-items: center;
-    border-radius: 8px;
-    background: var(--accent-soft);
-    color: var(--accent);
-`;
-
-const Column = styled.div`
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 18px;
-    width: 100%;
-`;
-
-const Shapes = styled.div`
-    display: flex;
-    gap: 10px;
-`;
-
-const Shape = styled.div`
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    color: var(--text);
-`;
-
-const Tools = styled.div`
-    display: flex;
-    gap: 16px;
-    color: var(--text-muted);
-    font-size: 12px;
-
-    span {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-    }
-`;
-
-const Faces = styled.div`
-    display: flex;
-`;
-
-const Face = styled.span<{ $color: string }>`
-    width: 40px;
-    height: 40px;
-    margin-left: -10px;
-    border-radius: 50%;
-    display: grid;
-    place-items: center;
-    background: ${(p) => p.$color};
-    color: #fff;
-    font-weight: 700;
-    border: 3px solid var(--bg);
-
-    &:first-child {
-        margin-left: 0;
-    }
-`;
-
 const Ideas = styled.div`
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+    height: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    align-content: center;
+    gap: 10px;
+    padding: 20px;
+
+    @media (max-width: 480px) {
+        gap: 8px;
+        padding: 12px;
+    }
 `;
 
 const Idea = styled.button`
-    text-align: left;
-    padding: 9px 11px;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
     border-radius: 10px;
     border: 1px solid var(--border);
     background: var(--surface-raised);
     color: var(--text);
-    line-height: 1.35;
+    text-align: left;
+    overflow: hidden;
     transition: border-color 0.12s ease, background 0.12s ease;
+
+    img {
+        display: block;
+        width: 100%;
+        aspect-ratio: 3 / 2;
+        object-fit: cover;
+    }
+
+    span {
+        padding: 8px 10px 10px;
+        font-size: 13px;
+        line-height: 1.3;
+    }
 
     &:hover {
         border-color: var(--border-strong);
@@ -201,79 +127,40 @@ const Idea = styled.button`
     }
 `;
 
-const IDEAS = ["Build a snowman with a hat and a carrot nose", "Make a wooden table with four chairs", "Create a small rocket on a launch pad"];
+const IDEAS = [
+    { image: "snowman", label: "A snowman", prompt: "Build a snowman with a hat and a carrot nose" },
+    { image: "table", label: "A table and chairs", prompt: "Make a wooden table with four chairs" },
+    { image: "rocket", label: "A rocket", prompt: "Create a small rocket on a launch pad" },
+];
 
-const SHAPES = [Cube, Sphere, Cylinder, ConeIcon, TorusIcon, Square];
-
-type Step = { title: string; text: string; stage: ReactNode };
-
-const STEPS: Step[] = [
+const STEPS = [
     {
+        image: "assistant",
         title: "Describe what you want",
         text: "Tell the assistant what to build or change, and it edits the scene for you. Press / to start typing.",
-        stage: (
-            <Prompt>
-                <Mark>
-                    <Sparkle size={16} weight="fill" />
-                </Mark>
-                Build a lighthouse on a rocky island
-            </Prompt>
-        ),
     },
     {
+        image: "shapes",
         title: "Or shape it yourself",
-        text: "Add shapes from the toolbar or with the number keys. Drag to turn the view, and scroll or pinch to zoom.",
-        stage: (
-            <Column>
-                <Shapes>
-                    {SHAPES.map((Icon, i) => (
-                        <Shape key={i}>
-                            <Icon size={24} />
-                            <Key>{i + 1}</Key>
-                        </Shape>
-                    ))}
-                </Shapes>
-                <Tools>
-                    <span>
-                        <Key>W</Key> Move
-                    </span>
-                    <span>
-                        <Key>E</Key> Rotate
-                    </span>
-                    <span>
-                        <Key>R</Key> Scale
-                    </span>
-                </Tools>
-            </Column>
-        ),
+        text: "Add shapes from the toolbar or with keys 1 to 6. Select one to move it, or press E to rotate and R to scale.",
     },
     {
+        image: "hands",
         title: "Use your hands",
         text: "Turn on hand control and your camera follows your hands. Pinch to grab an object, and use your other hand to turn the view.",
-        stage: <Hand size={72} weight="light" />,
     },
     {
+        image: "together",
         title: "Build together",
         text: "Press Share to get a live link. Everyone in the room edits the same scene and sees each other's cursors.",
-        stage: (
-            <Column>
-                <Faces>
-                    <Face $color="#e5484d">A</Face>
-                    <Face $color="#3e63dd">M</Face>
-                    <Face $color="#30a46c">J</Face>
-                </Faces>
-                <Tools>
-                    <span>
-                        <UsersThree size={16} /> Share
-                    </span>
-                </Tools>
-            </Column>
-        ),
     },
 ];
 
+const src = (name: string, theme: string) => `/onboarding/${name}-${theme}.webp`;
+
 export function Onboarding() {
     const setOpen = useUI((s) => s.setShowOnboarding);
+    const theme = useResolvedTheme();
     const [step, setStep] = useState(0);
     const last = step === STEPS.length;
 
@@ -283,6 +170,10 @@ export function Onboarding() {
         useUI.getState().setShowChat(true);
         useAssistant.getState().send(prompt);
     }
+
+    useEffect(() => {
+        for (const name of [...STEPS.map((s) => s.image), ...IDEAS.map((i) => i.image)]) new Image().src = src(name, theme);
+    }, [theme]);
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
@@ -303,21 +194,19 @@ export function Onboarding() {
                     {last ? (
                         <Ideas>
                             {IDEAS.map((idea) => (
-                                <Idea key={idea} type="button" onClick={() => start(idea)}>
-                                    {idea}
+                                <Idea key={idea.image} type="button" onClick={() => start(idea.prompt)}>
+                                    <img src={src(idea.image, theme)} alt="" />
+                                    <span>{idea.label}</span>
                                 </Idea>
                             ))}
                         </Ideas>
                     ) : (
-                        current.stage
+                        <Shot src={src(current.image, theme)} alt="" />
                     )}
                 </Stage>
-                <Close title="Close" onClick={() => setOpen(false)}>
-                    <X size={16} />
-                </Close>
                 <Body>
                     <Title>{last ? "Start with an idea" : current.title}</Title>
-                    <Text>{last ? "Pick one to see the assistant build it, or start with an empty scene." : current.text}</Text>
+                    <Text>{last ? "Pick one to watch the assistant build it, or start with an empty scene." : current.text}</Text>
                 </Body>
                 <Footer>
                     <Dots>
@@ -326,9 +215,13 @@ export function Onboarding() {
                         ))}
                     </Dots>
                     <Actions>
-                        {step > 0 && (
+                        {step > 0 ? (
                             <Button type="button" onClick={() => setStep(step - 1)}>
                                 Back
+                            </Button>
+                        ) : (
+                            <Button type="button" onClick={() => setOpen(false)}>
+                                Skip
                             </Button>
                         )}
                         {last ? (
