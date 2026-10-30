@@ -1,6 +1,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "shapeshift",
+  // The ShapeShift Cloudflare account, so a deploy can't land in another one.
+  "account_id": "5bc3b9b0633d9e07fc0908e600147b08",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-15",
   "assets": {
@@ -23,7 +25,7 @@
     "bindings": [{ "name": "ROOMS", "class_name": "Room" }]
   },
   "d1_databases": [
-    { "binding": "DB", "database_name": "shapeshift", "database_id": "156c4e4e-c513-4852-9c7a-f55ab99538e9", "migrations_dir": "migrations" }
+    { "binding": "DB", "database_name": "shapeshift", "database_id": "bed9dbc7-8c71-47b7-a6f5-582704c9a092", "migrations_dir": "migrations" }
   ],
   "r2_buckets": [{ "binding": "SCENES", "bucket_name": "shapeshift-scenes" }],
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
@@ -32,5 +34,5 @@
     "AGENT_EFFORT": "medium"
   },
   "observability": { "enabled": true },
-  "routes": [{ "pattern": "shapeshift.hanzpo.com", "custom_domain": true }]
+  "routes": [{ "pattern": "tryshapeshift.com", "custom_domain": true }]
 }
