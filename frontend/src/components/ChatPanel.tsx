@@ -3,7 +3,7 @@ import styled from "styled-components";
 import { NotePencil, Sparkle, X } from "@phosphor-icons/react";
 import { selectSelected, useScene } from "../scene/store";
 import { useAssistant } from "../assistant/store";
-import type { AgentInfo } from "../assistant/protocol";
+import type { AgentInfo } from "@shapeshift/shared/assistant/protocol";
 import { useUI } from "../ui/store";
 import { COMPACT } from "../ui/compact";
 import { IconButton, Panel } from "./ui";

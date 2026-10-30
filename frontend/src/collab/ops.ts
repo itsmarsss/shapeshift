@@ -1,7 +1,7 @@
 import type { DocDiff, EntityChange } from "../scene/diff";
-import type { Light, SceneDoc, SceneObject } from "../scene/schema";
+import type { Light, SceneDoc, SceneObject } from "@shapeshift/shared/scene/schema";
 import { diffDocs } from "../scene/diff";
-import { emptyOps, type Ops } from "./protocol";
+import { emptyOps, type Ops } from "@shapeshift/shared/collab/protocol";
 
 function toOps<T extends { id: string }>(changes: EntityChange<T>[]) {
     return {

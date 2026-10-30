@@ -1,4 +1,4 @@
-import type { SceneDoc } from "../scene/schema";
+import type { SceneDoc } from "@shapeshift/shared/scene/schema";
 
 export type User = { id: string; email: string; name: string | null };
 export type CloudScene = { id: string; title: string; size: number; createdAt: number; updatedAt: number; publicSlug: string | null };

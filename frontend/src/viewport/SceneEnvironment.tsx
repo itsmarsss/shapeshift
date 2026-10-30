@@ -1,5 +1,5 @@
 import { Environment, Lightformer } from "@react-three/drei";
-import type { Environment as EnvironmentName } from "../scene/schema";
+import type { Environment as EnvironmentName } from "@shapeshift/shared/scene/schema";
 
 // Lighting environments built from light panels rather than downloaded HDR
 // images, so they load instantly and work offline.

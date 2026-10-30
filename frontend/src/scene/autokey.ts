@@ -1,4 +1,4 @@
-import type { Command, Vec3 } from "./schema";
+import type { Command, Vec3 } from "@shapeshift/shared/scene/schema";
 import { isAnimated, useTimeline } from "./timeline";
 
 type Values = { position?: Vec3; rotation?: Vec3; scale?: Vec3; color?: string; intensity?: number };

@@ -1,4 +1,4 @@
-import type { AnimProperty, AnimValue, Animation, Easing, Keyframe, Light, SceneDoc, SceneObject, Track, Vec3 } from "./schema";
+import type { AnimProperty, AnimValue, Animation, Easing, Keyframe, Light, SceneDoc, SceneObject, Track, Vec3 } from "@shapeshift/shared/scene/schema";
 
 // Keyframe animation: evaluating tracks over time, and the editing helpers the
 // commands use.

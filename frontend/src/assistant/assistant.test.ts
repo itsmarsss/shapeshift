@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { describeScene, worldBounds } from "./assistant";
 import { requestWindow, runTurn } from "./agent";
 import { executeToolCalls, newTurnContext } from "./executor";
-import type { WireMessage } from "./protocol";
-import { parseToolCall, TOOLS } from "./tools";
+import type { WireMessage } from "@shapeshift/shared/assistant/protocol";
+import { parseToolCall, TOOLS } from "@shapeshift/shared/assistant/tools";
 import { AgentError, type Transport } from "./transport";
 import { emptyDoc, useScene } from "../scene/store";
-import type { SceneDoc } from "../scene/schema";
+import type { SceneDoc } from "@shapeshift/shared/scene/schema";
 import { setSnapshotTaker } from "../viewport/snapshot";
 
 const s = () => useScene.getState();

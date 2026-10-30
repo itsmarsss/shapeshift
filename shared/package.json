@@ -1,0 +1,19 @@
+{
+  "name": "@shapeshift/shared",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "The contract between the editor and the Worker: scene schema, AI tools and the agent and room protocols.",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.3"
+  }
+}

@@ -4,7 +4,7 @@ import { DiamondsFour, Pause, Play, Repeat, SkipBack, Trash, VideoCamera, X } fr
 import { recordAnimation, useRecording } from "../../scene/record";
 import { useShallow } from "zustand/react/shallow";
 import { keyTimes } from "../../scene/animation";
-import type { Command } from "../../scene/schema";
+import type { Command } from "@shapeshift/shared/scene/schema";
 import { useScene } from "../../scene/store";
 import { useTimeline } from "../../scene/timeline";
 import { IconButton, Panel } from "../ui";

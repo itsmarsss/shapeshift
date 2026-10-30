@@ -1,10 +1,10 @@
 import { findLight, findObject } from "../scene/commands";
-import type { Command } from "../scene/schema";
+import type { Command } from "@shapeshift/shared/scene/schema";
 import { useScene } from "../scene/store";
 import { takeSnapshot, type View } from "../viewport/snapshot";
 import { describeCommand, describeLight, describeObject, describeScene, inspectObject } from "./assistant";
-import { LIMITS, type WireMessage, type WireToolCall } from "./protocol";
-import { parseToolCall } from "./tools";
+import { LIMITS, type WireMessage, type WireToolCall } from "@shapeshift/shared/assistant/protocol";
+import { parseToolCall } from "@shapeshift/shared/assistant/tools";
 
 export const MAX_OBJECTS = 1000;
 

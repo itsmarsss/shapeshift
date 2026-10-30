@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { WireMessage } from "./protocol";
+import { WireMessage } from "@shapeshift/shared/assistant/protocol";
 import type { Turn } from "./store";
 
 const KEY = "shapeshift-assistant";

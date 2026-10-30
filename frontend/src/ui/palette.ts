@@ -1,4 +1,5 @@
-// The one place colors are defined. CSS reads them through custom properties
+// The one place the app's colors are defined (people in shared rooms get
+// theirs from @shapeshift/shared/collab/protocol). CSS reads them through custom properties
 // (see components/ui.ts) and the 3D view reads them directly, so the red,
 // green and blue axes match everywhere: grid, gizmo and inspector.
 
@@ -44,7 +45,3 @@ export const PALETTE: Record<ThemeName, Palette> = {
         hover: "#7a93f0",
     },
 };
-
-// Colors for people in shared rooms: the same brightness and saturation, so
-// none of them stands out or disappears.
-export const PEOPLE = ["#ff8b3e", "#4cc38a", "#ff6b8a", "#a78bfa", "#4cb3ff", "#f5c33b", "#2ec4b6", "#f472b6"];

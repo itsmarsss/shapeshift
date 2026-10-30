@@ -7,7 +7,7 @@ import { useTimeline } from "../scene/timeline";
 import { transformCommand } from "../scene/autokey";
 import { selectSelected, selectSelectedLight, selectSelectedObjects, useScene } from "../scene/store";
 import { duplicateSelection, groupSelection, removeSelection, ungroupSelection } from "../scene/selection";
-import { ENVIRONMENTS, type Command, type Environment, type Light, type Vec3 } from "../scene/schema";
+import { ENVIRONMENTS, type Command, type Environment, type Light, type Vec3 } from "@shapeshift/shared/scene/schema";
 import { useUI } from "../ui/store";
 import { UNIT_SCALE, useSettings } from "../settings/store";
 import { Button, Divider, FieldLabel, IconButton, Input, Panel, PanelHeader, PanelTitle, Select } from "./ui";

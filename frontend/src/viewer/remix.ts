@@ -1,4 +1,4 @@
-import { SceneDoc } from "../scene/schema";
+import { SceneDoc } from "@shapeshift/shared/scene/schema";
 import { useScene } from "../scene/store";
 
 export const REMIX_KEY = "shapeshift-remix";

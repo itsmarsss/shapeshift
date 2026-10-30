@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import * as THREE from "three";
 import { editableMesh } from "../scene/geometry";
-import type { SceneObject } from "../scene/schema";
+import type { SceneObject } from "@shapeshift/shared/scene/schema";
 
 type EditSelection = {
     vertices: number[];

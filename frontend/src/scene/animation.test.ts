@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { emptyDoc, useScene } from "./store";
 import { evaluate, evaluateTrack, keyTimes } from "./animation";
-import { SceneDoc } from "./schema";
+import { SceneDoc } from "@shapeshift/shared/scene/schema";
 
 const s = () => useScene.getState();
 beforeEach(() => s().load(emptyDoc()));
