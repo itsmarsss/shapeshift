@@ -162,7 +162,7 @@ function ShapePicker({ anchor, onClose }: { anchor: HTMLElement; onClose: () => 
         };
     }, [anchor, onClose]);
     const compact = window.matchMedia(COMPACT).matches;
-    const style = compact ? { left: 12, bottom: window.innerHeight - rect.top + 8 } : { left: rect.right + 8, top: Math.max(8, rect.top - 140) };
+    const style = compact ? { left: 12, bottom: window.innerHeight - rect.top + 8 } : { left: rect.right + 8, top: Math.max(56, Math.min(rect.top - 4, window.innerHeight - 360)) };
     return createPortal(
         <Picker ref={ref} role="dialog" aria-label="Shapes" style={style}>
             {PRIMITIVES.map((primitive, i) => {

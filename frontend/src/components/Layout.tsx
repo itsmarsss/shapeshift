@@ -9,6 +9,7 @@ import { GlobalStyle } from "./ui";
 import Topbar from "./Topbar";
 import Toolbar from "./Toolbar";
 import Inspector from "./Inspector";
+import { GridScale } from "./GridScale";
 import { HistoryPanel } from "./HistoryPanel";
 import { StartCard } from "./StartCard";
 import { Viewport } from "../viewport/Viewport";
@@ -69,6 +70,7 @@ export function Layout() {
             </Stage>
             <Toolbar />
             <Inspector />
+            <GridScale />
             <HistoryPanel />
             <Timeline />
             <OfflineNote />

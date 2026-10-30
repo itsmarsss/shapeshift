@@ -30,7 +30,7 @@ export const SceneMesh = memo(function SceneMesh({ object, selected, hovered, pe
     const { color, metalness, roughness, opacity, emissive, emissiveIntensity = 0, transmission = 0 } = object.material;
     const glow = { emissive: emissive ?? color, emissiveIntensity };
     const palette = usePalette();
-    const visible = look !== "hidden";
+    const outlined = look !== "hidden" && !cut;
 
     return (
         <mesh
@@ -66,9 +66,9 @@ export const SceneMesh = memo(function SceneMesh({ object, selected, hovered, pe
                 <meshStandardMaterial color={color} metalness={metalness} roughness={roughness} opacity={opacity} transparent={opacity < 1} {...glow} />
             )}
             {look === "hole" && !selected && <Edges threshold={20} color={HOLE_COLOR} />}
-            {visible && selected && showSelection && <Edges threshold={20} color={palette.accent} />}
-            {visible && peerColor && !selected && <Edges threshold={20} color={peerColor} lineWidth={2} />}
-            {visible && hovered && !selected && <Edges threshold={20} color={palette.hover} lineWidth={2} />}
+            {outlined && selected && showSelection && <Edges threshold={20} color={palette.accent} />}
+            {outlined && peerColor && !selected && <Edges threshold={20} color={peerColor} lineWidth={2} />}
+            {outlined && hovered && !selected && <Edges threshold={20} color={palette.hover} lineWidth={2} />}
         </mesh>
     );
 });
