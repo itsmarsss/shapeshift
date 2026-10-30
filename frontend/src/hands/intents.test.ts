@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { HandState } from "./gestures";
 import { IntentTracker } from "./intents";
 
-function hand(handedness: "Left" | "Right", pinching: boolean, x: number, y: number, pinchId: number, start = [x, y]): HandState {
-    return { handedness, pinching, x, y, pinchId, startX: start[0], startY: start[1] };
+function hand(handedness: "Left" | "Right", pinching: boolean, x: number, y: number, pinchId: number, start = [x, y], depth: [number, number] | null = null): HandState {
+    return { handedness, pinching, x, y, pinchId, startX: start[0], startY: start[1], depth: depth?.[1] ?? null, startDepth: depth?.[0] ?? null };
 }
 
 describe("intents", () => {
@@ -11,11 +11,11 @@ describe("intents", () => {
         const t = new IntentTracker();
         const first = t.update([hand("Right", true, 0.55, 0.5, 1, [0.5, 0.5])]);
         expect(first).toEqual([
-            { type: "start", handedness: "Right", x: 0.5, y: 0.5 },
-            { type: "move", x: 0.55, y: 0.5, dx: expect.closeTo(0.05), dy: 0 },
+            { type: "start", handedness: "Right", x: 0.5, y: 0.5, depth: null },
+            { type: "move", x: 0.55, y: 0.5, dx: expect.closeTo(0.05), dy: 0, depth: 0 },
         ]);
         expect(t.update([hand("Right", true, 0.6, 0.5, 1, [0.5, 0.5])])).toEqual([
-            { type: "move", x: 0.6, y: 0.5, dx: expect.closeTo(0.05), dy: 0 },
+            { type: "move", x: 0.6, y: 0.5, dx: expect.closeTo(0.05), dy: 0, depth: 0 },
         ]);
         expect(t.update([hand("Right", false, 0.6, 0.5, 1)])).toEqual([{ type: "end" }]);
     });
@@ -44,6 +44,17 @@ describe("intents", () => {
         t.update([hand("Left", true, 0.3, 0.5, 1), hand("Right", true, 0.7, 0.5, 1)]);
         t.update([hand("Right", true, 0.7, 0.5, 1)]);
         t.update([hand("Right", false, 0.7, 0.5, 1)]);
-        expect(t.update([hand("Right", true, 0.6, 0.5, 2)])[0]).toEqual({ type: "start", handedness: "Right", x: 0.6, y: 0.5 });
+        expect(t.update([hand("Right", true, 0.6, 0.5, 2)])[0]).toEqual({ type: "start", handedness: "Right", x: 0.6, y: 0.5, depth: null });
+    });
+
+    it("reports how much closer the hand is, ignoring small wobbles", () => {
+        const t = new IntentTracker();
+        t.update([hand("Right", true, 0.5, 0.5, 1, [0.5, 0.5], [0.6, 0.6])]);
+        const [wobble] = t.update([hand("Right", true, 0.5, 0.5, 1, [0.5, 0.5], [0.6, 0.59])]);
+        expect(wobble).toMatchObject({ type: "move", depth: 0 });
+        const [pulled] = t.update([hand("Right", true, 0.5, 0.5, 1, [0.5, 0.5], [0.6, 0.45])]);
+        expect(pulled).toMatchObject({ type: "move", depth: expect.closeTo(0.135) });
+        const [pushed] = t.update([hand("Right", true, 0.5, 0.5, 1, [0.5, 0.5], [0.6, 0.7])]);
+        expect(pushed).toMatchObject({ type: "move", depth: expect.closeTo(-0.085) });
     });
 });

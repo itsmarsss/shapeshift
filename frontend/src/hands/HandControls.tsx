@@ -11,10 +11,12 @@ import { nearestVertex, objectMatrix, useEditSelection } from "../viewport/editS
 import { useSettings } from "../settings/store";
 
 type Drag =
-    | { kind: "object"; id: string; plane: THREE.Plane; offset: THREE.Vector3 }
+    | { kind: "object"; id: string; plane: THREE.Plane; offset: THREE.Vector3; reach: number }
     | { kind: "vertex"; id: string; index: number; plane: THREE.Plane; inverse: THREE.Matrix4; positions: number[]; indices: number[] }
     | { kind: "orbit" };
 
+// How far an object moves, as a share of its distance, per meter the hand moves toward or away from the camera.
+const DEPTH_GAIN = 2.5;
 const ORBIT_SPEED = Math.PI * 1.5;
 const ZOOM_SPEED = 12;
 const PAN_SPEED = 6;
@@ -83,10 +85,17 @@ export function HandControls() {
         if (state.mode !== "object") return;
         const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()), hit.object.position);
         const onPlane = raycaster.current.ray.intersectPlane(plane, new THREE.Vector3());
-        if (onPlane) drag.current = { kind: "object", id: hit.object.name, plane, offset: hit.object.position.clone().sub(onPlane) };
+        if (onPlane)
+            drag.current = {
+                kind: "object",
+                id: hit.object.name,
+                plane,
+                offset: hit.object.position.clone().sub(onPlane),
+                reach: camera.position.distanceTo(hit.object.position),
+            };
     }
 
-    function move(x: number, y: number, dx: number, dy: number) {
+    function move(x: number, y: number, dx: number, dy: number, depth = 0) {
         const d = drag.current;
         if (d?.kind === "orbit") {
             const speed = ORBIT_SPEED * useSettings.getState().handOrbitSpeed;
@@ -109,7 +118,12 @@ export function HandControls() {
         }
         if (d?.kind !== "object") return;
         aim(x, y);
-        const p = raycaster.current.ray.intersectPlane(d.plane, new THREE.Vector3());
+        // Bringing the hand closer to the camera pulls the object closer, and
+        // pushing it away sends the object back, scaled to how far away the
+        // object is. The object stays under the pinch either way.
+        const pull = Math.min(depth * DEPTH_GAIN * d.reach, d.reach * 0.9);
+        const plane = d.plane.clone().translate(camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(-pull));
+        const p = raycaster.current.ray.intersectPlane(plane, new THREE.Vector3());
         if (!p) return;
         p.add(d.offset);
         const state = useScene.getState();
@@ -128,7 +142,7 @@ export function HandControls() {
         lastHands.current = live.hands;
         for (const intent of intents.current.update(live.hands)) {
             if (intent.type === "start") start(intent.handedness, intent.x, intent.y);
-            else if (intent.type === "move") move(intent.x, intent.y, intent.dx, intent.dy);
+            else if (intent.type === "move") move(intent.x, intent.y, intent.dx, intent.dy, intent.depth);
             else if (intent.type === "end") end();
             else if (controls) {
                 controls.dolly(intent.zoom * ZOOM_SPEED * useSettings.getState().handZoomSpeed, false);

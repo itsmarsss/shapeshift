@@ -1,7 +1,8 @@
 import { OneEuroFilter } from "./oneEuro";
+import { handDistance } from "./depth";
 
 export type Handedness = "Left" | "Right";
-export type HandFrame = { handedness: Handedness; landmarks: number[] };
+export type HandFrame = { handedness: Handedness; landmarks: number[]; world?: number[] };
 
 export type HandState = {
     handedness: Handedness;
@@ -11,6 +12,10 @@ export type HandState = {
     pinchId: number;
     startX: number;
     startY: number;
+    // Distance from the camera in meters, smoothed, or null if unknown.
+    depth: number | null;
+    // The distance when the current pinch started.
+    startDepth: number | null;
 };
 
 export const PINCH_START = 0.2;
@@ -54,9 +59,12 @@ class HandTrack {
     pinchId = 0;
     startX = 0.5;
     startY = 0.5;
+    depth: number | null = null;
+    startDepth: number | null = null;
+    private fz = new OneEuroFilter(0.8, 2);
 
 
-    update(frame: HandFrame | undefined, time: number) {
+    update(frame: HandFrame | undefined, time: number, aspect = 16 / 9) {
         if (!frame) {
             if (++this.missing > LOST_FRAMES) {
                 this.present = false;
@@ -64,6 +72,8 @@ class HandTrack {
                 this.streak = 0;
                 this.fx.reset();
                 this.fy.reset();
+                this.fz.reset();
+                this.depth = null;
             }
             return;
         }
@@ -76,6 +86,9 @@ class HandTrack {
         this.x = remap(this.fx.filter(1 - (thumb[0] + index[0]) / 2, time));
         this.y = remap(this.fy.filter((thumb[1] + index[1]) / 2, time));
 
+        const distance = handDistance(frame.landmarks, frame.world, aspect);
+        this.depth = distance === null ? null : this.fz.filter(distance, time);
+
         const ratio = pinchRatio(frame.landmarks);
         const flipping = this.pinching ? ratio > PINCH_END * tuning.sensitivity : ratio < PINCH_START * tuning.sensitivity;
         this.streak = flipping ? this.streak + 1 : 0;
@@ -86,6 +99,7 @@ class HandTrack {
                 this.pinchId++;
                 this.startX = this.x;
                 this.startY = this.y;
+                this.startDepth = this.depth;
             }
         }
     }
@@ -94,11 +108,11 @@ class HandTrack {
 export class GestureTracker {
     private tracks: Record<Handedness, HandTrack> = { Left: new HandTrack(), Right: new HandTrack() };
 
-    update(frames: HandFrame[], time: number): HandState[] {
+    update(frames: HandFrame[], time: number, aspect?: number): HandState[] {
         const out: HandState[] = [];
         for (const handedness of ["Left", "Right"] as const) {
             const track = this.tracks[handedness];
-            track.update(frames.find((f) => f.handedness === handedness), time);
+            track.update(frames.find((f) => f.handedness === handedness), time, aspect);
             if (track.present)
                 out.push({
                     handedness,
@@ -108,6 +122,8 @@ export class GestureTracker {
                     pinchId: track.pinchId,
                     startX: track.startX,
                     startY: track.startY,
+                    depth: track.depth,
+                    startDepth: track.startDepth,
                 });
         }
         return out;

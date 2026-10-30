@@ -119,7 +119,7 @@ export const useHands = create<HandStore>()((set, get) => ({
                 busy = false;
                 if (replaying) return;
                 live.frames = msg.hands;
-                live.hands = gestures.update(msg.hands, msg.time);
+                live.hands = gestures.update(msg.hands, msg.time, video.videoWidth / Math.max(1, video.videoHeight));
                 if (recording.active) recording.frames.push({ time: msg.time, hands: msg.hands });
             }
         };
