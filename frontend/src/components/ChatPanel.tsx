@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import styled from "styled-components";
+import { useAccount } from "../account/store";
 import { NotePencil, Sparkle, X } from "@phosphor-icons/react";
 import { selectSelected, useScene } from "../scene/store";
 import { useAssistant } from "../assistant/store";
@@ -131,6 +132,19 @@ const Hint = styled.div`
     flex-shrink: 0;
 `;
 
+// How many assistant prompts are left this month, so running out is never a surprise.
+function PromptsLeft() {
+    const usage = useAccount((s) => s.usage);
+    if (!usage) return null;
+    const left = Math.max(0, usage.prompts.limit - usage.prompts.used);
+    const low = left <= Math.max(3, usage.prompts.limit * 0.2);
+    return (
+        <span style={{ color: low ? "var(--warning)" : undefined }}>
+            {left === 1 ? "1 prompt" : `${left} prompts`} left this month ·{" "}
+        </span>
+    );
+}
+
 const MODEL_NAMES: Record<string, string> = {
     "claude-opus-5-5": "Claude Opus 5.5",
     "claude-sonnet-5-5": "Claude Sonnet 5.5",
@@ -251,7 +265,10 @@ export function ChatPanel() {
             <div onSubmitCapture={stick} style={{ display: "contents" }}>
                 <Composer ref={composer} />
             </div>
-            <Hint>Enter to send · Shift+Enter for a new line · / to focus</Hint>
+            <Hint>
+                <PromptsLeft />
+                Enter to send · Shift+Enter for a new line · / to focus
+            </Hint>
         </Root>
     );
 }

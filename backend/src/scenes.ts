@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { SceneDoc } from "@shapeshift/shared/scene/schema";
+import { PLANS } from "@shapeshift/shared/billing/plans";
 import { currentUser, fail, json, type User } from "./auth";
 
 // Saved scenes. The scene file goes to R2 (one object per scene, under the
@@ -87,7 +88,12 @@ export async function handleScenes(request: Request, env: Env): Promise<Response
         const doc = checkDoc(body.doc);
         if ("error" in doc) return doc.error;
         const count = await env.DB.prepare("SELECT COUNT(*) AS n FROM scenes WHERE owner_id = ?1").bind(user.id).first<{ n: number }>();
-        if ((count?.n ?? 0) >= SCENE_LIMITS.perUser) return fail(409, `You can keep ${SCENE_LIMITS.perUser} scenes. Delete one to save another.`, "limit");
+        const allowed = PLANS[user.plan === "pro" ? "pro" : "free"].cloudScenes;
+        if ((count?.n ?? 0) >= allowed) {
+            return user.plan === "pro"
+                ? fail(409, `You can keep ${allowed} scenes. Delete one to save another.`, "limit")
+                : fail(409, `Free accounts keep up to ${allowed} scenes in the cloud. Upgrade to Pro to keep ${PLANS.pro.cloudScenes}, or delete one to save another.`, "plan_limit");
+        }
         const sceneId = crypto.randomUUID();
         const at = Date.now();
         await env.SCENES.put(fileKey(user.id, sceneId), doc.text, { httpMetadata: { contentType: "application/json" } });

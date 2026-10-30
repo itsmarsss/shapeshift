@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { useScene } from "../scene/store";
 import { useCollab } from "../collab/session";
 import { takeSnapshot } from "../viewport/snapshot";
+import type { Usage } from "@shapeshift/shared/billing/plans";
 import { api, ApiError, type CloudScene, type User } from "./api";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -17,7 +18,10 @@ type AccountState = {
     save: SaveState;
     saveError: string | null;
     scenes: CloudScene[];
+    // This month's assistant allowance, for signed-in people and visitors alike.
+    usage: Usage | null;
     load: () => Promise<void>;
+    refreshUsage: () => Promise<void>;
     setShowSignIn: (v: boolean) => void;
     setShowScenes: (v: boolean) => void;
     signedIn: (user: User) => void;
@@ -88,8 +92,10 @@ export const useAccount = create<AccountState>()((set, get) => ({
     save: "idle",
     saveError: null,
     scenes: [],
+    usage: null,
 
     load: async () => {
+        void get().refreshUsage();
         try {
             const { user } = await api.me();
             const link = user ? remembered() : null;
@@ -97,6 +103,13 @@ export const useAccount = create<AccountState>()((set, get) => ({
             set({ user, loaded: true, cloudId: link?.id ?? null, cloudTitle: link?.title ?? "" });
         } catch {
             set({ loaded: true });
+        }
+    },
+    refreshUsage: async () => {
+        try {
+            set({ usage: await api.usage() });
+        } catch {
+            // Shown when it's known; nothing depends on it.
         }
     },
     setShowSignIn: (showSignIn) => set({ showSignIn }),
@@ -107,12 +120,14 @@ export const useAccount = create<AccountState>()((set, get) => ({
     signedIn: (user) => {
         rememberSignedIn(true);
         set({ user, showSignIn: false });
+        void get().refreshUsage();
     },
     signOut: async () => {
         await api.signOut().catch(() => {});
         remember(null);
         rememberSignedIn(false);
         set({ user: null, cloudId: null, cloudTitle: "", scenes: [], save: "idle", showScenes: false });
+        void get().refreshUsage();
     },
 
     saveToCloud: async (title) => {

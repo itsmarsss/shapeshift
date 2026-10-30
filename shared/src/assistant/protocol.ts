@@ -60,7 +60,8 @@ export type AgentRequest = z.infer<typeof AgentRequest>;
 
 export type StopReason = "end" | "tool_use" | "max_tokens" | "refusal";
 
-export type AgentErrorCode = "bad_request" | "rate_limited" | "overloaded" | "upstream" | "not_configured" | "internal";
+// "quota" means the monthly assistant allowance is used up.
+export type AgentErrorCode = "bad_request" | "rate_limited" | "overloaded" | "upstream" | "not_configured" | "internal" | "quota";
 
 // Newline-delimited JSON events streamed back from /api/agent.
 export type AgentEvent =

@@ -2,6 +2,7 @@ import styled, { css, keyframes } from "styled-components";
 import { ArrowClockwise, ArrowCounterClockwise, CircleNotch, WarningCircle } from "@phosphor-icons/react";
 import { useScene } from "../../scene/store";
 import { useAssistant, type Turn } from "../../assistant/store";
+import { useAccount } from "../../account/store";
 import { ActivityList } from "./ActivityList";
 import { RichText } from "./RichText";
 
@@ -101,6 +102,20 @@ const Status = styled.div`
         animation: ${shimmer} 1.6s linear infinite;
     }
 `;
+
+// More prompts: signing in for visitors, a bigger plan for everyone else.
+function QuotaAction() {
+    const signedIn = useAccount((s) => s.user !== null);
+    const pro = useAccount((s) => s.user?.plan === "pro");
+    if (pro) return null;
+    return signedIn ? (
+        <Action as="a" href="/pricing">
+            See plans
+        </Action>
+    ) : (
+        <Action onClick={() => useAccount.getState().setShowSignIn(true)}>Sign in</Action>
+    );
+}
 
 const Note = styled.div<{ $tone?: "error" }>`
     display: flex;
@@ -222,6 +237,7 @@ export function TurnView({ turn, last }: { turn: Turn; last: boolean }) {
                     <Note $tone="error" role="alert">
                         <WarningCircle size={14} weight="fill" />
                         <div style={{ flex: 1 }}>{turn.error.message}</div>
+                        {last && !turn.remote && turn.error.quota && <QuotaAction />}
                         {last && !turn.remote && turn.error.retryable && (
                             <Action onClick={retry} disabled={running}>
                                 Retry

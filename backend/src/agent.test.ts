@@ -3,10 +3,13 @@ import type Anthropic from "@anthropic-ai/sdk";
 import type { AgentEvent, WireMessage } from "@shapeshift/shared/assistant/protocol";
 import { agentStep } from "./agent";
 import { toParams, toWire } from "./anthropic";
+import { handleUsage } from "./usage";
+import { testDatabase } from "./test/d1";
 
 function env(run: (...args: unknown[]) => unknown, limited = false) {
     return {
         AI: { run: vi.fn(run) },
+        DB: testDatabase(),
         CHAT_LIMITER: { limit: vi.fn(async () => ({ success: !limited })) },
         AGENT_MODEL: "claude-opus-5-5",
         AGENT_EFFORT: "medium",
@@ -60,6 +63,34 @@ describe("/api/agent", () => {
         const res = await agentStep(post({ messages: [{ role: "user", content: "hi" }] }), env(async () => ({}), true));
         expect(res.status).toBe(429);
         expect(await res.json()).toMatchObject({ code: "rate_limited" });
+    });
+
+    it("counts prompts and stops visitors at their monthly limit", async () => {
+        const e = env(async () => ({ choices: [{ finish_reason: "stop", message: { content: "Done." } }] }));
+        const prompt = { messages: [{ role: "user", content: "add a box" }] };
+        for (let i = 0; i < 10; i++) await events(await agentStep(post(prompt), e));
+        const over = await agentStep(post(prompt), e);
+        expect(over.status).toBe(402);
+        expect(await over.json()).toMatchObject({ code: "quota", error: expect.stringContaining("Sign in") });
+
+        // A turn already under way can still finish its tool steps.
+        const followUp = {
+            messages: [
+                { role: "user", content: "add a box" },
+                { role: "assistant", content: null, tool_calls: [{ id: "t1", name: "add", arguments: "{}" }] },
+                { role: "tool", tool_call_id: "t1", content: "ok" },
+            ],
+        };
+        expect((await agentStep(post(followUp), e)).status).toBe(200);
+        const usage = await (await handleUsage(new Request("https://x/api/usage"), e))!.json();
+        expect(usage).toMatchObject({ plan: "guest", prompts: { used: 10, limit: 10 } });
+    });
+
+    it("doesn't count prompts the model failed to answer", async () => {
+        const e = env(async () => Promise.reject(new Error("down")));
+        await events(await agentStep(post({ messages: [{ role: "user", content: "hi" }] }), e));
+        const usage = await (await handleUsage(new Request("https://x/api/usage"), e))!.json();
+        expect(usage).toMatchObject({ prompts: { used: 0 } });
     });
 
     it("reports model failures as an error event", async () => {

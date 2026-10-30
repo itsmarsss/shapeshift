@@ -4,6 +4,7 @@ import { handleAccounts } from "./accounts";
 import { handleScenes } from "./scenes";
 import { handleWaitlist } from "./waitlist";
 import { handlePublic, sharePage } from "./publicScenes";
+import { handleUsage } from "./usage";
 
 export { Room } from "./room";
 
@@ -21,6 +22,8 @@ export default {
         if (share && request.method === "GET") return sharePage(request, env, share[1]);
         const publicScene = await handlePublic(request, env);
         if (publicScene) return publicScene;
+        const usage = await handleUsage(request, env);
+        if (usage) return usage;
         const waitlist = await handleWaitlist(request, env);
         if (waitlist) return waitlist;
         const scenes = await handleScenes(request, env);

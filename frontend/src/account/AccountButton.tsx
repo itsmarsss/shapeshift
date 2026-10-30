@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
-import { CheckCircle, CloudArrowUp, CloudSlash, FolderOpen, SignOut, UserCircle, WarningCircle } from "@phosphor-icons/react";
+import { CheckCircle, CloudArrowUp, CloudSlash, FolderOpen, SignOut, Sparkle, UserCircle, WarningCircle } from "@phosphor-icons/react";
 import { COMPACT } from "../ui/compact";
+import { PLANS } from "@shapeshift/shared/billing/plans";
 import { useAccount } from "./store";
 
 const Wrap = styled.div`
@@ -125,6 +126,7 @@ export function AccountButton() {
     const cloudTitle = useAccount((s) => s.cloudTitle);
     const save = useAccount((s) => s.save);
     const saveError = useAccount((s) => s.saveError);
+    const usage = useAccount((s) => s.usage);
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
 
@@ -168,6 +170,11 @@ export function AccountButton() {
                         <b>{user.name || "Signed in"}</b>
                         <small>{user.email}</small>
                     </header>
+                    <Status>
+                        <Sparkle size={14} />
+                        {PLANS[user.plan].name} plan
+                        {usage && ` · ${usage.prompts.used} of ${usage.prompts.limit} prompts used this month`}
+                    </Status>
                     <Status>
                         {save === "error" ? (
                             <>
