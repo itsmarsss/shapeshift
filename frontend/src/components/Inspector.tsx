@@ -10,6 +10,7 @@ import { duplicateSelection, groupSelection, removeSelection, ungroupSelection }
 import { ENVIRONMENTS, type Command, type Environment, type Light, type Vec3 } from "@shapeshift/shared/scene/schema";
 import { useUI } from "../ui/store";
 import { UNIT_SCALE, useSettings } from "../settings/store";
+import { ColorPicker } from "./ColorPicker";
 import { Button, Divider, FieldLabel, IconButton, Input, Panel, PanelHeader, PanelTitle, Select } from "./ui";
 
 const Root = styled(Panel)`
@@ -220,7 +221,7 @@ function LightSection({ light }: { light: Light }) {
                 <Grid $cols={2}>
                     <Sub>
                         Color
-                        <Input type="color" value={light.color} onChange={(e) => update("color", { color: e.target.value })} onBlur={endCoalesce} />
+                        <ColorPicker label="Light color" value={light.color} onChange={(color) => update("color", { color })} onCommit={endCoalesce} />
                     </Sub>
                     <Sub>
                         Intensity
@@ -299,11 +300,11 @@ function SelectionSection({ count, groups }: { count: number; groups: string[] }
             </div>
             <div>
                 <FieldLabel>Color for all</FieldLabel>
-                <Input
-                    type="color"
+                <ColorPicker
+                    label="Color for all"
                     value={color}
-                    onChange={(e) => run(ids.map((id): Command => ({ type: "material", target: id, color: e.target.value })), { coalesce: "color:selection" })}
-                    onBlur={endCoalesce}
+                    onChange={(c) => run(ids.map((id): Command => ({ type: "material", target: id, color: c })), { coalesce: "color:selection" })}
+                    onCommit={endCoalesce}
                 />
             </div>
             <Actions>
@@ -484,11 +485,10 @@ export function Inspector() {
                             <Grid $cols={2}>
                                 <Sub>
                                     Color
-                                    <Input
-                                        type="color"
+                                    <ColorPicker
                                         value={selected.material.color}
-                                        onChange={(e) => edit("color", { type: "material", target: selected.id, color: e.target.value })}
-                                        onBlur={endCoalesce}
+                                        onChange={(color) => edit("color", { type: "material", target: selected.id, color })}
+                                        onCommit={endCoalesce}
                                     />
                                 </Sub>
                                 <Sub>
@@ -540,11 +540,11 @@ export function Inspector() {
                             <Grid $cols={2} style={{ marginTop: 8 }}>
                                 <Sub>
                                     Glow color
-                                    <Input
-                                        type="color"
+                                    <ColorPicker
+                                        label="Glow color"
                                         value={selected.material.emissive ?? selected.material.color}
-                                        onChange={(e) => edit("emissive", { type: "material", target: selected.id, emissive: e.target.value })}
-                                        onBlur={endCoalesce}
+                                        onChange={(emissive) => edit("emissive", { type: "material", target: selected.id, emissive })}
+                                        onCommit={endCoalesce}
                                     />
                                 </Sub>
                                 <Sub>
