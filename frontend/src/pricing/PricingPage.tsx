@@ -10,7 +10,9 @@ import { api, ApiError } from "../account/api";
 const SignInDialog = lazy(() => import("../account/SignInDialog"));
 
 const Page = styled.div`
-    min-height: 100vh;
+    // The editor turns off page scrolling, so pages scroll inside themselves.
+    height: 100%;
+    overflow-y: auto;
     background: radial-gradient(1000px 500px at 50% -10%, color-mix(in srgb, var(--accent) 16%, transparent), transparent), var(--bg);
     color: var(--text);
     padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 56px;
