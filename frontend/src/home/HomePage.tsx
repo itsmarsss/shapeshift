@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import styled from "styled-components";
-import { ArrowRight, Cube, Plus, SignOut } from "@phosphor-icons/react";
+import { ArrowRight, Cube, Plus, SignOut, Sparkle } from "@phosphor-icons/react";
 import { GlobalStyle } from "../components/ui";
 import { useResolvedTheme } from "../settings/theme";
 import { useAccount } from "../account/store";
@@ -44,7 +44,8 @@ const Header = styled.header`
         white-space: nowrap;
         min-width: 0;
     }
-    button {
+    button,
+    a.plan {
         display: inline-flex;
         align-items: center;
         gap: 6px;
@@ -55,6 +56,11 @@ const Header = styled.header`
         background: transparent;
         color: var(--text);
         white-space: nowrap;
+        text-decoration: none;
+    }
+    a.plan {
+        border-color: var(--accent);
+        color: var(--accent);
     }
 `;
 
@@ -201,6 +207,12 @@ export default function HomePage() {
                 <img src="/icon.svg" alt="" />
                 <b>ShapeShift</b>
                 {user && <small>{user.email}</small>}
+                {user && (
+                    <a className="plan" href="/pricing">
+                        <Sparkle size={16} />
+                        {user.plan === "pro" ? "Pro" : "Upgrade"}
+                    </a>
+                )}
                 {user && (
                     <button onClick={() => void useAccount.getState().signOut().then(() => location.replace("/edit"))}>
                         <SignOut size={16} />
