@@ -39,6 +39,8 @@ export type SceneState = {
     endCoalesce: () => void;
     undo: () => void;
     redo: () => void;
+    // Undoes (negative) or redoes (positive) several steps at once.
+    travel: (steps: number) => void;
     load: (doc: SceneDoc) => void;
     // Applies changes made by someone else in a shared room. They don't go
     // into this user's undo history.
@@ -140,6 +142,22 @@ export const useScene = create<SceneState>()((set, get) => ({
             openCoalesce: null,
             ...pruneSelection(next, selectedIds),
         });
+    },
+
+    travel: (steps) => {
+        let { past, future, doc } = get();
+        if (steps < 0) {
+            const taken = past.slice(steps).reverse();
+            for (const entry of taken) doc = applyDiff(doc, entry, "before");
+            future = [...taken.reverse(), ...future];
+            past = past.slice(0, past.length - taken.length);
+        } else {
+            const taken = future.slice(0, steps);
+            for (const entry of taken) doc = applyDiff(doc, entry, "after");
+            past = [...past, ...taken];
+            future = future.slice(taken.length);
+        }
+        set({ doc, past, future, openCoalesce: null, ...pruneSelection(doc, get().selectedIds) });
     },
 
     replaceDoc: (next) => {
