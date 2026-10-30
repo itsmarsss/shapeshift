@@ -118,3 +118,27 @@ test('drags a shape across the floor, and orbits when dragging empty space', asy
   await page.getByTitle('Undo').click()
   await expect.poll(position).toEqual([0, 0.5, 0])
 })
+
+test('picks colors from the palette or by hex, as one undo step', async ({ page }) => {
+  await openEditor(page)
+  await page.getByTitle('Add sphere').click()
+  const color = () => page.evaluate(() => JSON.parse(localStorage.getItem('shapeshift-scene') ?? '{"objects":[]}').objects[0]?.material.color)
+  const before = await color()
+
+  await page.getByRole('button', { name: /^Color: #/ }).click()
+  const picker = page.getByRole('dialog', { name: 'Pick color' })
+  await picker.getByRole('button', { name: '#3e8ed0' }).click()
+  await expect.poll(color).toBe('#3e8ed0')
+  await picker.getByLabel('Hex color').fill('f80')
+  await expect.poll(color).toBe('#ff8800')
+  await page.keyboard.press('Escape')
+  await expect(picker).toHaveCount(0)
+
+  // The color it was given last time comes back under Recent.
+  await page.getByRole('button', { name: /^Color: #/ }).click()
+  await expect(picker.getByRole('button', { name: 'Recent #ff8800' })).toBeVisible()
+  await page.keyboard.press('Escape')
+
+  await page.getByTitle('Undo').click()
+  await expect.poll(color).toBe(before)
+})
