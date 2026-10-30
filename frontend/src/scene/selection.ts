@@ -1,5 +1,5 @@
 import { groupNames } from "./commands";
-import type { Command } from "./schema";
+import type { Command } from "@shapeshift/shared/scene/schema";
 import { useScene } from "./store";
 
 // Editor actions on the whole selection, shared by shortcuts and the inspector.

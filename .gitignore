@@ -7,4 +7,5 @@ old/
 dist/
 .wrangler/
 .dev.vars
-frontend/vite.local.config.ts
+frontend/test-results
+frontend/playwright-report

@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { buildGeometry, toMeshGeometry } from "./geometry";
+import { animationClip } from "./clip";
 import { DEFAULT_MATERIAL } from "./commands";
-import { SceneDoc, type SceneObject } from "./schema";
+import { SceneDoc, type SceneObject } from "@shapeshift/shared/scene/schema";
 
 export function download(data: BlobPart, filename: string, type: string) {
     const url = URL.createObjectURL(new Blob([data], { type }));
@@ -69,7 +70,8 @@ export function toThreeScene(doc: SceneDoc): THREE.Scene {
 
 export async function exportGLB(doc: SceneDoc) {
     const { GLTFExporter } = await import("three/examples/jsm/exporters/GLTFExporter.js");
-    const result = await new GLTFExporter().parseAsync(toThreeScene(doc), { binary: true });
+    const clip = animationClip(doc);
+    const result = await new GLTFExporter().parseAsync(toThreeScene(doc), { binary: true, ...(clip ? { animations: [clip] } : {}) });
     download(result as ArrayBuffer, "scene.glb", "model/gltf-binary");
 }
 
@@ -98,4 +100,60 @@ export async function importModel(file: File): Promise<SceneObject[]> {
         });
     });
     return objects;
+}
+
+export type PrintOptions = {
+    // Length of the longest side of the print, in millimetres.
+    size: number;
+    // Only these objects, or everything when empty.
+    ids?: string[];
+};
+
+// Objects to print with their real-world size in scene units (metres).
+export function printableBounds(doc: SceneDoc, ids: string[] = []) {
+    const objects = ids.length ? doc.objects.filter((o) => ids.includes(o.id)) : doc.objects;
+    const box = new THREE.Box3();
+    for (const o of objects) {
+        const geometry = buildGeometry(o.geometry);
+        geometry.computeBoundingBox();
+        const matrix = new THREE.Matrix4().compose(
+            new THREE.Vector3(...o.position),
+            new THREE.Quaternion().setFromEuler(new THREE.Euler(...o.rotation)),
+            new THREE.Vector3(...o.scale),
+        );
+        box.union(geometry.boundingBox!.clone().applyMatrix4(matrix));
+        geometry.dispose();
+    }
+    return { objects, box };
+}
+
+// Builds a binary STL scaled to the requested size. Slicers expect Z up and
+// millimetres, and the model resting on the bed, so it's turned and moved to fit.
+export async function stlBuffer(doc: SceneDoc, { size, ids }: PrintOptions): Promise<DataView> {
+    const { STLExporter } = await import("three/examples/jsm/exporters/STLExporter.js");
+    const { objects, box } = printableBounds(doc, ids);
+    const root = new THREE.Group();
+    const inner = new THREE.Group();
+    for (const o of objects) {
+        const mesh = new THREE.Mesh(buildGeometry(o.geometry));
+        mesh.position.set(...o.position);
+        mesh.rotation.set(...o.rotation);
+        mesh.scale.set(...o.scale);
+        inner.add(mesh);
+    }
+    const extent = box.getSize(new THREE.Vector3());
+    const longest = Math.max(extent.x, extent.y, extent.z) || 1;
+    const center = box.getCenter(new THREE.Vector3());
+    // Centre on the bed with the lowest point at zero, then scale and turn Y-up into Z-up.
+    inner.position.set(-center.x, -box.min.y, -center.z);
+    root.add(inner);
+    root.scale.setScalar(size / longest);
+    root.rotation.x = Math.PI / 2;
+    root.updateMatrixWorld(true);
+    return new STLExporter().parse(root, { binary: true });
+}
+
+export async function exportSTL(doc: SceneDoc, options: PrintOptions) {
+    const data = await stlBuffer(doc, options);
+    download(data.buffer as ArrayBuffer, "scene.stl", "model/stl");
 }

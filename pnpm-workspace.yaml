@@ -1,0 +1,8 @@
+packages:
+  - frontend
+  - backend
+  - shared
+
+allowBuilds:
+  esbuild: true
+  workerd: true

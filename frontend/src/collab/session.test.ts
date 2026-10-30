@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as Store from "../scene/store";
-import type { ClientMessage, ServerMessage } from "./protocol";
-import type { SceneObject } from "../scene/schema";
+import type { ClientMessage, ServerMessage } from "@shapeshift/shared/collab/protocol";
+import type { SceneObject } from "@shapeshift/shared/scene/schema";
 
 class FakeSocket {
     static OPEN = 1;

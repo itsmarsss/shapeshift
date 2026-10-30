@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { mergeVertices, toCreasedNormals } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { ADDITION, Brush, Evaluator, INTERSECTION, SUBTRACTION } from "three-bvh-csg";
-import type { Geometry, SceneObject, Vec3 } from "./schema";
+import type { Geometry, SceneObject, Vec3 } from "@shapeshift/shared/scene/schema";
 
 export function buildGeometry(g: Geometry): THREE.BufferGeometry {
     switch (g.type) {

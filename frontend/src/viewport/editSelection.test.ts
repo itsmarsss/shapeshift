@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import { nearestVertex } from "./editSelection";
-import type { SceneObject } from "../scene/schema";
+import type { SceneObject } from "@shapeshift/shared/scene/schema";
 
 const box: SceneObject = {
     id: "b",

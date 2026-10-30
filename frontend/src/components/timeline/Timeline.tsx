@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react";
 import styled from "styled-components";
-import { DiamondsFour, Pause, Play, Repeat, SkipBack, Trash, X } from "@phosphor-icons/react";
+import { DiamondsFour, Pause, Play, Repeat, SkipBack, Trash, VideoCamera, X } from "@phosphor-icons/react";
+import { recordAnimation, useRecording } from "../../scene/record";
 import { useShallow } from "zustand/react/shallow";
 import { keyTimes } from "../../scene/animation";
-import type { Command } from "../../scene/schema";
+import type { Command } from "@shapeshift/shared/scene/schema";
 import { useScene } from "../../scene/store";
 import { useTimeline } from "../../scene/timeline";
 import { IconButton, Panel } from "../ui";
@@ -205,6 +206,7 @@ export function Timeline() {
     const selectedIds = useScene(useShallow((s) => s.selectedIds));
     const run = useScene((s) => s.run);
     const track = useRef<HTMLDivElement>(null);
+    const recording = useRecording((s) => s.recording);
 
     const { duration, loop } = animation;
     const mine = selectedIds.flatMap((id) => keyTimes(animation, id));
@@ -331,6 +333,15 @@ export function Timeline() {
                     </Length>
                     <IconButton $size={24} $active={loop} title={loop ? "Looping" : "Plays once"} onClick={() => run({ type: "timeline", loop: !loop })}>
                         <Repeat size={14} />
+                    </IconButton>
+                    <IconButton
+                        $size={24}
+                        $active={recording}
+                        title={recording ? "Recording…" : "Record the animation as a video"}
+                        disabled={recording || !animation.tracks.length}
+                        onClick={() => void recordAnimation()}
+                    >
+                        <VideoCamera size={14} weight={recording ? "fill" : "regular"} color={recording ? "var(--danger)" : undefined} />
                     </IconButton>
                     <IconButton $size={24} title="Delete this keyframe" disabled={!atKey || !selectedIds.length} onClick={removeKey}>
                         <Trash size={14} />

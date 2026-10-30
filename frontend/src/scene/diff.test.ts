@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { emptyDoc, useScene } from "./store";
 import { applyDiff, diffDocs, mergeDiffs } from "./diff";
-import type { SceneDoc } from "./schema";
+import type { SceneDoc } from "@shapeshift/shared/scene/schema";
 
 const s = () => useScene.getState();
 beforeEach(() => s().load(emptyDoc()));

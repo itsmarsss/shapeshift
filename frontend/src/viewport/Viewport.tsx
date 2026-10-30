@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useTimeline } from "../scene/timeline";
 import { transformCommand } from "../scene/autokey";
 import type { Pose } from "../scene/animation";
-import type { Light, SceneObject } from "../scene/schema";
+import type { Light, SceneObject } from "@shapeshift/shared/scene/schema";
 import { useShallow } from "zustand/react/shallow";
 import { useCollab } from "../collab/session";
 import { Canvas, useThree } from "@react-three/fiber";
@@ -16,6 +16,7 @@ import { PeerCursors } from "./PeerCursors";
 import { SceneEnvironment } from "./SceneEnvironment";
 import { EditOverlay } from "./EditOverlay";
 import { SnapshotBridge } from "./SnapshotBridge";
+import { FrameBridge } from "./FrameBridge";
 import { useGizmoColors } from "./GizmoTheme";
 import { useHands } from "../hands/tracker";
 import { useHandHover } from "../hands/tracker";
@@ -172,6 +173,7 @@ export function Viewport() {
             <CameraSettings />
             <SceneEnvironment preset={environment} />
             <SnapshotBridge />
+            <FrameBridge />
             <PeerCursors />
             {handsOn && (
                 <Suspense fallback={null}>

@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import {
     DotsThree,
     ArrowUUpLeft,
     ArrowUUpRight,
     ChatCircle,
+    ClockCounterClockwise,
     Camera,
     Export,
     FilmStrip,
@@ -13,6 +14,8 @@ import {
     FolderOpen,
     GearSix,
     Hand,
+    Printer,
+    Shapes,
     SlidersHorizontal,
     TrayArrowDown,
 } from "@phosphor-icons/react";
@@ -24,6 +27,8 @@ import { useHands } from "../hands/tracker";
 import { useSettings } from "../settings/store";
 import { IconButton, Segment, Segmented } from "./ui";
 import { CollabBar } from "../collab/CollabBar";
+import { useAccount } from "../account/store";
+import { AccountButton } from "../account/AccountButton";
 import { useTimeline } from "../scene/timeline";
 import { COMPACT, useCompact } from "../ui/compact";
 
@@ -149,6 +154,8 @@ function MoreMenu({ items }: { items: MenuItem[] }) {
     );
 }
 
+const PrintDialog = lazy(() => import("./PrintDialog"));
+
 const MODES: { mode: EditorMode; label: string }[] = [
     { mode: "object", label: "Object" },
     { mode: "edit", label: "Edit" },
@@ -180,8 +187,12 @@ export function Topbar() {
     const setShowInspector = useUI((s) => s.setShowInspector);
     const setShowChat = useUI((s) => s.setShowChat);
     const setShowSettings = useUI((s) => s.setShowSettings);
+    const setShowTemplates = useUI((s) => s.setShowTemplates);
+    const showHistory = useUI((s) => s.showHistory);
+    const setShowHistory = useUI((s) => s.setShowHistory);
     const handStatus = useHands((s) => s.status);
     const setHands = useHands((s) => s.setEnabled);
+    const [printing, setPrinting] = useState(false);
     const openRef = useRef<HTMLInputElement>(null);
     const importRef = useRef<HTMLInputElement>(null);
 
@@ -190,8 +201,11 @@ export function Topbar() {
         e.target.value = "";
         if (!file) return;
         const doc = parseSceneFile(await file.text());
-        if (doc) load(doc);
-        else alert("That file isn't a ShapeShift scene.");
+        if (doc) {
+            // An opened file is its own scene, not the one saved in the cloud.
+            useAccount.getState().unlink();
+            load(doc);
+        } else alert("That file isn't a ShapeShift scene.");
     }
 
     async function onImport(e: React.ChangeEvent<HTMLInputElement>) {
@@ -216,12 +230,15 @@ export function Topbar() {
                 if (empty || !useSettings.getState().confirmNew || confirm("Start a new scene? You can undo this.")) run({ type: "clear" });
             },
         },
+        { label: "Start from a template", icon: <Shapes size={18} />, onClick: () => setShowTemplates(true) },
         { label: "Open scene", icon: <FolderOpen size={18} />, onClick: () => openRef.current?.click() },
         { label: "Save scene", icon: <FloppyDisk size={18} />, onClick: () => saveSceneFile(useScene.getState().doc) },
         { label: "Import model", icon: <TrayArrowDown size={18} />, onClick: () => importRef.current?.click() },
         { label: "Save image", icon: <Camera size={18} />, onClick: saveImage },
         { label: "Export as GLB", icon: <Export size={18} />, onClick: () => exportGLB(useScene.getState().doc) },
+        { label: "Export for 3D printing", icon: <Printer size={18} />, onClick: () => setPrinting(true) },
         { label: "Redo", icon: <ArrowUUpRight size={18} />, onClick: redo },
+        { label: "History", icon: <ClockCounterClockwise size={18} />, onClick: () => setShowHistory(!showHistory), active: showHistory },
         { label: "Animation timeline", icon: <FilmStrip size={18} />, onClick: () => setTimelineOpen(!timelineOpen), active: timelineOpen },
         { label: handStatus === "off" ? "Hand control" : "Turn off hand control", icon: <Hand size={18} />, onClick: () => setHands(handStatus === "off"), active: handStatus !== "off" },
         { label: "Settings", icon: <GearSix size={18} />, onClick: () => setShowSettings(true) },
@@ -242,6 +259,9 @@ export function Topbar() {
                     >
                         <FilePlus size={18} />
                     </IconButton>
+                    <IconButton title="Start from a template" onClick={() => setShowTemplates(true)}>
+                        <Shapes size={18} />
+                    </IconButton>
                     <IconButton title="Open scene" onClick={() => openRef.current?.click()}>
                         <FolderOpen size={18} />
                     </IconButton>
@@ -258,8 +278,16 @@ export function Topbar() {
                     <IconButton title="Export as GLB" onClick={() => exportGLB(useScene.getState().doc)}>
                         <Export size={18} />
                     </IconButton>
+                    <IconButton title="Export for 3D printing" onClick={() => setPrinting(true)}>
+                        <Printer size={18} />
+                    </IconButton>
                 </Wide>
                 <input ref={openRef} type="file" accept=".json" hidden onChange={onOpen} />
+                {printing && (
+                    <Suspense fallback={null}>
+                        <PrintDialog onClose={() => setPrinting(false)} />
+                    </Suspense>
+                )}
                 <input ref={importRef} type="file" accept=".glb,.gltf" hidden onChange={onImport} />
             </Group>
             <Segmented>
@@ -270,6 +298,7 @@ export function Topbar() {
                 ))}
             </Segmented>
             <Group $end>
+                <AccountButton />
                 <CollabBar />
                 <IconButton title="Undo" disabled={!canUndo} onClick={undo}>
                     <ArrowUUpLeft size={18} />
@@ -277,6 +306,9 @@ export function Topbar() {
                 <Wide>
                     <IconButton title="Redo" disabled={!canRedo} onClick={redo}>
                         <ArrowUUpRight size={18} />
+                    </IconButton>
+                    <IconButton title="History" $active={showHistory} onClick={() => setShowHistory(!showHistory)}>
+                        <ClockCounterClockwise size={18} />
                     </IconButton>
                     <Sep />
                     <IconButton title="Animation timeline" $active={timelineOpen} onClick={() => setTimelineOpen(!timelineOpen)}>

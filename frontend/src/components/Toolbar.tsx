@@ -13,7 +13,7 @@ import {
 } from "@phosphor-icons/react";
 import { ConeIcon, TorusIcon } from "./icons";
 import { useScene, type TransformMode } from "../scene/store";
-import type { LightType, Primitive } from "../scene/schema";
+import type { LightType, Primitive } from "@shapeshift/shared/scene/schema";
 import { IconButton } from "./ui";
 import { COMPACT } from "../ui/compact";
 

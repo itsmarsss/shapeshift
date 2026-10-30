@@ -2,7 +2,7 @@
 // the user.
 import * as THREE from "three";
 import { findLight, findObject } from "../scene/commands";
-import type { Command, Geometry, Light, SceneDoc, SceneObject, Vec3 } from "../scene/schema";
+import type { Command, Geometry, Light, SceneDoc, SceneObject, Vec3 } from "@shapeshift/shared/scene/schema";
 
 const round = (v: number) => {
     const r = Math.round(v * 1000) / 1000;

@@ -4,7 +4,7 @@ import { ArrowUp, Crosshair, ImageSquare, Microphone, Square, X } from "@phospho
 import { selectSelected, useScene } from "../../scene/store";
 import { useAssistant, type Attachment } from "../../assistant/store";
 import { MAX_ATTACHMENTS, readAttachment } from "./images";
-import { LIMITS } from "../../assistant/protocol";
+import { LIMITS } from "@shapeshift/shared/assistant/protocol";
 import { useSpeechInput } from "./useSpeechInput";
 
 const Root = styled.form<{ $dropping?: boolean }>`

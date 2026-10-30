@@ -3,11 +3,11 @@ import { nanoid } from "nanoid";
 import { useScene, type SceneState } from "../scene/store";
 import { runTurn } from "./agent";
 import { newTurnContext, type Activity, type TurnContext } from "./executor";
-import type { AgentInfo, WireMessage } from "./protocol";
+import type { AgentInfo, WireMessage } from "@shapeshift/shared/assistant/protocol";
 import { AgentError, fetchAgentInfo, httpTransport, type Transport } from "./transport";
 import { loadChat, saveChat } from "./persist";
 import { onRoomChat, sendChatTurn, useCollab } from "../collab/session";
-import type { SharedTurn } from "../collab/protocol";
+import type { SharedTurn } from "@shapeshift/shared/collab/protocol";
 
 type HistoryEntry = SceneState["past"][number];
 

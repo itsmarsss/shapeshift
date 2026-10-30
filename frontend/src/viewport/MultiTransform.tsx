@@ -3,7 +3,7 @@ import { TransformControls } from "@react-three/drei";
 import { useGizmoColors } from "./GizmoTheme";
 import * as THREE from "three";
 import { groupPivot } from "../scene/commands";
-import type { Command, SceneObject, Vec3 } from "../scene/schema";
+import type { Command, SceneObject, Vec3 } from "@shapeshift/shared/scene/schema";
 import { useScene } from "../scene/store";
 import { transformCommand } from "../scene/autokey";
 

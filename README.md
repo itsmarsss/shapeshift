@@ -6,17 +6,17 @@ Try it at [shapeshift.hanzpo.com](https://shapeshift.hanzpo.com).
 
 ### We’re getting ready to launch ShapeShift! Be among the first to try it out by joining the waitlist:
 
-### 👉 [Sign up here](https://forms.gle/iuHUNXTYS36t82Hh8)
+### 👉 [Sign up here](https://shapeshift.hanzpo.com/waitlist)
 
 ## How to run
 
 1. Ensure you have Node and pnpm installed
 2. Run the following commands:
-    - `cd frontend`
-    - `pnpm install`
+    - `pnpm install` (from the repo root)
     - `pnpm exec wrangler login` (needed for the Workers AI binding in dev)
-    - `cp .dev.vars.example .dev.vars` and set `ANTHROPIC_API_KEY` to use Claude. Without a key the assistant falls back to Workers AI
+    - `cp backend/.dev.vars.example backend/.dev.vars` and set `ANTHROPIC_API_KEY` to use Claude. Without a key the assistant falls back to Workers AI
     - `pnpm dev`
+    - No Cloudflare login? `pnpm dev:offline` runs everything locally except Workers AI
 3. Open the browser and go to `http://localhost:5173`
 
 ## Hand control
@@ -28,11 +28,31 @@ Hand tracking runs MediaPipe in a Web Worker, smooths landmarks with a One Euro 
 ## Development
 
 - `pnpm test` runs the unit tests (scene commands, undo, the assistant's agent loop and Worker, gestures)
+- `pnpm e2e` runs the browser tests against a local production build (Worker, D1 and R2 included)
 - `pnpm lint` and `pnpm build` must pass before merging
+
+## Accounts and cloud saves
+
+The editor runs entirely in the browser. Accounts (sign in with an email code), cloud saves, shared rooms and the waitlist run on the Worker:
+
+- **D1** holds users, sessions, sign-in codes, the waitlist and the scene index. Run `pnpm db:migrate` once for local development
+- **R2** stores saved scenes and their previews
+- **Durable Objects** host shared rooms
+- **Email** goes through Resend. Without `RESEND_API_KEY`, sign-in codes are printed and shown on localhost only
+
+Before the first deploy: `wrangler d1 create shapeshift` (put the id in `wrangler.jsonc`), `pnpm db:migrate:remote`, `wrangler r2 bucket create shapeshift-scenes` and `wrangler secret put RESEND_API_KEY`.
+
+## Project layout
+
+- `frontend/` is the editor: React, three.js and hand tracking. It runs entirely in the browser
+- `backend/` is the Cloudflare Worker: the assistant, shared rooms, accounts, cloud saves, share links and the waitlist, plus its D1 migrations and `wrangler.jsonc`
+- `shared/` is the contract between them: the scene schema, the AI tool definitions and the agent and room protocols, imported as `@shapeshift/shared/...`
+
+It's one pnpm workspace. Run `pnpm dev`, `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm e2e` and `pnpm build` from the root.
 
 ## How to deploy
 
-From `frontend`, run `pnpm exec wrangler secret put ANTHROPIC_API_KEY` once, then `pnpm run deploy`. This builds the app and deploys the Worker to `shapeshift.hanzpo.com`. `AGENT_MODEL` and `AGENT_EFFORT` in `wrangler.jsonc` pick the Claude model and effort.
+From `backend`, run `pnpm exec wrangler secret put ANTHROPIC_API_KEY` once, then `pnpm deploy` from the root. This builds the app and deploys the Worker to `shapeshift.hanzpo.com`. `AGENT_MODEL` and `AGENT_EFFORT` in `wrangler.jsonc` pick the Claude model and effort.
 
 ## Inspiration
 
