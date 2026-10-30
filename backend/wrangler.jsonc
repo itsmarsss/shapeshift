@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "shapeshift",
-  "main": "worker/index.ts",
+  "main": "src/index.ts",
   "compatibility_date": "2026-10-15",
   "assets": {
     "binding": "ASSETS",

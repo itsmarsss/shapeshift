@@ -1,5 +1,5 @@
-import { ROOM_LIMITS, type Ops, type SharedTurn, type VersionMeta } from "../src/collab/protocol";
-import { emptyAnimation, type Animation, type Environment, type Light, type SceneObject } from "../src/scene/schema";
+import { ROOM_LIMITS, type Ops, type SharedTurn, type VersionMeta } from "@shapeshift/shared/collab/protocol";
+import { emptyAnimation, type Animation, type Environment, type Light, type SceneObject } from "@shapeshift/shared/scene/schema";
 
 type Entity = { id: string };
 

@@ -9,11 +9,11 @@ interface __BaseEnv_Env {
 	ASSETS: Fetcher;
 	AGENT_MODEL: string;
 	AGENT_EFFORT: string;
-	ROOMS: DurableObjectNamespace<import("./worker/index").Room>;
+	ROOMS: DurableObjectNamespace<import("./src/index").Room>;
 }
 declare namespace Cloudflare {
 	interface GlobalProps {
-		mainModule: typeof import("./worker/index");
+		mainModule: typeof import("./src/index");
 		durableNamespaces: "Room";
 	}
 	interface Env extends __BaseEnv_Env {}

@@ -1,5 +1,5 @@
-import type { WireMessage, WireToolCall } from "../src/assistant/protocol";
-import { TOOLS } from "../src/assistant/tools";
+import type { WireMessage, WireToolCall } from "@shapeshift/shared/assistant/protocol";
+import { TOOLS } from "@shapeshift/shared/assistant/tools";
 import { SYSTEM_PROMPT } from "./prompt";
 import { ProviderError, userText, type Provider } from "./provider";
 

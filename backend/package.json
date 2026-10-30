@@ -1,0 +1,24 @@
+{
+  "name": "@shapeshift/backend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "The Cloudflare Worker: assistant, shared rooms, accounts, cloud saves, share links and the waitlist.",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json",
+    "types": "wrangler types",
+    "db:migrate": "wrangler d1 migrations apply DB --local --persist-to ../.wrangler/state",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0",
+    "@shapeshift/shared": "workspace:*",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.3",
+    "vitest": "^5.0.5",
+    "wrangler": "^4.155.0"
+  }
+}

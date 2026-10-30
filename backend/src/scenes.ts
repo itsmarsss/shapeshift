@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SceneDoc } from "../src/scene/schema";
+import { SceneDoc } from "@shapeshift/shared/scene/schema";
 import { currentUser, fail, json, type User } from "./auth";
 
 // Saved scenes. The scene file goes to R2 (one object per scene, under the
