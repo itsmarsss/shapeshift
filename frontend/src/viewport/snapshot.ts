@@ -18,6 +18,16 @@ export type Snapshot = { dataUrl: string; width: number; height: number };
 export type Taker = (options: SnapshotOptions) => Snapshot | null;
 
 let taker: Taker | null = null;
+let canvas: HTMLCanvasElement | null = null;
+
+// The viewport's canvas, for recording video.
+export function setViewportCanvas(next: HTMLCanvasElement | null) {
+    canvas = next;
+}
+
+export function viewportCanvas() {
+    return canvas;
+}
 
 export function setSnapshotTaker(next: Taker | null) {
     taker = next;
