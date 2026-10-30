@@ -198,6 +198,9 @@ export function AccountButton() {
                     <button role="menuitem" onClick={act(() => useAccount.getState().setShowScenes(true))}>
                         <FolderOpen size={18} /> My scenes
                     </button>
+                    <button role="menuitem" onClick={act(() => location.assign("/pricing"))}>
+                        <Sparkle size={18} /> {user.plan === "pro" ? "Manage your plan" : "Upgrade to Pro"}
+                    </button>
                     <button role="menuitem" onClick={act(() => void useAccount.getState().signOut())}>
                         <SignOut size={18} /> Sign out
                     </button>
