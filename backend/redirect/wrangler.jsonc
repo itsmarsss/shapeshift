@@ -1,0 +1,9 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "shapeshift-www",
+  "main": "index.ts",
+  "account_id": "5bc3b9b0633d9e07fc0908e600147b08",
+  "compatibility_date": "2026-10-15",
+  "workers_dev": false,
+  "routes": [{ "pattern": "www.tryshapeshift.com", "custom_domain": true }]
+}

@@ -66,6 +66,8 @@ It's one pnpm workspace. Run `pnpm dev`, `pnpm test`, `pnpm lint`, `pnpm typeche
 
 From `backend`, run `pnpm exec wrangler secret put ANTHROPIC_API_KEY` once, then `pnpm deploy` from the root. This builds the app and deploys the Worker to `tryshapeshift.com`. `AGENT_MODEL` and `AGENT_EFFORT` in `wrangler.jsonc` pick the Claude model and effort.
 
+`www.tryshapeshift.com` is a separate tiny Worker that redirects to the bare domain. It rarely changes; deploy it from `backend` with `pnpm exec wrangler deploy -c redirect/wrangler.jsonc`.
+
 ## Inspiration
 
 We've always been fascinated by the futuristic interfaces in movies like _Minority Report_ and _Iron Man_. Traditional 3D modeling software, while powerful, often has a steep learning curve and relies on clunky keyboard shortcuts and mouse clicks. We asked ourselves: what if we could sculpt 3D objects as naturally as if we were molding clay with our own hands? Our inspiration was to **bridge the gap between human intuition and digital creation**, building an accessible, immersive, and magical 3D modeling experience right in the browser. We wanted to create a tool that feels less like operating a machine and more like an extension of our own creativity.
