@@ -1,5 +1,6 @@
 import { Timeline, TIMELINE_HEIGHT } from "./timeline/Timeline";
 import { useTimeline } from "../scene/timeline";
+import { useCompact } from "../ui/compact";
 import { lazy, Suspense, useEffect, type CSSProperties } from "react";
 import styled from "styled-components";
 import { GlobalStyle } from "./ui";
@@ -35,6 +36,7 @@ export function Layout() {
     const handsOn = useHands((s) => s.status !== "off");
     const showSettings = useUI((s) => s.showSettings);
     const timelineOpen = useTimeline((s) => s.open);
+    const compact = useCompact();
     const theme = useResolvedTheme();
     useEffect(() => {
         document.documentElement.dataset.theme = theme;
@@ -43,9 +45,9 @@ export function Layout() {
         <Root
             style={
                 {
-                    "--chat-width": showChat ? "360px" : "0px",
+                    "--chat-width": showChat && !compact ? "360px" : "0px",
                     // Panels along the bottom sit above the timeline when it's open.
-                    "--bottom-offset": timelineOpen ? `${TIMELINE_HEIGHT + 12}px` : "0px",
+                    "--bottom-offset": timelineOpen ? `${(compact ? 120 : TIMELINE_HEIGHT) + 12}px` : "0px",
                 } as CSSProperties
             }
         >

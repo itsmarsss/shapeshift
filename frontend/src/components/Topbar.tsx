@@ -1,6 +1,7 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import {
+    DotsThree,
     ArrowUUpLeft,
     ArrowUUpRight,
     ChatCircle,
@@ -24,6 +25,7 @@ import { useSettings } from "../settings/store";
 import { IconButton, Segment, Segmented } from "./ui";
 import { CollabBar } from "../collab/CollabBar";
 import { useTimeline } from "../scene/timeline";
+import { COMPACT, useCompact } from "../ui/compact";
 
 const Bar = styled.div`
     height: var(--topbar);
@@ -35,6 +37,12 @@ const Bar = styled.div`
     border-bottom: 1px solid var(--border);
     position: relative;
     z-index: 100;
+
+    @media ${COMPACT} {
+        padding: 0 4px;
+        padding-top: env(safe-area-inset-top, 0px);
+        height: calc(var(--topbar) + env(safe-area-inset-top, 0px));
+    }
 `;
 
 const Group = styled.div<{ $end?: boolean }>`
@@ -47,6 +55,10 @@ const Group = styled.div<{ $end?: boolean }>`
 const Brand = styled.div`
     font-weight: 600;
     margin-right: 12px;
+
+    @media ${COMPACT} {
+        display: none;
+    }
 `;
 
 const Sep = styled.div`
@@ -55,6 +67,87 @@ const Sep = styled.div`
     margin: 0 6px;
     background: var(--border);
 `;
+
+// Buttons that move into the "more" menu on small screens.
+const Wide = styled.span`
+    display: contents;
+
+    @media ${COMPACT} {
+        display: none;
+    }
+`;
+
+const Menu = styled.div`
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    min-width: 220px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+    z-index: 200;
+
+    button {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 40px;
+        padding: 0 10px;
+        border: 0;
+        border-radius: var(--radius);
+        background: transparent;
+        color: var(--text);
+        text-align: left;
+    }
+    button:hover,
+    button[aria-pressed="true"] {
+        background: var(--surface-raised);
+    }
+`;
+
+type MenuItem = { label: string; icon: React.ReactNode; onClick: () => void; active?: boolean };
+
+function MoreMenu({ items }: { items: MenuItem[] }) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (!open) return;
+        const close = (e: PointerEvent) => {
+            if (!ref.current?.contains(e.target as Node)) setOpen(false);
+        };
+        window.addEventListener("pointerdown", close);
+        return () => window.removeEventListener("pointerdown", close);
+    }, [open]);
+    return (
+        <div ref={ref} style={{ position: "relative" }}>
+            <IconButton title="More" $active={open} onClick={() => setOpen((v) => !v)}>
+                <DotsThree size={20} weight="bold" />
+            </IconButton>
+            {open && (
+                <Menu role="menu">
+                    {items.map((item) => (
+                        <button
+                            key={item.label}
+                            role="menuitem"
+                            aria-pressed={item.active}
+                            onClick={() => {
+                                setOpen(false);
+                                item.onClick();
+                            }}
+                        >
+                            {item.icon}
+                            {item.label}
+                        </button>
+                    ))}
+                </Menu>
+            )}
+        </div>
+    );
+}
 
 const MODES: { mode: EditorMode; label: string }[] = [
     { mode: "object", label: "Object" },
@@ -113,35 +206,59 @@ export function Topbar() {
         }
     }
 
+    const compact = useCompact();
+    const menuItems: MenuItem[] = [
+        {
+            label: "New scene",
+            icon: <FilePlus size={18} />,
+            onClick: () => {
+                const empty = useScene.getState().doc.objects.length === 0;
+                if (empty || !useSettings.getState().confirmNew || confirm("Start a new scene? You can undo this.")) run({ type: "clear" });
+            },
+        },
+        { label: "Open scene", icon: <FolderOpen size={18} />, onClick: () => openRef.current?.click() },
+        { label: "Save scene", icon: <FloppyDisk size={18} />, onClick: () => saveSceneFile(useScene.getState().doc) },
+        { label: "Import model", icon: <TrayArrowDown size={18} />, onClick: () => importRef.current?.click() },
+        { label: "Save image", icon: <Camera size={18} />, onClick: saveImage },
+        { label: "Export as GLB", icon: <Export size={18} />, onClick: () => exportGLB(useScene.getState().doc) },
+        { label: "Redo", icon: <ArrowUUpRight size={18} />, onClick: redo },
+        { label: "Animation timeline", icon: <FilmStrip size={18} />, onClick: () => setTimelineOpen(!timelineOpen), active: timelineOpen },
+        { label: handStatus === "off" ? "Hand control" : "Turn off hand control", icon: <Hand size={18} />, onClick: () => setHands(handStatus === "off"), active: handStatus !== "off" },
+        { label: "Settings", icon: <GearSix size={18} />, onClick: () => setShowSettings(true) },
+    ];
+
     return (
         <Bar>
             <Group>
                 <Brand>ShapeShift</Brand>
-                <IconButton
-                    title="New scene"
-                    onClick={() => {
-                        const empty = useScene.getState().doc.objects.length === 0;
-                        if (empty || !useSettings.getState().confirmNew || confirm("Start a new scene? You can undo this.")) run({ type: "clear" });
-                    }}
-                >
-                    <FilePlus size={18} />
-                </IconButton>
-                <IconButton title="Open scene" onClick={() => openRef.current?.click()}>
-                    <FolderOpen size={18} />
-                </IconButton>
-                <IconButton title="Save scene" onClick={() => saveSceneFile(useScene.getState().doc)}>
-                    <FloppyDisk size={18} />
-                </IconButton>
-                <Sep />
-                <IconButton title="Import model" onClick={() => importRef.current?.click()}>
-                    <TrayArrowDown size={18} />
-                </IconButton>
-                <IconButton title="Save an image of the view" onClick={saveImage}>
-                    <Camera size={18} />
-                </IconButton>
-                <IconButton title="Export as GLB" onClick={() => exportGLB(useScene.getState().doc)}>
-                    <Export size={18} />
-                </IconButton>
+                {compact && <MoreMenu items={menuItems} />}
+                <Wide>
+                    <IconButton
+                        title="New scene"
+                        onClick={() => {
+                            const empty = useScene.getState().doc.objects.length === 0;
+                            if (empty || !useSettings.getState().confirmNew || confirm("Start a new scene? You can undo this.")) run({ type: "clear" });
+                        }}
+                    >
+                        <FilePlus size={18} />
+                    </IconButton>
+                    <IconButton title="Open scene" onClick={() => openRef.current?.click()}>
+                        <FolderOpen size={18} />
+                    </IconButton>
+                    <IconButton title="Save scene" onClick={() => saveSceneFile(useScene.getState().doc)}>
+                        <FloppyDisk size={18} />
+                    </IconButton>
+                    <Sep />
+                    <IconButton title="Import model" onClick={() => importRef.current?.click()}>
+                        <TrayArrowDown size={18} />
+                    </IconButton>
+                    <IconButton title="Save an image of the view" onClick={saveImage}>
+                        <Camera size={18} />
+                    </IconButton>
+                    <IconButton title="Export as GLB" onClick={() => exportGLB(useScene.getState().doc)}>
+                        <Export size={18} />
+                    </IconButton>
+                </Wide>
                 <input ref={openRef} type="file" accept=".json" hidden onChange={onOpen} />
                 <input ref={importRef} type="file" accept=".glb,.gltf" hidden onChange={onImport} />
             </Group>
@@ -157,29 +274,33 @@ export function Topbar() {
                 <IconButton title="Undo" disabled={!canUndo} onClick={undo}>
                     <ArrowUUpLeft size={18} />
                 </IconButton>
-                <IconButton title="Redo" disabled={!canRedo} onClick={redo}>
-                    <ArrowUUpRight size={18} />
-                </IconButton>
-                <Sep />
-                <IconButton title="Animation timeline" $active={timelineOpen} onClick={() => setTimelineOpen(!timelineOpen)}>
-                    <FilmStrip size={18} />
-                </IconButton>
-                <IconButton
-                    title={handStatus === "off" ? "Turn on hand control" : "Turn off hand control"}
-                    $active={handStatus !== "off"}
-                    onClick={() => setHands(handStatus === "off")}
-                >
-                    <Hand size={18} />
-                </IconButton>
+                <Wide>
+                    <IconButton title="Redo" disabled={!canRedo} onClick={redo}>
+                        <ArrowUUpRight size={18} />
+                    </IconButton>
+                    <Sep />
+                    <IconButton title="Animation timeline" $active={timelineOpen} onClick={() => setTimelineOpen(!timelineOpen)}>
+                        <FilmStrip size={18} />
+                    </IconButton>
+                    <IconButton
+                        title={handStatus === "off" ? "Turn on hand control" : "Turn off hand control"}
+                        $active={handStatus !== "off"}
+                        onClick={() => setHands(handStatus === "off")}
+                    >
+                        <Hand size={18} />
+                    </IconButton>
+                </Wide>
                 <IconButton title="Inspector" $active={showInspector} onClick={() => setShowInspector(!showInspector)}>
                     <SlidersHorizontal size={18} />
                 </IconButton>
                 <IconButton title="Assistant" $active={showChat} onClick={() => setShowChat(!showChat)}>
                     <ChatCircle size={18} />
                 </IconButton>
-                <IconButton title="Settings (⌘,)" onClick={() => setShowSettings(true)}>
-                    <GearSix size={18} />
-                </IconButton>
+                <Wide>
+                    <IconButton title="Settings (⌘,)" onClick={() => setShowSettings(true)}>
+                        <GearSix size={18} />
+                    </IconButton>
+                </Wide>
             </Group>
         </Bar>
     );

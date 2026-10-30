@@ -2,6 +2,7 @@ import { useState } from "react";
 import styled from "styled-components";
 import { Copy, SelectionPlus, SelectionSlash, Trash, X } from "@phosphor-icons/react";
 import { useShallow } from "zustand/react/shallow";
+import { COMPACT } from "../ui/compact";
 import { useTimeline } from "../scene/timeline";
 import { transformCommand } from "../scene/autokey";
 import { selectSelected, selectSelectedLight, selectSelectedObjects, useScene } from "../scene/store";
@@ -17,6 +18,20 @@ const Root = styled(Panel)`
     width: 272px;
     max-height: calc(100% - var(--topbar) - var(--gap) * 2 - var(--bottom-offset, 0px));
     z-index: 30;
+
+    @media ${COMPACT} {
+        top: auto;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: auto;
+        border-radius: 16px 16px 0 0;
+        border-bottom: 0;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.4);
+        z-index: 60;
+        max-height: 55vh;
+    }
 `;
 
 const Body = styled.div`

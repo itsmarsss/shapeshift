@@ -1,3 +1,4 @@
+import { COMPACT } from "../ui/compact";
 import { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import { CameraSlash, CircleNotch, Play, Record, Stop } from "@phosphor-icons/react";
@@ -16,6 +17,12 @@ const Box = styled.div`
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     z-index: 20;
+
+    @media ${COMPACT} {
+        top: calc(var(--topbar) + var(--gap));
+        bottom: auto;
+        width: 150px;
+    }
 `;
 
 const Frame = styled.div`

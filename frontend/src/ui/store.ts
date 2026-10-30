@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { isCompact } from "./compact";
 
 type UIState = {
     showInspector: boolean;
@@ -9,11 +10,13 @@ type UIState = {
     setShowSettings: (v: boolean) => void;
 };
 
+// On small screens the inspector and the assistant share the bottom of the
+// screen, so opening one closes the other, and both start closed.
 export const useUI = create<UIState>()((set) => ({
-    showInspector: true,
-    showChat: true,
+    showInspector: !isCompact(),
+    showChat: !isCompact(),
     showSettings: false,
-    setShowInspector: (showInspector) => set({ showInspector }),
-    setShowChat: (showChat) => set({ showChat }),
+    setShowInspector: (showInspector) => set(showInspector && isCompact() ? { showInspector, showChat: false } : { showInspector }),
+    setShowChat: (showChat) => set(showChat && isCompact() ? { showChat, showInspector: false } : { showChat }),
     setShowSettings: (showSettings) => set({ showSettings }),
 }));

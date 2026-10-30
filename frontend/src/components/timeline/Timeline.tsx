@@ -7,6 +7,7 @@ import type { Command } from "../../scene/schema";
 import { useScene } from "../../scene/store";
 import { useTimeline } from "../../scene/timeline";
 import { IconButton, Panel } from "../ui";
+import { COMPACT } from "../../ui/compact";
 
 export const TIMELINE_HEIGHT = 92;
 
@@ -20,6 +21,15 @@ const Root = styled(Panel)`
     align-items: center;
     gap: 10px;
     z-index: 35;
+
+    @media ${COMPACT} {
+        left: var(--gap);
+        right: var(--gap);
+        bottom: calc(var(--gap) + env(safe-area-inset-bottom, 0px));
+        height: auto;
+        flex-wrap: wrap;
+        row-gap: 6px;
+    }
 `;
 
 const Controls = styled.div`
@@ -60,6 +70,11 @@ const Clock = styled.div`
 const Track = styled.div`
     position: relative;
     flex: 1;
+
+    @media ${COMPACT} {
+        order: 5;
+        flex-basis: 100%;
+    }
     min-width: 120px;
     height: 54px;
     border-radius: var(--radius);
