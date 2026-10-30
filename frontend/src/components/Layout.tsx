@@ -1,3 +1,4 @@
+import { OfflineNote } from "./OfflineNote";
 import { Timeline, TIMELINE_HEIGHT } from "./timeline/Timeline";
 import { useTimeline } from "../scene/timeline";
 import { useCompact } from "../ui/compact";
@@ -65,6 +66,7 @@ export function Layout() {
             <Inspector />
             <BooleanPanel />
             <Timeline />
+            <OfflineNote />
             <Suspense fallback={null}>
                 <ChatPanel />
                 {handsOn && <HandUI />}
