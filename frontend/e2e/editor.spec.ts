@@ -10,6 +10,19 @@ test('adds a shape from the toolbar and undoes it', async ({ page }) => {
   await expect(page.locator('select option', { hasText: 'Box' })).toHaveCount(0)
 })
 
+test('jumps back through the history panel', async ({ page }) => {
+  await openEditor(page)
+  await page.getByTitle('Add box').click()
+  await page.getByTitle('Add sphere').click()
+  await page.getByTitle('History').click()
+  const history = page.getByRole('dialog', { name: 'History' })
+  await expect(history.getByRole('button', { name: 'Added Sphere' })).toHaveAttribute('aria-current', 'step')
+  await history.getByRole('button', { name: 'Start' }).click()
+  await expect(page.locator('select option', { hasText: 'Box' })).toHaveCount(0)
+  await history.getByRole('button', { name: 'Added Sphere' }).click()
+  await expect(page.locator('select option', { hasText: 'Sphere' }).first()).toBeAttached()
+})
+
 test('keyframes the selection on the timeline', async ({ page }) => {
   await openEditor(page)
   await page.getByTitle('Add sphere').click()

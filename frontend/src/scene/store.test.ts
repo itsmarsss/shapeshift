@@ -74,6 +74,23 @@ describe("history", () => {
         expect(s().doc.objects[0].name).toBe("Crate");
     });
 
+    it("jumps several steps back and forward at once", () => {
+        s().run({ type: "add", primitive: "box" });
+        s().run({ type: "rename", target: "Box", name: "Crate" });
+        s().run({ type: "material", target: "Crate", roughness: 0.1 });
+        s().travel(-3);
+        expect(s().doc.objects).toHaveLength(0);
+        expect(s().future).toHaveLength(3);
+        s().travel(2);
+        expect(s().doc.objects[0].name).toBe("Crate");
+        expect(s().doc.objects[0].material.roughness).toBe(0.6);
+        s().redo();
+        expect(s().doc.objects[0].material.roughness).toBe(0.1);
+        s().travel(-99);
+        expect(s().past).toHaveLength(0);
+        expect(s().future).toHaveLength(3);
+    });
+
     it("treats a batch of commands as one step", () => {
         s().run([
             { type: "add", primitive: "box" },

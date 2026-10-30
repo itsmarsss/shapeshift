@@ -5,6 +5,7 @@ import {
     ArrowUUpLeft,
     ArrowUUpRight,
     ChatCircle,
+    ClockCounterClockwise,
     Camera,
     Export,
     FilmStrip,
@@ -182,6 +183,8 @@ export function Topbar() {
     const setShowInspector = useUI((s) => s.setShowInspector);
     const setShowChat = useUI((s) => s.setShowChat);
     const setShowSettings = useUI((s) => s.setShowSettings);
+    const showHistory = useUI((s) => s.showHistory);
+    const setShowHistory = useUI((s) => s.setShowHistory);
     const handStatus = useHands((s) => s.status);
     const setHands = useHands((s) => s.setEnabled);
     const openRef = useRef<HTMLInputElement>(null);
@@ -227,6 +230,7 @@ export function Topbar() {
         { label: "Save image", icon: <Camera size={18} />, onClick: saveImage },
         { label: "Export as GLB", icon: <Export size={18} />, onClick: () => exportGLB(useScene.getState().doc) },
         { label: "Redo", icon: <ArrowUUpRight size={18} />, onClick: redo },
+        { label: "History", icon: <ClockCounterClockwise size={18} />, onClick: () => setShowHistory(!showHistory), active: showHistory },
         { label: "Animation timeline", icon: <FilmStrip size={18} />, onClick: () => setTimelineOpen(!timelineOpen), active: timelineOpen },
         { label: handStatus === "off" ? "Hand control" : "Turn off hand control", icon: <Hand size={18} />, onClick: () => setHands(handStatus === "off"), active: handStatus !== "off" },
         { label: "Settings", icon: <GearSix size={18} />, onClick: () => setShowSettings(true) },
@@ -283,6 +287,9 @@ export function Topbar() {
                 <Wide>
                     <IconButton title="Redo" disabled={!canRedo} onClick={redo}>
                         <ArrowUUpRight size={18} />
+                    </IconButton>
+                    <IconButton title="History" $active={showHistory} onClick={() => setShowHistory(!showHistory)}>
+                        <ClockCounterClockwise size={18} />
                     </IconButton>
                     <Sep />
                     <IconButton title="Animation timeline" $active={timelineOpen} onClick={() => setTimelineOpen(!timelineOpen)}>
