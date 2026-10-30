@@ -224,7 +224,7 @@ function remixDoc(doc: SceneDoc) {
     } catch {
         // Too big for storage; open the editor anyway.
     }
-    location.href = "/";
+    location.href = "/edit";
 }
 
 export default function ViewerPage({ slug }: { slug: string }) {
