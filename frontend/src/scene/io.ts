@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { buildGeometry, toMeshGeometry } from "./geometry";
+import { animationClip } from "./clip";
 import { DEFAULT_MATERIAL } from "./commands";
 import { SceneDoc, type SceneObject } from "./schema";
 
@@ -69,7 +70,8 @@ export function toThreeScene(doc: SceneDoc): THREE.Scene {
 
 export async function exportGLB(doc: SceneDoc) {
     const { GLTFExporter } = await import("three/examples/jsm/exporters/GLTFExporter.js");
-    const result = await new GLTFExporter().parseAsync(toThreeScene(doc), { binary: true });
+    const clip = animationClip(doc);
+    const result = await new GLTFExporter().parseAsync(toThreeScene(doc), { binary: true, ...(clip ? { animations: [clip] } : {}) });
     download(result as ArrayBuffer, "scene.glb", "model/gltf-binary");
 }
 

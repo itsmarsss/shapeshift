@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useThree } from "@react-three/fiber";
 import type * as THREE from "three";
-import { framedCamera, isHelper, setSnapshotTaker } from "./snapshot";
+import { framedCamera, isHelper, setSnapshotTaker, setViewportCanvas } from "./snapshot";
 
 // Mounted inside the Canvas. Renders straight to the canvas and reads it back
 // in the same task, so the browser never shows the extra frame.
@@ -44,7 +44,11 @@ export function SnapshotBridge() {
                 gl.render(scene, camera);
             }
         });
-        return () => setSnapshotTaker(null);
+        setViewportCanvas(gl.domElement);
+        return () => {
+            setSnapshotTaker(null);
+            setViewportCanvas(null);
+        };
     }, [gl, scene, camera]);
 
     return null;
