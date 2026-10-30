@@ -17,6 +17,9 @@ import {
     Printer,
     Shapes,
     SquaresFour,
+    SignOut,
+    Sparkle,
+    UserCircle,
     SlidersHorizontal,
     TrayArrowDown,
 } from "@phosphor-icons/react";
@@ -45,6 +48,8 @@ const Bar = styled.div`
     z-index: 100;
 
     @media ${COMPACT} {
+        // Sides size to their buttons so the mode switch can sit between them.
+        grid-template-columns: auto 1fr auto;
         padding: 0 4px;
         padding-top: env(safe-area-inset-top, 0px);
         height: calc(var(--topbar) + env(safe-area-inset-top, 0px));
@@ -73,6 +78,17 @@ const Brand = styled.a`
     }
 `;
 
+// The mode switch, tightened on phones so the bar fits a 360px screen.
+const Modes = styled(Segmented)`
+    justify-self: center;
+
+    @media ${COMPACT} {
+        button {
+            padding: 0 8px;
+        }
+    }
+`;
+
 const Sep = styled.div`
     width: 1px;
     height: 18px;
@@ -94,6 +110,8 @@ const Menu = styled.div`
     top: calc(100% + 6px);
     left: 0;
     min-width: 220px;
+    max-height: calc(100vh - var(--topbar) - 24px);
+    overflow-y: auto;
     padding: 6px;
     display: flex;
     flex-direction: column;
@@ -201,6 +219,7 @@ export function Topbar() {
     const setHands = useHands((s) => s.setEnabled);
     const [printing, setPrinting] = useState(false);
     const signedIn = useAccount((s) => s.user !== null);
+    const plan = useAccount((s) => s.user?.plan);
     const openRef = useRef<HTMLInputElement>(null);
     const importRef = useRef<HTMLInputElement>(null);
 
@@ -230,7 +249,12 @@ export function Topbar() {
 
     const compact = useCompact();
     const menuItems: MenuItem[] = [
-        ...(signedIn ? [{ label: "All scenes", icon: <SquaresFour size={18} />, onClick: () => location.assign("/") }] : []),
+        ...(signedIn
+            ? [
+                  { label: "All scenes", icon: <SquaresFour size={18} />, onClick: () => location.assign("/") },
+                  { label: "My scenes", icon: <FolderOpen size={18} />, onClick: () => useAccount.getState().setShowScenes(true) },
+              ]
+            : [{ label: "Sign in", icon: <UserCircle size={18} />, onClick: () => useAccount.getState().setShowSignIn(true) }]),
         {
             label: "New scene",
             icon: <FilePlus size={18} />,
@@ -251,6 +275,12 @@ export function Topbar() {
         { label: "Animation timeline", icon: <FilmStrip size={18} />, onClick: () => setTimelineOpen(!timelineOpen), active: timelineOpen },
         { label: handStatus === "off" ? "Hand control" : "Turn off hand control", icon: <Hand size={18} />, onClick: () => setHands(handStatus === "off"), active: handStatus !== "off" },
         { label: "Settings", icon: <GearSix size={18} />, onClick: () => setShowSettings(true) },
+        ...(signedIn
+            ? [
+                  { label: plan === "pro" ? "Manage your plan" : "Upgrade to Pro", icon: <Sparkle size={18} />, onClick: () => location.assign("/pricing") },
+                  { label: "Sign out", icon: <SignOut size={18} />, onClick: () => void useAccount.getState().signOut() },
+              ]
+            : []),
     ];
 
     return (
@@ -301,15 +331,18 @@ export function Topbar() {
                 )}
                 <input ref={importRef} type="file" accept=".glb,.gltf" hidden onChange={onImport} />
             </Group>
-            <Segmented>
+            <Modes>
                 {MODES.map(({ mode: m, label }) => (
                     <Segment key={m} $active={mode === m} onClick={() => setMode(m)}>
                         {label}
                     </Segment>
                 ))}
-            </Segmented>
+            </Modes>
             <Group $end>
-                <AccountButton />
+                {/* On phones the account lives in the ⋯ menu. */}
+                <Wide>
+                    <AccountButton />
+                </Wide>
                 <CollabBar />
                 <IconButton title="Undo" disabled={!canUndo} onClick={undo}>
                     <ArrowUUpLeft size={18} />
