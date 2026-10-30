@@ -3,6 +3,7 @@ import { ROOM_ID } from "../src/collab/protocol";
 import { handleAccounts } from "./accounts";
 import { handleScenes } from "./scenes";
 import { handleWaitlist } from "./waitlist";
+import { handlePublic, sharePage } from "./publicScenes";
 
 export { Room } from "./room";
 
@@ -16,6 +17,10 @@ export default {
         }
         const accounts = await handleAccounts(request, env);
         if (accounts) return accounts;
+        const share = pathname.match(/^\/s\/([A-Za-z0-9]{10})\/?$/);
+        if (share && request.method === "GET") return sharePage(request, env, share[1]);
+        const publicScene = await handlePublic(request, env);
+        if (publicScene) return publicScene;
         const waitlist = await handleWaitlist(request, env);
         if (waitlist) return waitlist;
         const scenes = await handleScenes(request, env);
