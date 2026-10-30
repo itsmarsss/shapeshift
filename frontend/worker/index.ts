@@ -1,5 +1,6 @@
 import { agentInfo, agentStep } from "./agent";
 import { ROOM_ID } from "../src/collab/protocol";
+import { handleAccounts } from "./accounts";
 
 export { Room } from "./room";
 
@@ -11,6 +12,8 @@ export default {
             if (request.method === "GET") return agentInfo(env);
             return Response.json({ error: "Method not allowed", code: "bad_request" }, { status: 405, headers: { allow: "GET, POST" } });
         }
+        const accounts = await handleAccounts(request, env);
+        if (accounts) return accounts;
         const room = pathname.match(/^\/api\/rooms\/([^/]+)$/);
         if (room) {
             if (!ROOM_ID.test(room[1])) return Response.json({ error: "Invalid room id", code: "bad_request" }, { status: 400 });

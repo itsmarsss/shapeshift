@@ -2,4 +2,7 @@
 // Set with `wrangler secret put ANTHROPIC_API_KEY`, or in .dev.vars locally.
 interface Env {
     ANTHROPIC_API_KEY?: string;
+    // Email for sign-in codes. Without it, sign-in only works on localhost.
+    RESEND_API_KEY?: string;
+    EMAIL_FROM?: string;
 }
