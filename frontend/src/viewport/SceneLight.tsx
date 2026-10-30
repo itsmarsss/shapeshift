@@ -3,6 +3,7 @@ import type { ThreeEvent } from "@react-three/fiber";
 import { Line } from "@react-three/drei";
 import * as THREE from "three";
 import type { Light } from "../scene/schema";
+import { usePalette } from "../settings/theme";
 
 type Props = {
     light: Light;
@@ -28,6 +29,7 @@ export const SceneLight = memo(function SceneLight({ light, selected, showMarker
     }, [target, light.type]);
 
     const aimed = light.type !== "point";
+    const accent = usePalette().accent;
 
     return (
         <>
@@ -81,12 +83,12 @@ export const SceneLight = memo(function SceneLight({ light, selected, showMarker
                     </mesh>
                     <mesh position={light.position} userData={{ helper: true }} raycast={() => null}>
                         <sphereGeometry args={[light.type === "directional" ? 0.24 : 0.18, 16, 12]} />
-                        <meshBasicMaterial color={selected ? "#4f7cff" : light.color} transparent opacity={selected ? 0.45 : 0.18} depthWrite={false} />
+                        <meshBasicMaterial color={selected ? accent : light.color} transparent opacity={selected ? 0.45 : 0.18} depthWrite={false} />
                     </mesh>
                     {aimed && (
                         <Line
                             points={[light.position, light.aim]}
-                            color={selected ? "#4f7cff" : light.color}
+                            color={selected ? accent : light.color}
                             lineWidth={1}
                             dashed
                             dashSize={0.15}

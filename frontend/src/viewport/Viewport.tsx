@@ -16,10 +16,11 @@ import { PeerCursors } from "./PeerCursors";
 import { SceneEnvironment } from "./SceneEnvironment";
 import { EditOverlay } from "./EditOverlay";
 import { SnapshotBridge } from "./SnapshotBridge";
+import { useGizmoColors } from "./GizmoTheme";
 import { useHands } from "../hands/tracker";
 import { useHandHover } from "../hands/tracker";
 import { DPR, useSettings } from "../settings/store";
-import { SCENE_COLORS, useResolvedTheme } from "../settings/theme";
+import { SCENE_COLORS, usePalette, useResolvedTheme } from "../settings/theme";
 
 function CameraSettings() {
     const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
@@ -38,10 +39,11 @@ function CameraSettings() {
 }
 
 function Axes() {
+    const palette = usePalette();
     return (
         <group userData={{ grid: true }}>
-            <Line points={[[-500, 0.002, 0], [500, 0.002, 0]]} color="#e5484d" lineWidth={1.5} />
-            <Line points={[[0, 0.002, -500], [0, 0.002, 500]]} color="#4f7cff" lineWidth={1.5} />
+            <Line points={[[-500, 0.002, 0], [500, 0.002, 0]]} color={palette.axisX} lineWidth={1.5} />
+            <Line points={[[0, 0.002, -500], [0, 0.002, 500]]} color={palette.axisZ} lineWidth={1.5} />
         </group>
     );
 }
@@ -72,6 +74,7 @@ function withLightPoses(lights: Light[], poses: Map<string, Pose>): Light[] {
 }
 
 export function Viewport() {
+    const gizmoColors = useGizmoColors();
     const baseObjects = useScene((s) => s.doc.objects);
     const baseLights = useScene((s) => s.doc.lights);
     const poses = useTimeline((s) => s.poses);
@@ -216,6 +219,7 @@ export function Viewport() {
 
             {mode === "object" && selectedObjects.length <= 1 && selectedId && selectedMesh && (
                 <TransformControls
+                    ref={gizmoColors}
                     object={selectedMesh}
                     mode={selectedLight ? "translate" : transformMode}
                     translationSnap={snap.enabled ? snap.translate : null}

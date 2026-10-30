@@ -101,4 +101,4 @@ export type ServerMessage =
     | { type: "pong" }
     | { type: "error"; error: string };
 
-export const PEER_COLORS = ["#f76b15", "#30a46c", "#e54666", "#8e4ec6", "#0090ff", "#ffc53d", "#12a594", "#d6409f"];
+export { PEOPLE as PEER_COLORS } from "../ui/palette";

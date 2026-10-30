@@ -1,5 +1,6 @@
 import { useRef, useState, type MutableRefObject } from "react";
 import { TransformControls } from "@react-three/drei";
+import { useGizmoColors } from "./GizmoTheme";
 import * as THREE from "three";
 import { groupPivot } from "../scene/commands";
 import type { Command, SceneObject, Vec3 } from "../scene/schema";
@@ -19,6 +20,7 @@ function matrixOf(o: SceneObject) {
 // One gizmo for several selected objects. It drags a pivot at their center and
 // applies the pivot's change to every object, so a drag is one undo step.
 export function MultiTransform({ objects, gizmoBusy }: { objects: SceneObject[]; gizmoBusy: MutableRefObject<boolean> }) {
+    const gizmoColors = useGizmoColors();
     const transformMode = useScene((s) => s.transformMode);
     const snap = useScene((s) => s.snap);
     const [pivot, setPivot] = useState<THREE.Group | null>(null);
@@ -32,6 +34,7 @@ export function MultiTransform({ objects, gizmoBusy }: { objects: SceneObject[];
             <group key={generation} ref={setPivot} position={start.current ? undefined : center} />
             {pivot && (
                 <TransformControls
+                    ref={gizmoColors}
                     object={pivot}
                     mode={transformMode}
                     translationSnap={snap.enabled ? snap.translate : null}
