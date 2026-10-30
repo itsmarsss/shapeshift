@@ -27,6 +27,7 @@ type AccountState = {
     openScene: (id: string) => Promise<void>;
     renameScene: (id: string, title: string) => Promise<void>;
     deleteScene: (id: string) => Promise<void>;
+    setShared: (id: string, shared: boolean) => Promise<string | null>;
     unlink: () => void;
 };
 
@@ -141,6 +142,12 @@ export const useAccount = create<AccountState>()((set, get) => ({
         await api.remove(id);
         set((s) => ({ scenes: s.scenes.filter((x) => x.id !== id), ...(s.cloudId === id ? { cloudId: null, cloudTitle: "", save: "idle" } : {}) }));
         if (get().cloudId === null) remember(null);
+    },
+
+    setShared: async (id, shared) => {
+        const { scene } = shared ? await api.publish(id) : await api.unpublish(id);
+        set((s) => ({ scenes: s.scenes.map((x) => (x.id === id ? scene : x)) }));
+        return scene.publicSlug ? `${location.origin}/s/${scene.publicSlug}` : null;
     },
 
     unlink: () => {

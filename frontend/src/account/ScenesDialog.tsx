@@ -1,6 +1,6 @@
 import { useState } from "react";
 import styled from "styled-components";
-import { CloudArrowUp, Cube, PencilSimple, Trash } from "@phosphor-icons/react";
+import { Check, CloudArrowUp, Cube, LinkSimple, PencilSimple, Trash } from "@phosphor-icons/react";
 import { Button, Input } from "../components/ui";
 import { api } from "./api";
 import { Dialog } from "./Dialog";
@@ -105,11 +105,38 @@ function ago(at: number) {
     return new Date(at).toLocaleDateString();
 }
 
-function SceneCard({ id, title, updatedAt }: { id: string; title: string; updatedAt: number }) {
+const Shared = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px 8px;
+    font-size: 11px;
+    color: var(--text-muted);
+
+    button {
+        border: 0;
+        background: none;
+        padding: 0;
+        color: var(--accent);
+        font-size: 11px;
+    }
+`;
+
+function SceneCard({ id, title, updatedAt, publicSlug }: { id: string; title: string; updatedAt: number; publicSlug: string | null }) {
     const cloudId = useAccount((s) => s.cloudId);
     const openScene = useAccount((s) => s.openScene);
     const renameScene = useAccount((s) => s.renameScene);
     const deleteScene = useAccount((s) => s.deleteScene);
+    const setShared = useAccount((s) => s.setShared);
+    const [copied, setCopied] = useState(false);
+
+    async function share() {
+        const link = await setShared(id, true);
+        if (!link) return;
+        await navigator.clipboard?.writeText(link).catch(() => {});
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1600);
+    }
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState(title);
     const [confirm, setConfirm] = useState(false);
@@ -140,9 +167,14 @@ function SceneCard({ id, title, updatedAt }: { id: string; title: string; update
                     </div>
                 )}
                 {!editing && !confirm && (
-                    <button title="Rename" onClick={() => setEditing(true)}>
-                        <PencilSimple size={14} />
-                    </button>
+                    <>
+                        <button title={publicSlug ? "Copy the view-only link" : "Share a view-only link"} onClick={() => void share()}>
+                            {copied ? <Check size={14} color="var(--success)" /> : <LinkSimple size={14} />}
+                        </button>
+                        <button title="Rename" onClick={() => setEditing(true)}>
+                            <PencilSimple size={14} />
+                        </button>
+                    </>
                 )}
                 <button
                     title="Delete"
@@ -153,6 +185,13 @@ function SceneCard({ id, title, updatedAt }: { id: string; title: string; update
                     {confirm ? "Delete?" : <Trash size={14} />}
                 </button>
             </Info>
+            {publicSlug && (
+                <Shared>
+                    {copied ? "Link copied" : "Anyone with the link can view"}
+                    <span>·</span>
+                    <button onClick={() => void setShared(id, false)}>Stop sharing</button>
+                </Shared>
+            )}
         </Card>
     );
 }
@@ -187,7 +226,7 @@ export function ScenesDialog() {
             {scenes.length ? (
                 <Grid>
                     {scenes.map((s) => (
-                        <SceneCard key={s.id} id={s.id} title={s.title} updatedAt={s.updatedAt} />
+                        <SceneCard key={s.id} id={s.id} title={s.title} updatedAt={s.updatedAt} publicSlug={s.publicSlug} />
                     ))}
                 </Grid>
             ) : (
