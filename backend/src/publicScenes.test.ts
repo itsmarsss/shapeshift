@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { handleAccounts } from "./accounts";
 import { handleScenes } from "./scenes";
-import { handlePublic } from "./publicScenes";
+import { handleExplore, handlePublic } from "./publicScenes";
 import { testDatabase } from "./test/d1";
 import { testBucket } from "./test/r2";
 
@@ -63,5 +63,48 @@ describe("public share links", () => {
         expect((await handlePublic(req("/api/public/AAAAAAAAAA"), e))!.status).toBe(404);
         expect((await handlePublic(req("/api/public/short"), e))!.status).toBe(404);
         expect(await handlePublic(req("/api/other"), e)).toBeNull();
+    });
+});
+
+describe("explore", () => {
+    const explore = async (e: Env, query = "") => (await handleExplore(req("/api/explore" + query), e))!.json() as Promise<{ scenes: { slug: string; title: string; author: string | null }[]; next: number | null }>;
+
+    it("lists only scenes their owners chose to show, without leaking who they are", async () => {
+        const e = env();
+        const cookie = await signIn(e, "maker@example.com", "Ada");
+        const make = async (title: string) => (await read(await handleScenes(req("/api/scenes", { method: "POST", body: { title, doc }, cookie }), e))).scene!.id;
+        const shared = await make("Shared only");
+        const listed = await make("In Explore");
+        await make("Private");
+        await handleScenes(req(`/api/scenes/${shared}/publish`, { method: "POST", cookie }), e);
+        const res = await read(await handleScenes(req(`/api/scenes/${listed}/listing`, { method: "POST", body: { listed: true }, cookie }), e));
+        // Listing shares the link too, since that is what Explore opens.
+        expect(res.scene!.publicSlug).toMatch(/^[A-Za-z0-9]{10}$/);
+
+        const page = await explore(e);
+        expect(page.scenes.map((s) => s.title)).toEqual(["In Explore"]);
+        expect(page.scenes[0].author).toBe("Ada");
+        expect(JSON.stringify(page)).not.toContain("maker@example.com");
+
+        // Unsharing takes it out of Explore as well.
+        await handleScenes(req(`/api/scenes/${listed}/publish`, { method: "DELETE", cookie }), e);
+        expect((await explore(e)).scenes).toEqual([]);
+    });
+
+    it("pages through long lists", async () => {
+        const e = env();
+        const cookie = await signIn(e, "busy@example.com");
+        // More scenes than the free plan keeps.
+        await e.DB.prepare("UPDATE users SET plan = 'pro'").run();
+        for (let i = 0; i < 26; i++) {
+            const id = (await read(await handleScenes(req("/api/scenes", { method: "POST", body: { title: `Scene ${i}`, doc }, cookie }), e))).scene!.id;
+            await handleScenes(req(`/api/scenes/${id}/listing`, { method: "POST", body: { listed: true }, cookie }), e);
+            await new Promise((r) => setTimeout(r, 2));
+        }
+        const first = await explore(e);
+        expect(first.scenes).toHaveLength(24);
+        const second = await explore(e, `?before=${first.next}`);
+        expect(second.scenes).toHaveLength(2);
+        expect(second.next).toBeNull();
     });
 });

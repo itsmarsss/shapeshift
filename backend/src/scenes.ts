@@ -19,7 +19,7 @@ const SaveBody = z.object({
         .optional(),
 });
 
-type SceneRow = { id: string; title: string; size: number; created_at: number; updated_at: number; public_slug: string | null };
+type SceneRow = { id: string; title: string; size: number; created_at: number; updated_at: number; public_slug: string | null; listed: number };
 
 // Ten characters from a 62-letter alphabet: too many to guess.
 function randomSlug() {
@@ -31,7 +31,15 @@ function randomSlug() {
 export const fileKey = (owner: string, id: string) => `scenes/${owner}/${id}.json`;
 export const thumbKey = (owner: string, id: string) => `scenes/${owner}/${id}.jpg`;
 
-const meta = (r: SceneRow) => ({ id: r.id, title: r.title, size: r.size, createdAt: r.created_at, updatedAt: r.updated_at, publicSlug: r.public_slug });
+const meta = (r: SceneRow) => ({
+    id: r.id,
+    title: r.title,
+    size: r.size,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+    publicSlug: r.public_slug,
+    listed: Boolean(r.listed) && r.public_slug !== null,
+});
 
 async function readBody(request: Request) {
     const text = await request.text();
@@ -59,13 +67,13 @@ async function putThumbnail(env: Env, owner: string, id: string, dataUrl: string
 }
 
 async function owned(env: Env, user: User, id: string) {
-    return env.DB.prepare("SELECT id, title, size, created_at, updated_at, public_slug FROM scenes WHERE id = ?1 AND owner_id = ?2").bind(id, user.id).first<SceneRow>();
+    return env.DB.prepare("SELECT id, title, size, created_at, updated_at, public_slug, listed FROM scenes WHERE id = ?1 AND owner_id = ?2").bind(id, user.id).first<SceneRow>();
 }
 
 // /api/scenes and /api/scenes/:id[/thumbnail]. Returns null for other paths.
 export async function handleScenes(request: Request, env: Env): Promise<Response | null> {
     const { pathname } = new URL(request.url);
-    const match = pathname.match(/^\/api\/scenes(?:\/([A-Za-z0-9-]{1,64}))?(\/thumbnail|\/publish)?$/);
+    const match = pathname.match(/^\/api\/scenes(?:\/([A-Za-z0-9-]{1,64}))?(\/thumbnail|\/publish|\/listing)?$/);
     if (!match) return null;
     const [, id, sub] = match;
     const thumbnail = sub === "/thumbnail";
@@ -76,7 +84,7 @@ export async function handleScenes(request: Request, env: Env): Promise<Response
     if (!id) {
         if (request.method === "GET") {
             const { results } = await env.DB.prepare(
-                "SELECT id, title, size, created_at, updated_at, public_slug FROM scenes WHERE owner_id = ?1 ORDER BY updated_at DESC LIMIT ?2"
+                "SELECT id, title, size, created_at, updated_at, public_slug, listed FROM scenes WHERE owner_id = ?1 ORDER BY updated_at DESC LIMIT ?2"
             )
                 .bind(user.id, SCENE_LIMITS.perUser)
                 .all<SceneRow>();
@@ -98,7 +106,7 @@ export async function handleScenes(request: Request, env: Env): Promise<Response
         const at = Date.now();
         await env.SCENES.put(fileKey(user.id, sceneId), doc.text, { httpMetadata: { contentType: "application/json" } });
         if (body.thumbnail) await putThumbnail(env, user.id, sceneId, body.thumbnail);
-        const row: SceneRow = { id: sceneId, title: body.title ?? "Untitled scene", size: doc.text.length, created_at: at, updated_at: at, public_slug: null };
+        const row: SceneRow = { id: sceneId, title: body.title ?? "Untitled scene", size: doc.text.length, created_at: at, updated_at: at, public_slug: null, listed: 0 };
         await env.DB.prepare("INSERT INTO scenes (id, owner_id, title, size, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5)")
             .bind(row.id, user.id, row.title, row.size, at)
             .run();
@@ -117,10 +125,24 @@ export async function handleScenes(request: Request, env: Env): Promise<Response
             return json({ scene: meta({ ...row, public_slug: slug }) });
         }
         if (request.method === "DELETE") {
-            await env.DB.prepare("UPDATE scenes SET public_slug = NULL, published_at = NULL WHERE id = ?1").bind(id).run();
-            return json({ scene: meta({ ...row, public_slug: null }) });
+            // Taking the link down also takes it out of Explore.
+            await env.DB.prepare("UPDATE scenes SET public_slug = NULL, published_at = NULL, listed = 0 WHERE id = ?1").bind(id).run();
+            return json({ scene: meta({ ...row, public_slug: null, listed: 0 }) });
         }
         return fail(405, "Method not allowed.");
+    }
+
+    // POST /api/scenes/:id/listing { listed } shows or hides a scene in
+    // Explore. Listing a scene shares its link too, since that's what Explore opens.
+    if (sub === "/listing") {
+        if (request.method !== "POST") return fail(405, "Method not allowed.");
+        const body = (await request.json().catch(() => ({}))) as { listed?: unknown };
+        if (typeof body.listed !== "boolean") return fail(400, "Say whether to list it.");
+        const slug = body.listed ? (row.public_slug ?? randomSlug()) : row.public_slug;
+        await env.DB.prepare("UPDATE scenes SET public_slug = ?1, published_at = COALESCE(published_at, ?2), listed = ?3 WHERE id = ?4")
+            .bind(slug, Date.now(), body.listed ? 1 : 0, id)
+            .run();
+        return json({ scene: meta({ ...row, public_slug: slug, listed: body.listed ? 1 : 0 }) });
     }
 
     if (thumbnail) {

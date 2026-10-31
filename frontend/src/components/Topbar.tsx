@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import {
     CaretDown,
+    Compass,
     DotsThree,
     ArrowUUpLeft,
     ArrowUUpRight,
@@ -341,6 +342,7 @@ export function Topbar() {
         { label: "Save image", icon: <Camera size={18} />, onClick: saveImage },
         { label: "Export as GLB", icon: <Export size={18} />, onClick: () => exportGLB(useScene.getState().doc) },
         { label: "Export for 3D printing", icon: <Printer size={18} />, onClick: () => setPrinting(true) },
+        { label: "Explore shared scenes", icon: <Compass size={18} />, onClick: () => location.assign("/explore") },
     ];
     const menuItems: MenuItem[] = [
         ...(signedIn

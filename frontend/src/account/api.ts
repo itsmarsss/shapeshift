@@ -2,7 +2,8 @@ import type { SceneDoc } from "@shapeshift/shared/scene/schema";
 import type { BillingInterval, PlanId, Usage } from "@shapeshift/shared/billing/plans";
 
 export type User = { id: string; email: string; name: string | null; plan: PlanId };
-export type CloudScene = { id: string; title: string; size: number; createdAt: number; updatedAt: number; publicSlug: string | null };
+export type CloudScene = { id: string; title: string; size: number; createdAt: number; updatedAt: number; publicSlug: string | null; listed?: boolean };
+export type ExploreScene = { slug: string; title: string; author: string | null; publishedAt: number };
 
 export class ApiError extends Error {
     readonly status: number;
@@ -47,6 +48,9 @@ export const api = {
     update: (id: string, patch: { title?: string; doc?: SceneDoc; thumbnail?: string }) => call<{ scene: CloudScene }>(`/api/scenes/${id}`, { method: "PUT", body: patch }),
     publish: (id: string) => call<{ scene: CloudScene }>(`/api/scenes/${id}/publish`, { method: "POST" }),
     unpublish: (id: string) => call<{ scene: CloudScene }>(`/api/scenes/${id}/publish`, { method: "DELETE" }),
+    setListed: (id: string, listed: boolean) => call<{ scene: CloudScene }>(`/api/scenes/${id}/listing`, { method: "POST", body: { listed } }),
+    explore: (before?: number) => call<{ scenes: ExploreScene[]; next: number | null }>(`/api/explore${before ? `?before=${before}` : ""}`),
+    publicThumbnailUrl: (slug: string) => `/api/public/${slug}/thumbnail`,
     remove: (id: string) => call<{ ok: true }>(`/api/scenes/${id}`, { method: "DELETE" }),
     thumbnailUrl: (id: string, version: number) => `/api/scenes/${id}/thumbnail?v=${version}`,
 };

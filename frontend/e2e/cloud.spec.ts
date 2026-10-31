@@ -90,3 +90,29 @@ test('shows signed-in people their scenes before the editor', async ({ page }) =
   await page.goto('/')
   await expect(page.getByTitle('Add box')).toBeVisible()
 })
+
+test('lists a scene in Explore only when its owner chooses to', async ({ page }) => {
+  // Counts listed scenes; earlier runs may have left some behind locally.
+  const listed = () => page.evaluate(async () => (await (await fetch('/api/explore')).json()).scenes.length as number)
+  await openEditor(page)
+  await page.getByTitle('Add box').click()
+  const email = uniqueEmail('explore')
+  await signIn(page, email)
+  const before = await listed()
+  await page.getByTitle(email).click()
+  await page.getByRole('menuitem', { name: 'Save to the cloud' }).click()
+  await page.getByTitle(email).click()
+  await page.getByRole('menuitem', { name: 'My scenes' }).click()
+  const dialog = page.getByRole('dialog', { name: 'My scenes' })
+  await dialog.getByTitle('Share a view-only link').click()
+  await expect(dialog.getByText('Anyone with the link can view')).toBeVisible()
+  // Sharing a link alone doesn't list it.
+  expect(await listed()).toBe(before)
+  await dialog.getByLabel('Show in Explore').check()
+  await expect.poll(listed).toBe(Math.min(before + 1, 24))
+
+  await page.goto('/explore')
+  await expect(page.getByRole('heading', { name: 'Explore' })).toBeVisible()
+  await page.locator('a[href^="/s/"]').first().click()
+  await expect(page).toHaveURL(/\/s\/[A-Za-z0-9]{10}$/)
+})

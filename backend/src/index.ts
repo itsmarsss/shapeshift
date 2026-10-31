@@ -3,7 +3,7 @@ import { ROOM_ID } from "@shapeshift/shared/collab/protocol";
 import { handleAccounts } from "./accounts";
 import { handleScenes } from "./scenes";
 import { handleWaitlist } from "./waitlist";
-import { handlePublic, sharePage } from "./publicScenes";
+import { handleExplore, handlePublic, sharePage } from "./publicScenes";
 import { handleUsage } from "./usage";
 import { handleTelemetry } from "./telemetry";
 import { handleBilling } from "./billing";
@@ -22,6 +22,8 @@ export default {
         if (accounts) return accounts;
         const share = pathname.match(/^\/s\/([A-Za-z0-9]{10})\/?$/);
         if (share && request.method === "GET") return sharePage(request, env, share[1]);
+        const explore = await handleExplore(request, env);
+        if (explore) return explore;
         const publicScene = await handlePublic(request, env);
         if (publicScene) return publicScene;
         const billing = await handleBilling(request, env);
