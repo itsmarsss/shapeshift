@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence } from "motion/react";
+import * as m from "motion/react-m";
+import { drop } from "../ui/motion";
 import styled, { keyframes } from "styled-components";
 import { ArrowCounterClockwise, Check, ClockCounterClockwise, Copy, FloppyDisk, SignOut, UsersThree } from "@phosphor-icons/react";
 import { useShallow } from "zustand/react/shallow";
@@ -69,7 +72,7 @@ const Dot = styled.span<{ $status: string }>`
     animation: ${(p) => (p.$status === "live" || p.$status === "error" ? "none" : pulse)} 1s ease-in-out infinite;
 `;
 
-const Popover = styled.div`
+const Popover = styled(m.div)`
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
@@ -324,54 +327,56 @@ export function CollabBar() {
                 )}
             </ShareButton>
 
-            {open && live && (
-                <Popover role="dialog" aria-label="Live session">
-                    <div>
-                        <Label>Anyone with this link can edit the scene with you</Label>
-                        <Row>
-                            <Input readOnly value={link} onFocus={(e) => e.target.select()} />
-                            <Button $variant="primary" onClick={copy} title="Copy link">
-                                {copied ? <Check size={16} /> : <Copy size={16} />}
-                            </Button>
-                        </Row>
-                    </div>
-                    <div>
-                        <Label>Your name</Label>
-                        <Input
-                            value={draftName}
-                            maxLength={32}
-                            placeholder="Guest"
-                            onChange={(e) => setDraftName(e.target.value)}
-                            onBlur={() => rename(draftName)}
-                            onKeyDown={(e) => e.key === "Enter" && rename(draftName)}
-                        />
-                    </div>
-                    <div>
-                        <Label>In this room</Label>
-                        <People>
-                            {everyone.map((p) => (
-                                <li key={p.id}>
-                                    <Face $color={p.color}>{initials(p.name)}</Face>
-                                    {p.name}
-                                    {p.id === you?.id && <small>you</small>}
-                                </li>
-                            ))}
-                        </People>
-                    </div>
-                    <History />
-                    {error && <Note $error>{error}</Note>}
-                    {status !== "live" && !error && <Note>{STATUS_TEXT[status]}</Note>}
-                    <Button
-                        onClick={() => {
-                            leave({ restore: true });
-                            setOpen(false);
-                        }}
-                    >
-                        <SignOut size={16} />
-                        Leave room
-                    </Button>
-                </Popover>
-            )}
+            <AnimatePresence>
+                {open && live && (
+                    <Popover {...drop} style={{ transformOrigin: "top right" }} role="dialog" aria-label="Live session">
+                        <div>
+                            <Label>Anyone with this link can edit the scene with you</Label>
+                            <Row>
+                                <Input readOnly value={link} onFocus={(e) => e.target.select()} />
+                                <Button $variant="primary" onClick={copy} title="Copy link">
+                                    {copied ? <Check size={16} /> : <Copy size={16} />}
+                                </Button>
+                            </Row>
+                        </div>
+                        <div>
+                            <Label>Your name</Label>
+                            <Input
+                                value={draftName}
+                                maxLength={32}
+                                placeholder="Guest"
+                                onChange={(e) => setDraftName(e.target.value)}
+                                onBlur={() => rename(draftName)}
+                                onKeyDown={(e) => e.key === "Enter" && rename(draftName)}
+                            />
+                        </div>
+                        <div>
+                            <Label>In this room</Label>
+                            <People>
+                                {everyone.map((p) => (
+                                    <li key={p.id}>
+                                        <Face $color={p.color}>{initials(p.name)}</Face>
+                                        {p.name}
+                                        {p.id === you?.id && <small>you</small>}
+                                    </li>
+                                ))}
+                            </People>
+                        </div>
+                        <History />
+                        {error && <Note $error>{error}</Note>}
+                        {status !== "live" && !error && <Note>{STATUS_TEXT[status]}</Note>}
+                        <Button
+                            onClick={() => {
+                                leave({ restore: true });
+                                setOpen(false);
+                            }}
+                        >
+                            <SignOut size={16} />
+                            Leave room
+                        </Button>
+                    </Popover>
+                )}
+            </AnimatePresence>
         </Wrap>
     );
 }

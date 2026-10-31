@@ -1,9 +1,11 @@
 import { useEffect, type ReactNode } from "react";
 import styled from "styled-components";
+import * as m from "motion/react-m";
 import { X } from "@phosphor-icons/react";
 import { IconButton } from "../components/ui";
+import { fade, pop } from "../ui/motion";
 
-const Backdrop = styled.div`
+const Backdrop = styled(m.div)`
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.5);
@@ -14,7 +16,7 @@ const Backdrop = styled.div`
     z-index: 1000;
 `;
 
-const Box = styled.div<{ $width: number }>`
+const Box = styled(m.div)<{ $width: number }>`
     width: min(${(p) => p.$width}px, 100%);
     max-height: min(640px, 100%);
     display: flex;
@@ -56,8 +58,8 @@ export function Dialog({ title, width = 400, onClose, children }: { title: strin
         return () => window.removeEventListener("keydown", onKey, true);
     }, [onClose]);
     return (
-        <Backdrop onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-            <Box $width={width} role="dialog" aria-modal="true" aria-label={title}>
+        <Backdrop {...fade} onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
+            <Box {...pop} $width={width} role="dialog" aria-modal="true" aria-label={title}>
                 <Head>
                     <h2>{title}</h2>
                     <IconButton title="Close" onClick={onClose}>

@@ -1,12 +1,14 @@
 import { useEffect, useRef } from "react";
 import styled from "styled-components";
+import { AnimatePresence } from "motion/react";
+import { slide } from "../ui/motion";
 import { useAccount } from "../account/store";
 import { NotePencil, Sparkle, X } from "@phosphor-icons/react";
 import { selectSelected, useScene } from "../scene/store";
 import { useAssistant } from "../assistant/store";
 import type { AgentInfo } from "@shapeshift/shared/assistant/protocol";
 import { useUI } from "../ui/store";
-import { COMPACT } from "../ui/compact";
+import { COMPACT, useCompact } from "../ui/compact";
 import { IconButton, Panel } from "./ui";
 import { Composer, type ComposerHandle } from "./assistant/Composer";
 import { TurnView } from "./assistant/TurnView";
@@ -203,6 +205,7 @@ function isTyping(target: EventTarget | null) {
 
 export function ChatPanel() {
     const show = useUI((s) => s.showChat);
+    const compact = useCompact();
     const setShow = useUI((s) => s.setShowChat);
     const turns = useAssistant((s) => s.turns);
     const running = useAssistant((s) => s.running);
@@ -228,52 +231,54 @@ export function ChatPanel() {
         return () => window.removeEventListener("keydown", onKeyDown);
     }, []);
 
-    if (!show) return null;
-
     return (
-        <Root aria-label="Assistant" $empty={turns.length === 0}>
-            <Header>
-                <Mark>
-                    <Sparkle size={16} weight="fill" />
-                </Mark>
-                <Titles>
-                    <Title>Assistant</Title>
-                    <Subtitle title={info ? `Model: ${modelName(info)}` : undefined}>Builds and changes things for you</Subtitle>
-                </Titles>
-                <IconButton title="New chat" onClick={reset} disabled={turns.length === 0}>
-                    <NotePencil size={16} />
-                </IconButton>
-                <IconButton title="Close" onClick={() => setShow(false)}>
-                    <X size={16} />
-                </IconButton>
-            </Header>
-            <Scroll ref={scrollRef} aria-live="polite">
-                {turns.length === 0 ? (
-                    <Empty>
-                        <div>
-                            <EmptyTitle>What should we make?</EmptyTitle>
-                            <EmptyText>Describe a change or a whole object. Each reply is a single undo step.</EmptyText>
-                        </div>
-                        <Suggestions>
-                            {suggestions.map((s) => (
-                                <Suggestion key={s} onClick={() => send(s)} disabled={running}>
-                                    {s}
-                                </Suggestion>
-                            ))}
-                        </Suggestions>
-                    </Empty>
-                ) : (
-                    turns.map((t, i) => <TurnView key={t.id} turn={t} last={i === turns.length - 1} />)
-                )}
-            </Scroll>
-            <div onSubmitCapture={stick} style={{ display: "contents" }}>
-                <Composer ref={composer} />
-            </div>
-            <Hint>
-                <PromptsLeft />
-                {!window.matchMedia("(pointer: coarse)").matches && "Enter to send · Shift+Enter for a new line · / to focus"}
-            </Hint>
-        </Root>
+        <AnimatePresence>
+            {show && (
+                <Root key="panel" {...slide(compact ? "bottom" : "right")} aria-label="Assistant" $empty={turns.length === 0}>
+                    <Header>
+                        <Mark>
+                            <Sparkle size={16} weight="fill" />
+                        </Mark>
+                        <Titles>
+                            <Title>Assistant</Title>
+                            <Subtitle title={info ? `Model: ${modelName(info)}` : undefined}>Builds and changes things for you</Subtitle>
+                        </Titles>
+                        <IconButton title="New chat" onClick={reset} disabled={turns.length === 0}>
+                            <NotePencil size={16} />
+                        </IconButton>
+                        <IconButton title="Close" onClick={() => setShow(false)}>
+                            <X size={16} />
+                        </IconButton>
+                    </Header>
+                    <Scroll ref={scrollRef} aria-live="polite">
+                        {turns.length === 0 ? (
+                            <Empty>
+                                <div>
+                                    <EmptyTitle>What should we make?</EmptyTitle>
+                                    <EmptyText>Describe a change or a whole object. Each reply is a single undo step.</EmptyText>
+                                </div>
+                                <Suggestions>
+                                    {suggestions.map((s) => (
+                                        <Suggestion key={s} onClick={() => send(s)} disabled={running}>
+                                            {s}
+                                        </Suggestion>
+                                    ))}
+                                </Suggestions>
+                            </Empty>
+                        ) : (
+                            turns.map((t, i) => <TurnView key={t.id} turn={t} last={i === turns.length - 1} />)
+                        )}
+                    </Scroll>
+                    <div onSubmitCapture={stick} style={{ display: "contents" }}>
+                        <Composer ref={composer} />
+                    </div>
+                    <Hint>
+                        <PromptsLeft />
+                        {!window.matchMedia("(pointer: coarse)").matches && "Enter to send · Shift+Enter for a new line · / to focus"}
+                    </Hint>
+                </Root>
+            )}
+        </AnimatePresence>
     );
 }
 

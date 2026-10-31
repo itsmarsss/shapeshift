@@ -1,12 +1,14 @@
 import { useEffect, useState, type ReactNode } from "react";
 import styled from "styled-components";
+import * as m from "motion/react-m";
+import { fade, pop } from "../ui/motion";
 import { Cube, Database, Hand, Keyboard, Monitor, PencilSimple, X } from "@phosphor-icons/react";
 import { useUI } from "../ui/store";
 import { useHands } from "../hands/tracker";
 import { useSettings, type Settings } from "./store";
 import { Button, IconButton, Segment, Segmented, Select } from "../components/ui";
 
-const Backdrop = styled.div`
+const Backdrop = styled(m.div)`
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.45);
@@ -17,7 +19,7 @@ const Backdrop = styled.div`
     z-index: 1000;
 `;
 
-const Dialog = styled.div`
+const Dialog = styled(m.div)`
     width: min(760px, 100%);
     height: min(560px, 100%);
     display: grid;
@@ -541,8 +543,8 @@ export function SettingsModal() {
     const current = SECTIONS.find((s) => s.id === section)!;
 
     return (
-        <Backdrop onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}>
-            <Dialog role="dialog" aria-modal="true" aria-label="Settings">
+        <Backdrop {...fade} onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}>
+            <Dialog {...pop} role="dialog" aria-modal="true" aria-label="Settings">
                 <Nav>
                     <NavTitle>Settings</NavTitle>
                     {SECTIONS.map(({ id, label, Icon }) => (

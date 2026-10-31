@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
+import { MotionProvider } from "./ui/MotionProvider";
 import { startAutosave } from "./scene/autosave";
 import { joinRoomFromUrl } from "./collab/session";
 import { openPendingRemix } from "./viewer/remix";
@@ -22,6 +23,8 @@ joinRoomFromUrl();
 
 createRoot(document.getElementById("root")!).render(
     <StrictMode>
-        <App />
+        <MotionProvider>
+            <App />
+        </MotionProvider>
     </StrictMode>
 );
