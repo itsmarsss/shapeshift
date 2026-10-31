@@ -1,5 +1,6 @@
 import { SceneDoc } from "@shapeshift/shared/scene/schema";
 import { useScene } from "../scene/store";
+import { track } from "../telemetry";
 
 export const REMIX_KEY = "shapeshift-remix";
 
@@ -15,6 +16,7 @@ export function openPendingRemix() {
         // A remix is a new scene, so it mustn't autosave over a linked cloud scene.
         localStorage.removeItem("shapeshift-cloud-scene");
         useScene.getState().replaceDoc(doc.data);
+        track("remix_opened");
     } catch {
         // Nothing to open.
     }

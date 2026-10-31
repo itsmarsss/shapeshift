@@ -37,6 +37,7 @@ import { useAccount } from "../account/store";
 import { AccountButton } from "../account/AccountButton";
 import { useTimeline } from "../scene/timeline";
 import { COMPACT, MEDIUM, useCompact } from "../ui/compact";
+import { track } from "../telemetry";
 
 const Bar = styled.div`
     height: var(--topbar);
@@ -266,6 +267,7 @@ const MODES: { mode: EditorMode; label: string; hint: string }[] = [
 // Renders the current view at twice the screen's resolution, without editor
 // overlays, and downloads it as a PNG.
 async function saveImage() {
+    track("export", "png");
     const shot = takeSnapshot({ view: "current", format: "png", supersample: 2, maxSize: 4096, clean: true });
     if (!shot) return;
     const blob = await (await fetch(shot.dataUrl)).blob();

@@ -3,6 +3,7 @@ import { download } from "./io";
 import { useScene } from "./store";
 import { useTimeline } from "./timeline";
 import { viewportCanvas } from "../viewport/snapshot";
+import { track } from "../telemetry";
 
 type RecordState = { recording: boolean; error: string | null };
 
@@ -67,4 +68,5 @@ export async function recordAnimation() {
 
     const blob = new Blob(chunks, { type });
     download(blob, `shapeshift.${type.startsWith("video/mp4") ? "mp4" : "webm"}`, type);
+    track("export", type.startsWith("video/mp4") ? "mp4" : "webm", duration);
 }

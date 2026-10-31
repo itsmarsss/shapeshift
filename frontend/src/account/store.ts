@@ -4,6 +4,7 @@ import { useCollab } from "../collab/session";
 import { takeSnapshot } from "../viewport/snapshot";
 import type { Usage } from "@shapeshift/shared/billing/plans";
 import { api, ApiError, type CloudScene, type User } from "./api";
+import { track } from "../telemetry";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
@@ -185,6 +186,7 @@ export const useAccount = create<AccountState>()((set, get) => ({
     },
 
     setShared: async (id, shared) => {
+        if (shared) track("share_created");
         const { scene } = shared ? await api.publish(id) : await api.unpublish(id);
         set((s) => ({ scenes: s.scenes.map((x) => (x.id === id ? scene : x)) }));
         return scene.publicSlug ? `${location.origin}/s/${scene.publicSlug}` : null;
