@@ -8,8 +8,9 @@ import { attachControls, useCameraAngles } from "./frame";
 export function CameraBridge() {
     const controls = useThree((s) => s.controls) as unknown as CameraControls | null;
     const invalidate = useThree((s) => s.invalidate);
+    const canvas = useThree((s) => s.gl.domElement);
     useEffect(() => {
-        attachControls(controls, invalidate);
+        attachControls(controls, invalidate, canvas);
         if (!controls) return;
         const update = () => useCameraAngles.setState({ azimuth: controls.azimuthAngle, polar: controls.polarAngle });
         update();
@@ -18,6 +19,6 @@ export function CameraBridge() {
             controls.removeEventListener("update", update);
             attachControls(null);
         };
-    }, [controls, invalidate]);
+    }, [controls, invalidate, canvas]);
     return null;
 }

@@ -29,6 +29,8 @@ export type Settings = {
     cameraId: string;
     showHandPreview: boolean;
     showSkeleton: boolean;
+    // Hand control comes back on by itself when the editor opens.
+    handsAutoStart: boolean;
     // Anonymous usage numbers and crash reports; see telemetry.ts.
     shareUsage: boolean;
 };
@@ -55,6 +57,7 @@ export const DEFAULT_SETTINGS: Settings = {
     cameraId: "",
     showHandPreview: true,
     showSkeleton: true,
+    handsAutoStart: false,
     shareUsage: true,
 };
 

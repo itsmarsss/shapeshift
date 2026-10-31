@@ -64,6 +64,16 @@ export const GlobalStyle = createGlobalStyle`
     button { cursor: pointer; }
     button:disabled { cursor: default; }
     :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    // The control a hand is pointing at, and a flash when a pinch presses it.
+    [data-hand-hover] {
+        outline: 2px solid var(--accent) !important;
+        outline-offset: 2px;
+        transition: outline-offset 0.1s ease;
+    }
+    [data-hand-press] {
+        outline-offset: 0 !important;
+        background-color: var(--accent-soft) !important;
+    }
 `;
 
 // A motion element, so panels can slide in and out.

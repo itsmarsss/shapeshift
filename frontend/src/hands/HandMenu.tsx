@@ -1,12 +1,13 @@
 import { useEffect, useRef } from "react";
 import styled, { keyframes } from "styled-components";
-import { ArrowUUpLeft, Copy, Cube, Cylinder, Globe, Trash, type Icon } from "@phosphor-icons/react";
+import { ArrowUUpLeft, ArrowUUpRight, Copy, CornersOut, Cube, Cylinder, Globe, Microphone, Trash, type Icon } from "@phosphor-icons/react";
 import type { Primitive } from "@shapeshift/shared/scene/schema";
 import { ConeIcon, TorusIcon } from "../components/icons";
 import { useScene } from "../scene/store";
 import { restingAt } from "../scene/commands";
 import { duplicateSelection, removeSelection } from "../scene/selection";
-import { floorPointAt } from "../viewport/frame";
+import { floorPointAt, frameSelection, windowToView } from "../viewport/frame";
+import { toggleVoice } from "../ui/voice";
 import { PalmTracker } from "./palm";
 import { useHandMenu } from "./menu";
 import { live, useHands } from "./tracker";
@@ -15,7 +16,7 @@ type Item = { label: string; Icon: Icon | typeof ConeIcon; act: (at: { x: number
 
 function addShape(primitive: Primitive) {
     return ({ x, y }: { x: number; y: number }) => {
-        const floor = floorPointAt(x, y);
+        const floor = floorPointAt(...windowToView(x, y));
         useScene.getState().run({ type: "add", primitive, ...(floor ? { position: restingAt(primitive, floor[0], floor[1]) } : {}) });
     };
 }
@@ -29,9 +30,13 @@ const ITEMS: Item[] = [
     { label: "Duplicate", Icon: Copy, act: duplicateSelection, needsSelection: true },
     { label: "Delete", Icon: Trash, act: removeSelection, needsSelection: true },
     { label: "Undo", Icon: ArrowUUpLeft, act: () => useScene.getState().undo() },
+    { label: "Redo", Icon: ArrowUUpRight, act: () => useScene.getState().redo() },
+    { label: "Fit view", Icon: CornersOut, act: frameSelection },
+    { label: "Talk", Icon: Microphone, act: toggleVoice },
 ];
 
-const RADIUS = 104;
+// Wide enough that the choices around the ring don't touch.
+const RADIUS = 128;
 const HIT = 44;
 // Moving the hand this far past the ring, losing it, or waiting closes the menu.
 const LEAVE = RADIUS + 110;

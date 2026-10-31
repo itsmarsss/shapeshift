@@ -435,6 +435,9 @@ function Section({ id }: { id: SectionId }) {
                         <Row label="Hand skeleton in preview">
                             <Toggle k="showSkeleton" />
                         </Row>
+                        <Row label="Turn on when the editor opens" hint="Starts the camera right away if you had hand control on last time">
+                            <Toggle k="handsAutoStart" />
+                        </Row>
                     </Group>
                     <Group>
                         <GroupTitle>Gestures</GroupTitle>

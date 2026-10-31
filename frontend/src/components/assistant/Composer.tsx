@@ -6,6 +6,8 @@ import { useAssistant, type Attachment } from "../../assistant/store";
 import { MAX_ATTACHMENTS, readAttachment } from "./images";
 import { LIMITS } from "@shapeshift/shared/assistant/protocol";
 import { useSpeechInput } from "./useSpeechInput";
+import { parseQuickCommand } from "../../assistant/quickCommands";
+import { runQuickCommand } from "../../assistant/runQuickCommand";
 
 const Root = styled.form<{ $dropping?: boolean }>`
     margin: 0 10px 10px;
@@ -183,6 +185,13 @@ export const Composer = forwardRef<ComposerHandle, { extra?: React.ReactNode; pl
             setText(t);
         },
         onFinal: (t) => {
+            // Short commands like "undo" or "add a box" happen right away, without a prompt.
+            const quick = parseQuickCommand(t);
+            if (quick) {
+                setText("");
+                setNotice(runQuickCommand(quick) || null);
+                return;
+            }
             if (useAssistant.getState().running) return setText(t);
             send(t);
             setText("");

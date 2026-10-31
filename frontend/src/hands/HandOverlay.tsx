@@ -4,6 +4,7 @@ import { useSettings } from "../settings/store";
 import { useHandActivity, useHandMenu, type HandActivity } from "./menu";
 import { live, useHandHover } from "./tracker";
 import type { HandState } from "./gestures";
+import { isOverControl } from "./pointer";
 
 const Layer = styled.div`
     position: absolute;
@@ -83,6 +84,8 @@ const DOING: Record<Exclude<HandActivity, null>, string> = {
 function cursorFor(h: HandState, activity: HandActivity, hovered: boolean, objectHand: string, pair: boolean): { state: string; label: string } {
     // With both hands pinching, one label is enough.
     if (h.pinching) return { state: "active", label: activity && !(pair && h.handedness !== objectHand) ? DOING[activity] : "" };
+    // Either hand can press buttons.
+    if (isOverControl(h.handedness)) return { state: "ready", label: "Pinch to press" };
     // Only the object hand grabs things; the other one always looks around.
     if (hovered && h.handedness === objectHand) return { state: "ready", label: "Pinch to grab" };
     return { state: "idle", label: "" };

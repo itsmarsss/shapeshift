@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
 import { ArrowUUpLeft, Cube, Microphone, MicrophoneSlash } from "@phosphor-icons/react";
 import { useScene, type EditorMode } from "../scene/store";
-import { useUI } from "../ui/store";
-import { useVoice, VOICE_TOGGLE_EVENT } from "../ui/voice";
+import { toggleVoice, useVoice } from "../ui/voice";
 import { PoseTracker, type Pose } from "./poses";
 import { live, useHands } from "./tracker";
 
@@ -40,15 +39,8 @@ function perform(pose: Pose): string {
     const scene = useScene.getState();
     switch (pose) {
         case "voice": {
-            const ui = useUI.getState();
             const listening = useVoice.getState().listening;
-            // The message field owns speech input, so the chat has to be open.
-            if (!ui.showChat) {
-                ui.setShowChat(true);
-                requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(VOICE_TOGGLE_EVENT)));
-            } else {
-                window.dispatchEvent(new CustomEvent(VOICE_TOGGLE_EVENT));
-            }
+            toggleVoice();
             return listening ? "Sending to the assistant" : "Listening…";
         }
         case "mode": {
