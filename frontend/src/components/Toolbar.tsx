@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import styled from "styled-components";
 import {
@@ -25,6 +25,8 @@ import { ConeIcon, HalfSphereIcon, ParaboloidIcon, PyramidIcon, RoofIcon, TorusI
 import { useScene, type TransformMode } from "../scene/store";
 import { SHAPE_LABELS } from "../scene/commands";
 import { addShape } from "../scene/selection";
+import { insertLibraryItem, libraryPreview, LIBRARY } from "../scene/library";
+import { renderThumbnail } from "../scene/thumbnail";
 import { PRIMITIVES, type LightType, type Primitive } from "@shapeshift/shared/scene/schema";
 import { IconButton } from "./ui";
 import { COMPACT } from "../ui/compact";
@@ -78,6 +80,40 @@ const Picker = styled.div`
     border-radius: var(--radius-lg);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
     z-index: 70;
+`;
+
+// Shapes | Objects, across the top of the picker.
+const Tabs = styled.div`
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    margin-bottom: 4px;
+    border-radius: var(--radius);
+    background: var(--bg);
+
+    button {
+        flex: 1;
+        height: 26px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--text-muted);
+        font-size: 12px;
+        font-weight: 500;
+    }
+    button[aria-selected="true"] {
+        background: var(--surface-raised);
+        color: var(--text);
+    }
+`;
+
+const Thumb = styled.img`
+    width: 56px;
+    height: 42px;
+    object-fit: cover;
+    border-radius: 6px;
+    background: var(--surface-raised);
 `;
 
 const Tile = styled.button`
@@ -149,24 +185,54 @@ const VIEW_TOOLS: { tool: Tool; label: string; Icon: typeof Cube }[] = [
 
 function ShapePicker({ anchor, onClose }: { anchor: HTMLElement; onClose: () => void }) {
     const ref = useRef<HTMLDivElement>(null);
+    const [tab, setTab] = useState<"shapes" | "objects">("shapes");
+    // Drawn once, the first time the Objects tab opens.
+    const pictures = useMemo(() => (tab === "objects" ? LIBRARY.map((item) => renderThumbnail(libraryPreview(item), 112, 84)) : null), [tab]);
     const rect = anchor.getBoundingClientRect();
     useEffect(() => {
         const away = (e: PointerEvent) => {
             if (!ref.current?.contains(e.target as Node) && !anchor.contains(e.target as Node)) onClose();
         };
-        const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+        // Caught on the way in, so Escape doesn't also clear the selection.
+        const key = (e: KeyboardEvent) => {
+            if (e.key !== "Escape") return;
+            e.stopPropagation();
+            onClose();
+        };
         window.addEventListener("pointerdown", away);
-        window.addEventListener("keydown", key);
+        window.addEventListener("keydown", key, true);
         return () => {
             window.removeEventListener("pointerdown", away);
-            window.removeEventListener("keydown", key);
+            window.removeEventListener("keydown", key, true);
         };
     }, [anchor, onClose]);
     const compact = window.matchMedia(COMPACT).matches;
     const style = compact ? { left: 12, bottom: window.innerHeight - rect.top + 8 } : { left: rect.right + 8, top: Math.max(56, Math.min(rect.top - 4, window.innerHeight - 360)) };
     return createPortal(
         <Picker ref={ref} role="dialog" aria-label="Shapes" style={style}>
-            {PRIMITIVES.map((primitive, i) => {
+            <Tabs role="tablist">
+                <button type="button" role="tab" aria-selected={tab === "shapes"} onClick={() => setTab("shapes")}>
+                    Shapes
+                </button>
+                <button type="button" role="tab" aria-selected={tab === "objects"} onClick={() => setTab("objects")}>
+                    Objects
+                </button>
+            </Tabs>
+            {tab === "objects" &&
+                LIBRARY.map((item, i) => (
+                    <Tile
+                        key={item.id}
+                        title={`Add a ${item.name.toLowerCase()}`}
+                        onClick={() => {
+                            insertLibraryItem(item);
+                            onClose();
+                        }}
+                    >
+                        {pictures?.[i] ? <Thumb src={pictures[i]!} alt="" /> : <Thumb as="span" />}
+                        {item.name}
+                    </Tile>
+                ))}
+            {tab === "shapes" && PRIMITIVES.map((primitive, i) => {
                 const Icon = SHAPE_ICONS[primitive];
                 return (
                     <Tile

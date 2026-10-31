@@ -74,7 +74,7 @@ export function restingAt(primitive: Primitive, x: number, z: number): Vec3 {
     return [x, restingPose(DEFAULT_GEOMETRY[primitive], 1).position[1], z];
 }
 
-function freeSpot(doc: SceneDoc): [number, number] {
+export function freeSpot(doc: SceneDoc): [number, number] {
     const spot = SPOTS.find(([px, pz]) =>
         doc.objects.every((o) => Math.hypot(o.position[0] - px, o.position[2] - pz) >= SPOT_STEP * 0.8)
     );
