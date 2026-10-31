@@ -21,11 +21,18 @@ export function useGizmoColors() {
             if (!controls) return;
             trackGizmo(controls as unknown as { enabled: boolean });
             const target = [palette.axisX, palette.axisY, palette.axisZ].map((c) => new THREE.Color(c));
+            // The rotate tool's outer ring (turn around the view) was yellow.
+            const ring = new THREE.Color(palette.accent);
             controls.traverse((child) => {
                 const materials = [(child as THREE.Mesh).material].flat().filter(Boolean) as GizmoMaterial[];
                 for (const m of materials) {
                     if (!m.color) continue;
                     m.userData.axisBase ??= (m.tempColor ?? m.color).getHex();
+                    if (child.name === "E") {
+                        m.color.copy(ring);
+                        m.tempColor?.copy(ring);
+                        continue;
+                    }
                     const axis = child.name in PLANES ? PLANES[child.name] : PURE.indexOf(m.userData.axisBase as number);
                     if (axis < 0) continue;
                     m.color.copy(target[axis]);
