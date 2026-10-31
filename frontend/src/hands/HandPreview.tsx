@@ -10,7 +10,8 @@ import { useSettings } from "../settings/store";
 const Box = styled.div`
     position: absolute;
     bottom: calc(var(--gap) + var(--bottom-offset, 0px));
-    left: var(--gap);
+    // Beside the toolbar and inspector, not under them.
+    left: max(var(--gap), var(--left-inset, 0px));
     width: 220px;
     padding: 4px;
     background: var(--surface);

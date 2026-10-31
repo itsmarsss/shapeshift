@@ -10,9 +10,10 @@ import { IconButton } from "./ui";
 const Card = styled.div`
     position: absolute;
     top: 50%;
-    left: 50%;
-    transform: translate(calc(-50% - var(--chat-width, 0px) / 2), -50%);
-    width: min(400px, calc(100% - 32px - var(--chat-width, 0px)));
+    // Centered in the part of the view the side panels leave free.
+    left: calc((100% + var(--left-inset, 0px) - var(--right-inset, 0px)) / 2);
+    transform: translate(-50%, -50%);
+    width: min(400px, calc(100% - 32px - var(--left-inset, 0px) - var(--right-inset, 0px)));
     padding: 18px;
     background: var(--surface);
     border: 1px solid var(--border);
@@ -32,6 +33,7 @@ const Card = styled.div`
     @media ${COMPACT} {
         top: auto;
         bottom: calc(var(--gap) + env(safe-area-inset-bottom, 0px) + var(--bottom-offset, 0px));
+        left: 50%;
         transform: translateX(-50%);
         width: calc(100% - 24px);
     }
