@@ -221,3 +221,19 @@ test('keeps the get-started card clear of the side panels', async ({ page }) => 
   const scene = (await page.getByText('Scene', { exact: true }).locator('..').locator('..').boundingBox())!
   expect((await card.boundingBox())!.x).toBeGreaterThanOrEqual(scene.x + scene.width)
 })
+
+for (const width of [740, 960, 1280]) {
+  test(`fits the top bar at ${width}px without cutting or wrapping anything`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 700 })
+    await openEditor(page)
+    const broken = await page.evaluate(() =>
+      [...document.querySelectorAll('button')]
+        .filter((b) => {
+          const r = b.getBoundingClientRect()
+          return r.width > 0 && r.top < 50 && (r.right > innerWidth + 0.5 || r.height > 40)
+        })
+        .map((b) => b.title || b.textContent),
+    )
+    expect(broken).toEqual([])
+  })
+}
