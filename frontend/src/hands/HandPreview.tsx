@@ -176,14 +176,20 @@ export function HandPreview() {
             </Frame>
             {status === "running" && (
                 <Legend>
+                    <b>Pinch an object</b>
+                    <span>Grab and move it</span>
+                    <b>Pinch + reach</b>
+                    <span>Push or pull what you hold</span>
+                    <b>Hold + other hand</b>
+                    <span>Spread to resize, twist to turn</span>
+                    <b>Pinch empty space</b>
+                    <span>Look around</span>
                     <b>Thumb + middle</b>
                     <span>Talk to the assistant</span>
                     <b>Thumb + ring</b>
                     <span>Next mode</span>
                     <b>Thumb + pinky</b>
                     <span>Undo</span>
-                    <b>Pinch + reach</b>
-                    <span>Push or pull what you hold</span>
                 </Legend>
             )}
         </Box>

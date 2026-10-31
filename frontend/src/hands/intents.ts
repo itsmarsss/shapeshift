@@ -5,7 +5,13 @@ export type Intent =
     // `depth` is how much closer to the camera the hand is than when the pinch started, in meters.
     | { type: "move"; x: number; y: number; dx: number; dy: number; depth: number }
     | { type: "end" }
-    | { type: "pair"; zoom: number; panX: number; panY: number };
+    // Both hands are pinching. `holding` is the hand that was already pinching
+    // on its own, if one was, so a held object can be stretched and turned.
+    | { type: "pairStart"; holding: Handedness | null }
+    // `zoom` and `pan*` are changes in the hands' distance and midpoint;
+    // `scale` is the distance's ratio and `twist` how far the line between the
+    // hands turned, in radians, clockwise on screen.
+    | { type: "pair"; zoom: number; panX: number; panY: number; scale: number; twist: number };
 
 // Ignore small changes so a steady hand doesn't drift objects.
 const DEPTH_DEAD_ZONE = 0.015;
@@ -16,28 +22,47 @@ function closer(h: HandState): number {
     return Math.abs(d) < DEPTH_DEAD_ZONE ? 0 : d - Math.sign(d) * DEPTH_DEAD_ZONE;
 }
 
+// Keeps an angle change in (-π, π], so crossing straight left doesn't jump a full turn.
+function wrap(a: number) {
+    return Math.atan2(Math.sin(a), Math.cos(a));
+}
+
+type Pair = { dist: number; x: number; y: number; angle: number };
+
 export class IntentTracker {
     private used = new Map<Handedness, number>();
     private active: { handedness: Handedness; pinchId: number; x: number; y: number } | null = null;
-    private pair: { dist: number; x: number; y: number } | null = null;
+    private pair: Pair | null = null;
 
     update(hands: HandState[]): Intent[] {
         const intents: Intent[] = [];
-        const pinching = hands.filter((h) => h.pinching);
+        // Left first, so the angle between the hands is measured the same way every frame.
+        const pinching = hands.filter((h) => h.pinching).sort((a, b) => (a.handedness < b.handedness ? -1 : 1));
 
         if (pinching.length >= 2) {
-            if (this.active) {
-                intents.push({ type: "end" });
-                this.active = null;
-            }
             for (const h of pinching) this.used.set(h.handedness, h.pinchId);
             const [a, b] = pinching;
-            const now = { dist: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-            if (this.pair) intents.push({ type: "pair", zoom: now.dist - this.pair.dist, panX: now.x - this.pair.x, panY: now.y - this.pair.y });
+            const now: Pair = { dist: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, angle: Math.atan2(b.y - a.y, b.x - a.x) };
+            if (!this.pair) {
+                intents.push({ type: "pairStart", holding: this.active?.handedness ?? null });
+                this.active = null;
+            } else {
+                intents.push({
+                    type: "pair",
+                    zoom: now.dist - this.pair.dist,
+                    panX: now.x - this.pair.x,
+                    panY: now.y - this.pair.y,
+                    scale: this.pair.dist > 0 ? now.dist / this.pair.dist : 1,
+                    twist: wrap(now.angle - this.pair.angle),
+                });
+            }
             this.pair = now;
             return intents;
         }
-        this.pair = null;
+        if (this.pair) {
+            this.pair = null;
+            intents.push({ type: "end" });
+        }
 
         if (this.active) {
             const { handedness, pinchId } = this.active;
