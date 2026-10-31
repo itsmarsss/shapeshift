@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef } from "react";
 import styled from "styled-components";
+import { AnimatePresence } from "motion/react";
+import { slide } from "../ui/motion";
 import { ClockCounterClockwise, Minus, PencilSimple, Plus, X } from "@phosphor-icons/react";
 import { useScene } from "../scene/store";
 import { describeDiff, diffKind } from "../scene/describe";
 import { useUI } from "../ui/store";
-import { COMPACT } from "../ui/compact";
+import { COMPACT, useCompact } from "../ui/compact";
 import { IconButton, Panel, PanelHeader, PanelTitle } from "./ui";
 
 const Root = styled(Panel)`
@@ -77,6 +79,7 @@ const ICONS = { add: Plus, remove: Minus, edit: PencilSimple };
 
 export function HistoryPanel() {
     const show = useUI((s) => s.showHistory);
+    const compact = useCompact();
     const setShow = useUI((s) => s.setShowHistory);
     const past = useScene((s) => s.past);
     const future = useScene((s) => s.future);
@@ -94,48 +97,50 @@ export function HistoryPanel() {
         if (show) currentRef.current?.scrollIntoView({ block: "nearest" });
     }, [show, at]);
 
-    if (!show) return null;
-
     return (
-        <Root role="dialog" aria-label="History">
-            <PanelHeader>
-                <PanelTitle>History</PanelTitle>
-                <IconButton title="Close history" onClick={() => setShow(false)}>
-                    <X size={16} />
-                </IconButton>
-            </PanelHeader>
-            <List>
-                <li ref={at === 0 ? currentRef : undefined}>
-                    <Step $current={at === 0} $undone={false} aria-current={at === 0 ? "step" : undefined} onClick={() => travel(-at)}>
-                        <ClockCounterClockwise size={16} />
-                        <span>Start</span>
-                    </Step>
-                </li>
-                {steps.map((step, i) => {
-                    const Icon = ICONS[step.kind];
-                    const current = i + 1 === at;
-                    return (
-                        <li key={i} ref={current ? currentRef : undefined}>
-                            <Step
-                                $current={current}
-                                $undone={i >= at}
-                                aria-current={current ? "step" : undefined}
-                                title={i >= at ? "Redo up to here" : "Go back to here"}
-                                onClick={() => travel(i + 1 - at)}
-                            >
-                                <Icon size={16} />
-                                <span>{step.label}</span>
+        <AnimatePresence>
+            {show && (
+                <Root key="panel" {...slide(compact ? "bottom" : "right")} role="dialog" aria-label="History">
+                    <PanelHeader>
+                        <PanelTitle>History</PanelTitle>
+                        <IconButton title="Close history" onClick={() => setShow(false)}>
+                            <X size={16} />
+                        </IconButton>
+                    </PanelHeader>
+                    <List>
+                        <li ref={at === 0 ? currentRef : undefined}>
+                            <Step $current={at === 0} $undone={false} aria-current={at === 0 ? "step" : undefined} onClick={() => travel(-at)}>
+                                <ClockCounterClockwise size={16} />
+                                <span>Start</span>
                             </Step>
                         </li>
-                    );
-                })}
-            </List>
-            <Note>
-                {steps.length === 0
-                    ? "Your changes will show up here. Click one to go back to it."
-                    : "Click a step to go back to it. Faded steps can be brought back until you make a new change."}
-            </Note>
-        </Root>
+                        {steps.map((step, i) => {
+                            const Icon = ICONS[step.kind];
+                            const current = i + 1 === at;
+                            return (
+                                <li key={i} ref={current ? currentRef : undefined}>
+                                    <Step
+                                        $current={current}
+                                        $undone={i >= at}
+                                        aria-current={current ? "step" : undefined}
+                                        title={i >= at ? "Redo up to here" : "Go back to here"}
+                                        onClick={() => travel(i + 1 - at)}
+                                    >
+                                        <Icon size={16} />
+                                        <span>{step.label}</span>
+                                    </Step>
+                                </li>
+                            );
+                        })}
+                    </List>
+                    <Note>
+                        {steps.length === 0
+                            ? "Your changes will show up here. Click one to go back to it."
+                            : "Click a step to go back to it. Faded steps can be brought back until you make a new change."}
+                    </Note>
+                </Root>
+            )}
+        </AnimatePresence>
     );
 }
 

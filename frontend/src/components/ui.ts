@@ -1,4 +1,5 @@
 import styled, { createGlobalStyle, css } from "styled-components";
+import * as m from "motion/react-m";
 import { PALETTE, type ThemeName } from "../ui/palette";
 
 const tokens = (t: ThemeName) => `
@@ -65,7 +66,8 @@ export const GlobalStyle = createGlobalStyle`
     :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 `;
 
-export const Panel = styled.div`
+// A motion element, so panels can slide in and out.
+export const Panel = styled(m.div)`
     position: absolute;
     background: var(--surface);
     border: 1px solid var(--border);
@@ -101,13 +103,19 @@ const control = css`
     justify-content: center;
     gap: 6px;
     white-space: nowrap;
-    transition: background 0.12s ease, color 0.12s ease;
+    transition: background 0.12s ease, color 0.12s ease, transform 0.12s ease;
 
     &:hover:not(:disabled) {
         background: var(--surface-hover);
     }
     &:disabled {
         color: var(--text-faint);
+    }
+    // A small press, so clicks feel answered.
+    @media (prefers-reduced-motion: no-preference) {
+        &:active:not(:disabled) {
+            transform: scale(0.96);
+        }
     }
 `;
 

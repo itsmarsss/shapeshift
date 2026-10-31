@@ -1,4 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { AnimatePresence } from "motion/react";
+import * as m from "motion/react-m";
+import { drop } from "../ui/motion";
 import styled from "styled-components";
 import {
     CaretDown,
@@ -156,7 +159,7 @@ const Wide = styled.span`
     }
 `;
 
-const Menu = styled.div`
+const Menu = styled(m.div)`
     position: absolute;
     top: calc(100% + 6px);
     left: 0;
@@ -235,24 +238,26 @@ function MoreMenu({ items, label }: { items: MenuItem[]; label?: string }) {
                     <DotsThree size={20} weight="bold" />
                 </IconButton>
             )}
-            {open && (
-                <Menu role="menu">
-                    {items.map((item) => (
-                        <button
-                            key={item.label}
-                            role="menuitem"
-                            aria-pressed={item.active}
-                            onClick={() => {
-                                setOpen(false);
-                                item.onClick();
-                            }}
-                        >
-                            {item.icon}
-                            {item.label}
-                        </button>
-                    ))}
-                </Menu>
-            )}
+            <AnimatePresence>
+                {open && (
+                    <Menu {...drop} style={{ transformOrigin: "top left" }} role="menu">
+                        {items.map((item) => (
+                            <button
+                                key={item.label}
+                                role="menuitem"
+                                aria-pressed={item.active}
+                                onClick={() => {
+                                    setOpen(false);
+                                    item.onClick();
+                                }}
+                            >
+                                {item.icon}
+                                {item.label}
+                            </button>
+                        ))}
+                    </Menu>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

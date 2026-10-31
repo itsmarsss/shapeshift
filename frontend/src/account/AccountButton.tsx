@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence } from "motion/react";
+import * as m from "motion/react-m";
+import { drop } from "../ui/motion";
 import styled from "styled-components";
 import { ChatTeardropText, CheckCircle, CloudArrowUp, CloudSlash, FolderOpen, SignOut, Sparkle, UserCircle, WarningCircle } from "@phosphor-icons/react";
 import { COMPACT, MEDIUM } from "../ui/compact";
@@ -61,7 +64,7 @@ const Dot = styled.span<{ $state: string }>`
     background: ${(p) => (p.$state === "error" ? "var(--danger)" : p.$state === "saving" ? "var(--warning)" : "var(--success)")};
 `;
 
-const Menu = styled.div`
+const Menu = styled(m.div)`
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
@@ -166,51 +169,53 @@ export function AccountButton() {
                 {initials(label)}
                 {cloudId && <Dot $state={save} />}
             </Avatar>
-            {open && (
-                <Menu role="menu">
-                    <header>
-                        <b>{user.name || "Signed in"}</b>
-                        <small>{user.email}</small>
-                    </header>
-                    <Status>
-                        <Sparkle size={14} />
-                        {PLANS[user.plan].name} plan
-                        {usage && ` · ${usage.prompts.used} of ${usage.prompts.limit} prompts used this month`}
-                    </Status>
-                    <Status>
-                        {save === "error" ? (
-                            <>
-                                <WarningCircle size={14} color="var(--danger)" /> {saveError ?? "Couldn't save"}
-                            </>
-                        ) : cloudId ? (
-                            <>
-                                <CheckCircle size={14} color="var(--success)" /> {save === "saving" ? "Saving…" : `Saving to “${cloudTitle}”`}
-                            </>
-                        ) : (
-                            <>
-                                <CloudSlash size={14} /> This scene is only on this device
-                            </>
+            <AnimatePresence>
+                {open && (
+                    <Menu {...drop} style={{ transformOrigin: "top right" }} role="menu">
+                        <header>
+                            <b>{user.name || "Signed in"}</b>
+                            <small>{user.email}</small>
+                        </header>
+                        <Status>
+                            <Sparkle size={14} />
+                            {PLANS[user.plan].name} plan
+                            {usage && ` · ${usage.prompts.used} of ${usage.prompts.limit} prompts used this month`}
+                        </Status>
+                        <Status>
+                            {save === "error" ? (
+                                <>
+                                    <WarningCircle size={14} color="var(--danger)" /> {saveError ?? "Couldn't save"}
+                                </>
+                            ) : cloudId ? (
+                                <>
+                                    <CheckCircle size={14} color="var(--success)" /> {save === "saving" ? "Saving…" : `Saving to “${cloudTitle}”`}
+                                </>
+                            ) : (
+                                <>
+                                    <CloudSlash size={14} /> This scene is only on this device
+                                </>
+                            )}
+                        </Status>
+                        {!cloudId && (
+                            <button role="menuitem" onClick={act(() => void useAccount.getState().saveToCloud())}>
+                                <CloudArrowUp size={18} /> Save to the cloud
+                            </button>
                         )}
-                    </Status>
-                    {!cloudId && (
-                        <button role="menuitem" onClick={act(() => void useAccount.getState().saveToCloud())}>
-                            <CloudArrowUp size={18} /> Save to the cloud
+                        <button role="menuitem" onClick={act(() => useAccount.getState().setShowScenes(true))}>
+                            <FolderOpen size={18} /> My scenes
                         </button>
-                    )}
-                    <button role="menuitem" onClick={act(() => useAccount.getState().setShowScenes(true))}>
-                        <FolderOpen size={18} /> My scenes
-                    </button>
-                    <button role="menuitem" onClick={act(() => location.assign("/pricing"))}>
-                        <Sparkle size={18} /> {user.plan === "pro" ? "Manage your plan" : "Upgrade to Pro"}
-                    </button>
-                    <button role="menuitem" onClick={act(() => useUI.getState().setShowFeedback(true))}>
-                        <ChatTeardropText size={18} /> Send feedback
-                    </button>
-                    <button role="menuitem" onClick={act(() => void useAccount.getState().signOut())}>
-                        <SignOut size={18} /> Sign out
-                    </button>
-                </Menu>
-            )}
+                        <button role="menuitem" onClick={act(() => location.assign("/pricing"))}>
+                            <Sparkle size={18} /> {user.plan === "pro" ? "Manage your plan" : "Upgrade to Pro"}
+                        </button>
+                        <button role="menuitem" onClick={act(() => useUI.getState().setShowFeedback(true))}>
+                            <ChatTeardropText size={18} /> Send feedback
+                        </button>
+                        <button role="menuitem" onClick={act(() => void useAccount.getState().signOut())}>
+                            <SignOut size={18} /> Sign out
+                        </button>
+                    </Menu>
+                )}
+            </AnimatePresence>
         </Wrap>
     );
 }

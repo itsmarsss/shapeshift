@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { NumberInput } from "./NumberInput";
 import { ArrangeSection, HoleToggle, ShapeSection } from "./ModelingSections";
 import styled from "styled-components";
+import { AnimatePresence } from "motion/react";
+import { slide } from "../ui/motion";
 import { CaretRight, Copy, Intersect, SelectionPlus, SelectionSlash, Subtract, Trash, Unite, X } from "@phosphor-icons/react";
 import { useShallow } from "zustand/react/shallow";
-import { COMPACT } from "../ui/compact";
+import { COMPACT, useCompact } from "../ui/compact";
 import { useTimeline } from "../scene/timeline";
 import { transformCommand } from "../scene/autokey";
 import { selectSelected, selectSelectedLight, selectSelectedObjects, useScene } from "../scene/store";
@@ -476,6 +478,7 @@ const ENVIRONMENT_LABELS: Record<Environment, string> = {
 
 export function Inspector() {
     const show = useInspectorVisible();
+    const compact = useCompact();
     const objects = useScene((s) => s.doc.objects);
     const selected = useScene(selectSelected);
     const pose = useTimeline((s) => (selected ? s.poses.get(selected.id) : undefined));
@@ -497,259 +500,261 @@ export function Inspector() {
     const unit = UNIT_SCALE[units];
     const angle = angleUnit === "deg" ? DEG : 1;
 
-    if (!show) return null;
-
     const edit = (key: string, cmd: Command) => run(cmd, { coalesce: `${key}:${selected?.id}` });
 
     return (
-        <Root>
-            <PanelHeader>
-                <PanelTitle>{selected || selectedLight || multi ? "Inspector" : "Scene"}</PanelTitle>
-                <IconButton title="Close" onClick={toggleInspector}>
-                    <X size={16} />
-                </IconButton>
-            </PanelHeader>
-            <Body>
-                <Select value={selected?.id ?? selectedLight?.id ?? ""} onChange={(e) => select(e.target.value || null)}>
-                    <option value="">{objects.length || lights.length ? "No selection" : "Scene is empty"}</option>
-                    {objects.map((o) => (
-                        <option key={o.id} value={o.id}>
-                            {o.name}
-                        </option>
-                    ))}
-                    {lights.length > 0 && (
-                        <optgroup label="Lights">
-                            {lights.map((l) => (
-                                <option key={l.id} value={l.id}>
-                                    {l.name}
+        <AnimatePresence>
+            {show && (
+                <Root key="panel" {...slide(compact ? "bottom" : "left")}>
+                    <PanelHeader>
+                        <PanelTitle>{selected || selectedLight || multi ? "Inspector" : "Scene"}</PanelTitle>
+                        <IconButton title="Close" onClick={toggleInspector}>
+                            <X size={16} />
+                        </IconButton>
+                    </PanelHeader>
+                    <Body>
+                        <Select value={selected?.id ?? selectedLight?.id ?? ""} onChange={(e) => select(e.target.value || null)}>
+                            <option value="">{objects.length || lights.length ? "No selection" : "Scene is empty"}</option>
+                            {objects.map((o) => (
+                                <option key={o.id} value={o.id}>
+                                    {o.name}
                                 </option>
                             ))}
-                        </optgroup>
-                    )}
-                </Select>
+                            {lights.length > 0 && (
+                                <optgroup label="Lights">
+                                    {lights.map((l) => (
+                                        <option key={l.id} value={l.id}>
+                                            {l.name}
+                                        </option>
+                                    ))}
+                                </optgroup>
+                            )}
+                        </Select>
 
-                {!selected && !selectedLight && objects.length + lights.length > 0 && <Muted>Select an object to edit it.</Muted>}
+                        {!selected && !selectedLight && objects.length + lights.length > 0 && <Muted>Select an object to edit it.</Muted>}
 
-                {selectedLight && <LightSection light={selectedLight} />}
+                        {selectedLight && <LightSection light={selectedLight} />}
 
-                {multi && <SelectionSection objects={selectedObjects} groups={groups} />}
+                        {multi && <SelectionSection objects={selectedObjects} groups={groups} />}
 
-                {selected && !multi && mode === "edit" && <Muted>{touchOnly() ? "Tap a point to move it." : "Click a point to move it. Shift-click to select more."}</Muted>}
+                        {selected && !multi && mode === "edit" && <Muted>{touchOnly() ? "Tap a point to move it." : "Click a point to move it. Shift-click to select more."}</Muted>}
 
-                {selected && !multi && (
-                    <>
+                        {selected && !multi && (
+                            <>
+                                <div>
+                                    <FieldLabel>Name</FieldLabel>
+                                    <Input
+                                        value={selected.name}
+                                        onChange={(e) => {
+                                            if (e.target.value.trim())
+                                                edit("rename", { type: "rename", target: selected.id, name: e.target.value });
+                                        }}
+                                        onBlur={endCoalesce}
+                                    />
+                                    {selected.group && <Muted style={{ marginTop: 6 }}>In group “{selected.group}”.{touchOnly() ? "" : " Alt-click picks one part."}</Muted>}
+                                    {pose && <Muted style={{ marginTop: 6 }}>Animated. Moving it adds a keyframe at {time.toFixed(1)}s.</Muted>}
+                                    <div style={{ marginTop: 8 }}>
+                                        <HoleToggle objects={[selected]} />
+                                    </div>
+                                </div>
+                                <ShapeSection object={selected} />
+                                <div>
+                                    <FieldLabel>Color</FieldLabel>
+                                    <ColorPicker
+                                        value={selected.material.color}
+                                        onChange={(color) => edit("color", { type: "material", target: selected.id, color })}
+                                        onCommit={endCoalesce}
+                                    />
+                                </div>
+                                <div>
+                                    <FieldLabel>Material</FieldLabel>
+                                    <Tiles>
+                                        {MATERIAL_PRESETS.map((p) => (
+                                            <Tile
+                                                key={p.name}
+                                                type="button"
+                                                aria-pressed={looksLike(selected.material, p.material)}
+                                                $swatch={p.swatch}
+                                                $glow={p.name === "Neon"}
+                                                onClick={() =>
+                                                    run([
+                                                        { type: "material", target: selected.id, ...p.material },
+                                                        // Metal mirrors its surroundings, and plain lights leave
+                                                        // nothing to mirror, so it would render black.
+                                                        ...(p.material.metalness && environment === "none" ? [{ type: "environment", preset: "studio" } as const] : []),
+                                                    ])
+                                                }
+                                            >
+                                                <span />
+                                                {p.name}
+                                            </Tile>
+                                        ))}
+                                    </Tiles>
+                                </div>
+                                <Actions>
+                                    <Button onClick={() => run({ type: "duplicate", target: selected.id })}>
+                                        <Copy size={16} />
+                                        Duplicate
+                                    </Button>
+                                    <Button $variant="danger" onClick={() => run({ type: "remove", target: selected.id })}>
+                                        <Trash size={16} />
+                                        Delete
+                                    </Button>
+                                </Actions>
+                                <More>
+                                    <ArrangeSection canAlign={false} />
+                                    <div>
+                                        <FieldLabel>Position ({units})</FieldLabel>
+                                        <VectorField
+                                            value={pose?.position ?? selected.position}
+                                            scale={unit}
+                                            step={(snap.enabled ? snap.translate : 0.1) * unit}
+                                            onCommit={endCoalesce}
+                                            onChange={(position) => edit("position", transformCommand(selected.id, { position }))}
+                                        />
+                                    </div>
+                                    <div>
+                                        <FieldLabel>Rotation ({angleUnit === "deg" ? "degrees" : "radians"})</FieldLabel>
+                                        <VectorField
+                                            value={pose?.rotation ?? selected.rotation}
+                                            scale={angle}
+                                            step={snap.enabled ? round(snap.rotate * angle) : angleUnit === "deg" ? 1 : 0.05}
+                                            onCommit={endCoalesce}
+                                            onChange={(rotation) => edit("rotation", transformCommand(selected.id, { rotation }))}
+                                        />
+                                    </div>
+                                    <div>
+                                        <FieldLabel>Scale</FieldLabel>
+                                        <VectorField
+                                            value={pose?.scale ?? selected.scale}
+                                            step={snap.enabled ? snap.scale : 0.1}
+                                            onCommit={endCoalesce}
+                                            onChange={(scale) => edit("scale", transformCommand(selected.id, { scale }))}
+                                        />
+                                    </div>
+                                    <div>
+                                        <FieldLabel>Fine-tune the material</FieldLabel>
+                                        <Grid $cols={2}>
+                                                <Sub>
+                                                    Opacity
+                                                    <NumberInput
+                                                        value={selected.material.opacity}
+                                                        step={0.05}
+                                                        min={0}
+                                                        max={1}
+                                                        onCommit={endCoalesce}
+                                                        onChange={(opacity) => edit("opacity", { type: "material", target: selected.id, opacity })}
+                                                    />
+                                                </Sub>
+                                                <Sub>
+                                                    Metalness
+                                                    <NumberInput
+                                                        value={selected.material.metalness}
+                                                        step={0.05}
+                                                        min={0}
+                                                        max={1}
+                                                        onCommit={endCoalesce}
+                                                        onChange={(metalness) => edit("metalness", { type: "material", target: selected.id, metalness })}
+                                                    />
+                                                </Sub>
+                                                <Sub>
+                                                    Roughness
+                                                    <NumberInput
+                                                        value={selected.material.roughness}
+                                                        step={0.05}
+                                                        min={0}
+                                                        max={1}
+                                                        onCommit={endCoalesce}
+                                                        onChange={(roughness) => edit("roughness", { type: "material", target: selected.id, roughness })}
+                                                    />
+                                                </Sub>
+                                                <Sub>
+                                                    Glow color
+                                                    <ColorPicker
+                                                        label="Glow color"
+                                                        value={selected.material.emissive ?? selected.material.color}
+                                                        onChange={(emissive) => edit("emissive", { type: "material", target: selected.id, emissive })}
+                                                        onCommit={endCoalesce}
+                                                    />
+                                                </Sub>
+                                                <Sub>
+                                                    Glow
+                                                    <NumberInput
+                                                        value={selected.material.emissiveIntensity ?? 0}
+                                                        step={0.25}
+                                                        min={0}
+                                                        max={20}
+                                                        onCommit={endCoalesce}
+                                                        onChange={(emissiveIntensity) => edit("glow", { type: "material", target: selected.id, emissiveIntensity })}
+                                                    />
+                                                </Sub>
+                                                <Sub>
+                                                    Glass
+                                                    <NumberInput
+                                                        value={selected.material.transmission ?? 0}
+                                                        step={0.05}
+                                                        min={0}
+                                                        max={1}
+                                                        onCommit={endCoalesce}
+                                                        onChange={(transmission) => edit("glass", { type: "material", target: selected.id, transmission })}
+                                                    />
+                                                </Sub>
+                                        </Grid>
+                                    </div>
+                                </More>
+                            </>
+                        )}
+
+                        {!selected && !selectedLight && !multi && (
+                        <>
                         <div>
-                            <FieldLabel>Name</FieldLabel>
-                            <Input
-                                value={selected.name}
-                                onChange={(e) => {
-                                    if (e.target.value.trim())
-                                        edit("rename", { type: "rename", target: selected.id, name: e.target.value });
-                                }}
-                                onBlur={endCoalesce}
-                            />
-                            {selected.group && <Muted style={{ marginTop: 6 }}>In group “{selected.group}”.{touchOnly() ? "" : " Alt-click picks one part."}</Muted>}
-                            {pose && <Muted style={{ marginTop: 6 }}>Animated. Moving it adds a keyframe at {time.toFixed(1)}s.</Muted>}
-                            <div style={{ marginTop: 8 }}>
-                                <HoleToggle objects={[selected]} />
-                            </div>
-                        </div>
-                        <ShapeSection object={selected} />
-                        <div>
-                            <FieldLabel>Color</FieldLabel>
-                            <ColorPicker
-                                value={selected.material.color}
-                                onChange={(color) => edit("color", { type: "material", target: selected.id, color })}
-                                onCommit={endCoalesce}
-                            />
-                        </div>
-                        <div>
-                            <FieldLabel>Material</FieldLabel>
-                            <Tiles>
-                                {MATERIAL_PRESETS.map((p) => (
-                                    <Tile
-                                        key={p.name}
-                                        type="button"
-                                        aria-pressed={looksLike(selected.material, p.material)}
-                                        $swatch={p.swatch}
-                                        $glow={p.name === "Neon"}
-                                        onClick={() =>
-                                            run([
-                                                { type: "material", target: selected.id, ...p.material },
-                                                // Metal mirrors its surroundings, and plain lights leave
-                                                // nothing to mirror, so it would render black.
-                                                ...(p.material.metalness && environment === "none" ? [{ type: "environment", preset: "studio" } as const] : []),
-                                            ])
-                                        }
-                                    >
-                                        <span />
-                                        {p.name}
-                                    </Tile>
+                            <FieldLabel>Lighting</FieldLabel>
+                            <Select
+                                value={environment}
+                                onChange={(e) => run({ type: "environment", preset: e.target.value as Environment })}
+                                title="Lighting that shiny surfaces and glass reflect"
+                            >
+                                {ENVIRONMENTS.map((env) => (
+                                    <option key={env} value={env}>
+                                        {ENVIRONMENT_LABELS[env]}
+                                    </option>
                                 ))}
-                            </Tiles>
+                            </Select>
                         </div>
-                        <Actions>
-                            <Button onClick={() => run({ type: "duplicate", target: selected.id })}>
-                                <Copy size={16} />
-                                Duplicate
-                            </Button>
-                            <Button $variant="danger" onClick={() => run({ type: "remove", target: selected.id })}>
-                                <Trash size={16} />
-                                Delete
-                            </Button>
-                        </Actions>
-                        <More>
-                            <ArrangeSection canAlign={false} />
-                            <div>
-                                <FieldLabel>Position ({units})</FieldLabel>
-                                <VectorField
-                                    value={pose?.position ?? selected.position}
-                                    scale={unit}
-                                    step={(snap.enabled ? snap.translate : 0.1) * unit}
-                                    onCommit={endCoalesce}
-                                    onChange={(position) => edit("position", transformCommand(selected.id, { position }))}
-                                />
-                            </div>
-                            <div>
-                                <FieldLabel>Rotation ({angleUnit === "deg" ? "degrees" : "radians"})</FieldLabel>
-                                <VectorField
-                                    value={pose?.rotation ?? selected.rotation}
-                                    scale={angle}
-                                    step={snap.enabled ? round(snap.rotate * angle) : angleUnit === "deg" ? 1 : 0.05}
-                                    onCommit={endCoalesce}
-                                    onChange={(rotation) => edit("rotation", transformCommand(selected.id, { rotation }))}
-                                />
-                            </div>
-                            <div>
-                                <FieldLabel>Scale</FieldLabel>
-                                <VectorField
-                                    value={pose?.scale ?? selected.scale}
-                                    step={snap.enabled ? snap.scale : 0.1}
-                                    onCommit={endCoalesce}
-                                    onChange={(scale) => edit("scale", transformCommand(selected.id, { scale }))}
-                                />
-                            </div>
-                            <div>
-                                <FieldLabel>Fine-tune the material</FieldLabel>
-                                <Grid $cols={2}>
-                                        <Sub>
-                                            Opacity
-                                            <NumberInput
-                                                value={selected.material.opacity}
-                                                step={0.05}
-                                                min={0}
-                                                max={1}
-                                                onCommit={endCoalesce}
-                                                onChange={(opacity) => edit("opacity", { type: "material", target: selected.id, opacity })}
-                                            />
-                                        </Sub>
-                                        <Sub>
-                                            Metalness
-                                            <NumberInput
-                                                value={selected.material.metalness}
-                                                step={0.05}
-                                                min={0}
-                                                max={1}
-                                                onCommit={endCoalesce}
-                                                onChange={(metalness) => edit("metalness", { type: "material", target: selected.id, metalness })}
-                                            />
-                                        </Sub>
-                                        <Sub>
-                                            Roughness
-                                            <NumberInput
-                                                value={selected.material.roughness}
-                                                step={0.05}
-                                                min={0}
-                                                max={1}
-                                                onCommit={endCoalesce}
-                                                onChange={(roughness) => edit("roughness", { type: "material", target: selected.id, roughness })}
-                                            />
-                                        </Sub>
-                                        <Sub>
-                                            Glow color
-                                            <ColorPicker
-                                                label="Glow color"
-                                                value={selected.material.emissive ?? selected.material.color}
-                                                onChange={(emissive) => edit("emissive", { type: "material", target: selected.id, emissive })}
-                                                onCommit={endCoalesce}
-                                            />
-                                        </Sub>
-                                        <Sub>
-                                            Glow
-                                            <NumberInput
-                                                value={selected.material.emissiveIntensity ?? 0}
-                                                step={0.25}
-                                                min={0}
-                                                max={20}
-                                                onCommit={endCoalesce}
-                                                onChange={(emissiveIntensity) => edit("glow", { type: "material", target: selected.id, emissiveIntensity })}
-                                            />
-                                        </Sub>
-                                        <Sub>
-                                            Glass
-                                            <NumberInput
-                                                value={selected.material.transmission ?? 0}
-                                                step={0.05}
-                                                min={0}
-                                                max={1}
-                                                onCommit={endCoalesce}
-                                                onChange={(transmission) => edit("glass", { type: "material", target: selected.id, transmission })}
-                                            />
-                                        </Sub>
+
+                        <div>
+                            <Check>
+                                <input type="checkbox" checked={snap.enabled} onChange={(e) => setSnap({ enabled: e.target.checked })} />
+                                Snapping
+                            </Check>
+                            {snap.enabled && (
+                                <Grid style={{ marginTop: 10 }}>
+                                    <Sub>
+                                        Move ({units})
+                                        <NumberInput
+                                            value={snap.translate * unit}
+                                            step={0.1 * unit}
+                                            min={0.001 * unit}
+                                            onChange={(v) => setSnap({ translate: v / unit })}
+                                        />
+                                    </Sub>
+                                    <Sub>
+                                        Rotate (°)
+                                        <NumberInput value={snap.rotate * DEG} step={1} min={1} onChange={(v) => setSnap({ rotate: v / DEG })} />
+                                    </Sub>
+                                    <Sub>
+                                        Scale
+                                        <NumberInput value={snap.scale} step={0.05} min={0.01} onChange={(scale) => setSnap({ scale })} />
+                                    </Sub>
                                 </Grid>
-                            </div>
-                        </More>
-                    </>
-                )}
-
-                {!selected && !selectedLight && !multi && (
-                <>
-                <div>
-                    <FieldLabel>Lighting</FieldLabel>
-                    <Select
-                        value={environment}
-                        onChange={(e) => run({ type: "environment", preset: e.target.value as Environment })}
-                        title="Lighting that shiny surfaces and glass reflect"
-                    >
-                        {ENVIRONMENTS.map((env) => (
-                            <option key={env} value={env}>
-                                {ENVIRONMENT_LABELS[env]}
-                            </option>
-                        ))}
-                    </Select>
-                </div>
-
-                <div>
-                    <Check>
-                        <input type="checkbox" checked={snap.enabled} onChange={(e) => setSnap({ enabled: e.target.checked })} />
-                        Snapping
-                    </Check>
-                    {snap.enabled && (
-                        <Grid style={{ marginTop: 10 }}>
-                            <Sub>
-                                Move ({units})
-                                <NumberInput
-                                    value={snap.translate * unit}
-                                    step={0.1 * unit}
-                                    min={0.001 * unit}
-                                    onChange={(v) => setSnap({ translate: v / unit })}
-                                />
-                            </Sub>
-                            <Sub>
-                                Rotate (°)
-                                <NumberInput value={snap.rotate * DEG} step={1} min={1} onChange={(v) => setSnap({ rotate: v / DEG })} />
-                            </Sub>
-                            <Sub>
-                                Scale
-                                <NumberInput value={snap.scale} step={0.05} min={0.01} onChange={(scale) => setSnap({ scale })} />
-                            </Sub>
-                        </Grid>
-                    )}
-                </div>
-                </>
-                )}
-            </Body>
-        </Root>
+                            )}
+                        </div>
+                        </>
+                        )}
+                    </Body>
+                </Root>
+            )}
+        </AnimatePresence>
     );
 }
 

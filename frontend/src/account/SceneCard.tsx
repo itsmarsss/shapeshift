@@ -1,18 +1,21 @@
 import { useState } from "react";
 import styled from "styled-components";
+import * as m from "motion/react-m";
+import { item, list } from "../ui/motion";
 import { Check, Cube, LinkSimple, PencilSimple, Trash } from "@phosphor-icons/react";
 import { Input } from "../components/ui";
 import { api, type CloudScene } from "./api";
 import { embedCode } from "../viewer/embed";
 import { useAccount } from "./store";
 
-export const Grid = styled.div`
+// Cards come in one after another.
+export const Grid = styled(m.div).attrs({ variants: list, initial: "hidden", animate: "shown" })`
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
     gap: 12px;
 `;
 
-const Card = styled.div<{ $current: boolean }>`
+const Card = styled(m.div).attrs({ variants: item })<{ $current: boolean }>`
     border: 1px solid ${(p) => (p.$current ? "var(--accent)" : "var(--border)")};
     border-radius: 12px;
     overflow: hidden;

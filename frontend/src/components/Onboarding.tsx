@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import styled from "styled-components";
+import * as m from "motion/react-m";
+import { fade, pop } from "../ui/motion";
 import { Button } from "./ui";
 import { useUI } from "../ui/store";
 import { useResolvedTheme } from "../settings/theme";
 
-const Backdrop = styled.div`
+const Backdrop = styled(m.div)`
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.45);
@@ -15,7 +17,7 @@ const Backdrop = styled.div`
     z-index: 1000;
 `;
 
-const Dialog = styled.div`
+const Dialog = styled(m.div)`
     width: min(560px, 100%);
     display: flex;
     flex-direction: column;
@@ -120,8 +122,8 @@ export function Onboarding() {
     const current = STEPS[step];
 
     return (
-        <Backdrop>
-            <Dialog role="dialog" aria-modal="true" aria-label="Welcome to ShapeShift">
+        <Backdrop {...fade}>
+            <Dialog {...pop} role="dialog" aria-modal="true" aria-label="Welcome to ShapeShift">
                 <Stage>
                     <Shot src={src(current.image, theme)} alt="" />
                 </Stage>

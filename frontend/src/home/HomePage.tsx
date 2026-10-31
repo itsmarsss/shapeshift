@@ -1,5 +1,7 @@
 import { useEffect, useMemo } from "react";
 import styled from "styled-components";
+import * as m from "motion/react-m";
+import { item, list, rise } from "../ui/motion";
 import { ArrowRight, Compass, Cube, Plus, SignOut, Sparkle } from "@phosphor-icons/react";
 import { GlobalStyle } from "../components/ui";
 import { useResolvedTheme } from "../settings/theme";
@@ -66,7 +68,7 @@ const Header = styled.header`
     }
 `;
 
-const Main = styled.main`
+const Main = styled(m.main).attrs(rise)`
     width: min(1080px, 100%);
     margin: 0 auto;
     padding: 28px 20px 48px;
@@ -84,7 +86,7 @@ const Main = styled.main`
     }
 `;
 
-const Starters = styled.div`
+const Starters = styled(m.div).attrs({ variants: list, initial: "hidden", animate: "shown" })`
     display: grid;
     grid-auto-flow: column;
     grid-auto-columns: minmax(150px, 1fr);
@@ -94,7 +96,7 @@ const Starters = styled.div`
     scrollbar-width: thin;
 `;
 
-const Starter = styled.a<{ $primary?: boolean }>`
+const Starter = styled(m.a).attrs({ variants: item })<{ $primary?: boolean }>`
     display: flex;
     flex-direction: column;
     border: 1px solid ${(p) => (p.$primary ? "var(--accent)" : "var(--border)")};

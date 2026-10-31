@@ -3,7 +3,8 @@ import { Timeline, TIMELINE_HEIGHT } from "./timeline/Timeline";
 import { useTimeline } from "../scene/timeline";
 import { useCompact } from "../ui/compact";
 import { useAccount } from "../account/store";
-import { lazy, Suspense, useEffect, type CSSProperties } from "react";
+import { lazy, Suspense, useEffect, type ComponentType, type CSSProperties } from "react";
+import { AnimatePresence } from "motion/react";
 import styled from "styled-components";
 import { GlobalStyle } from "./ui";
 import Topbar from "./Topbar";
@@ -29,6 +30,14 @@ const SettingsModal = lazy(() => import("../settings/SettingsModal"));
 const TemplatesDialog = lazy(() => import("./TemplatesDialog"));
 const FeedbackDialog = lazy(() => import("./FeedbackDialog"));
 const Onboarding = lazy(() => import("./Onboarding"));
+
+function Lazy({ of: Component }: { of: ComponentType }) {
+    return (
+        <Suspense fallback={null}>
+            <Component />
+        </Suspense>
+    );
+}
 
 const Root = styled.div`
     position: relative;
@@ -91,13 +100,17 @@ export function Layout() {
             <Suspense fallback={null}>
                 <ChatPanel />
                 {handsOn && <HandUI />}
-                {showSettings && <SettingsModal />}
-                {showTemplates && <TemplatesDialog />}
-                {showFeedback && <FeedbackDialog />}
-                {showSignIn && <SignInDialog />}
-                {showScenes && <ScenesDialog />}
-                {showOnboarding && <Onboarding />}
             </Suspense>
+            {/* Each in its own Suspense so the first open of one doesn't blank the
+                others, and kept by AnimatePresence until it has faded out. */}
+            <AnimatePresence>
+                {showSettings && <Lazy key="settings" of={SettingsModal} />}
+                {showTemplates && <Lazy key="templates" of={TemplatesDialog} />}
+                {showFeedback && <Lazy key="feedback" of={FeedbackDialog} />}
+                {showSignIn && <Lazy key="sign-in" of={SignInDialog} />}
+                {showScenes && <Lazy key="scenes" of={ScenesDialog} />}
+                {showOnboarding && <Lazy key="onboarding" of={Onboarding} />}
+            </AnimatePresence>
         </Root>
     );
 }

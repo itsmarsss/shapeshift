@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 import styled from "styled-components";
+import { AnimatePresence } from "motion/react";
+import { slide } from "../../ui/motion";
 import { DiamondsFour, Pause, Play, Repeat, SkipBack, Trash, VideoCamera, X } from "@phosphor-icons/react";
 import { recordAnimation, useRecording } from "../../scene/record";
 import { useShallow } from "zustand/react/shallow";
@@ -249,8 +251,6 @@ export function Timeline() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
 
-    if (!open) return null;
-
     function seekFromPointer(clientX: number) {
         const rect = track.current?.getBoundingClientRect();
         if (!rect) return;
@@ -265,97 +265,101 @@ export function Timeline() {
     const pct = (t: number) => `${(t / duration) * 100}%`;
 
     return (
-        <Root aria-label="Animation timeline">
-            <Controls>
-                <IconButton title="Back to start" onClick={() => seek(0)}>
-                    <SkipBack size={16} weight="fill" />
-                </IconButton>
-                <PlayButton title={playing ? "Pause (Space)" : "Play (Space)"} onClick={toggle}>
-                    {playing ? <Pause size={18} weight="fill" /> : <Play size={18} weight="fill" />}
-                </PlayButton>
-            </Controls>
-            <Clock>
-                <b>{time.toFixed(1)}s</b>
-                <div>of {duration}s</div>
-            </Clock>
-            <Track
-                ref={track}
-                onPointerDown={(e) => {
-                    if ((e.target as HTMLElement).dataset.key) return;
-                    e.currentTarget.setPointerCapture(e.pointerId);
-                    useTimeline.getState().pause();
-                    seekFromPointer(e.clientX);
-                }}
-                onPointerMove={(e) => {
-                    if (e.currentTarget.hasPointerCapture(e.pointerId)) seekFromPointer(e.clientX);
-                }}
-            >
-                {ticks.map((t) => (
-                    <Tick key={t} $major={Number.isInteger(t)} style={{ left: pct(t) }}>
-                        {Number.isInteger(t) && <span>{t}s</span>}
-                    </Tick>
-                ))}
-                {shown.map((t) => (
-                    <Diamond
-                        key={t}
-                        data-key="1"
-                        style={{ left: pct(t) }}
-                        $active={Math.abs(t - time) < 0.02}
-                        $faint={!selectedIds.length}
-                        title={`Keyframe at ${t}s`}
-                        onClick={() => {
+        <AnimatePresence>
+            {open && (
+                <Root key="panel" {...slide("bottom")} aria-label="Animation timeline">
+                    <Controls>
+                        <IconButton title="Back to start" onClick={() => seek(0)}>
+                            <SkipBack size={16} weight="fill" />
+                        </IconButton>
+                        <PlayButton title={playing ? "Pause (Space)" : "Play (Space)"} onClick={toggle}>
+                            {playing ? <Pause size={18} weight="fill" /> : <Play size={18} weight="fill" />}
+                        </PlayButton>
+                    </Controls>
+                    <Clock>
+                        <b>{time.toFixed(1)}s</b>
+                        <div>of {duration}s</div>
+                    </Clock>
+                    <Track
+                        ref={track}
+                        onPointerDown={(e) => {
+                            if ((e.target as HTMLElement).dataset.key) return;
+                            e.currentTarget.setPointerCapture(e.pointerId);
                             useTimeline.getState().pause();
-                            seek(t);
+                            seekFromPointer(e.clientX);
                         }}
-                    />
-                ))}
-                <Head style={{ left: pct(time) }} />
-                {recordNote && <Hint role="status">{recordNote}</Hint>}
-                {!recordNote && !animation.tracks.length && (
-                    <Hint>Pick a shape and press Keyframe, then move the playhead and move the shape. Or ask the assistant to “make it spin”.</Hint>
-                )}
-            </Track>
-            <Side>
-                <KeyButton onClick={addKey} disabled={!selectedIds.length} title="Record the selection here (K)">
-                    <DiamondsFour size={15} weight="fill" />
-                    Keyframe
-                </KeyButton>
-                <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
-                    <Length title="Animation length">
-                        <input
-                            type="number"
-                            min={0.5}
-                            max={600}
-                            step={0.5}
-                            value={duration}
-                            onChange={(e) => {
-                                const v = parseFloat(e.target.value);
-                                if (v > 0) run({ type: "timeline", duration: Math.min(600, v) }, { coalesce: "timeline:duration" });
-                            }}
-                        />
-                        s
-                    </Length>
-                    <IconButton $size={24} $active={loop} title={loop ? "Looping" : "Plays once"} onClick={() => run({ type: "timeline", loop: !loop })}>
-                        <Repeat size={14} />
-                    </IconButton>
-                    <IconButton
-                        $size={24}
-                        $active={recording}
-                        title={recording ? "Recording…" : animation.tracks.length ? "Record the animation as a video" : "Add a keyframe first to record a video"}
-                        disabled={recording || !animation.tracks.length}
-                        onClick={() => void recordAnimation()}
+                        onPointerMove={(e) => {
+                            if (e.currentTarget.hasPointerCapture(e.pointerId)) seekFromPointer(e.clientX);
+                        }}
                     >
-                        <VideoCamera size={14} weight={recording ? "fill" : "regular"} color={recording ? "var(--danger)" : undefined} />
+                        {ticks.map((t) => (
+                            <Tick key={t} $major={Number.isInteger(t)} style={{ left: pct(t) }}>
+                                {Number.isInteger(t) && <span>{t}s</span>}
+                            </Tick>
+                        ))}
+                        {shown.map((t) => (
+                            <Diamond
+                                key={t}
+                                data-key="1"
+                                style={{ left: pct(t) }}
+                                $active={Math.abs(t - time) < 0.02}
+                                $faint={!selectedIds.length}
+                                title={`Keyframe at ${t}s`}
+                                onClick={() => {
+                                    useTimeline.getState().pause();
+                                    seek(t);
+                                }}
+                            />
+                        ))}
+                        <Head style={{ left: pct(time) }} />
+                        {recordNote && <Hint role="status">{recordNote}</Hint>}
+                        {!recordNote && !animation.tracks.length && (
+                            <Hint>Pick a shape and press Keyframe, then move the playhead and move the shape. Or ask the assistant to “make it spin”.</Hint>
+                        )}
+                    </Track>
+                    <Side>
+                        <KeyButton onClick={addKey} disabled={!selectedIds.length} title="Record the selection here (K)">
+                            <DiamondsFour size={15} weight="fill" />
+                            Keyframe
+                        </KeyButton>
+                        <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
+                            <Length title="Animation length">
+                                <input
+                                    type="number"
+                                    min={0.5}
+                                    max={600}
+                                    step={0.5}
+                                    value={duration}
+                                    onChange={(e) => {
+                                        const v = parseFloat(e.target.value);
+                                        if (v > 0) run({ type: "timeline", duration: Math.min(600, v) }, { coalesce: "timeline:duration" });
+                                    }}
+                                />
+                                s
+                            </Length>
+                            <IconButton $size={24} $active={loop} title={loop ? "Looping" : "Plays once"} onClick={() => run({ type: "timeline", loop: !loop })}>
+                                <Repeat size={14} />
+                            </IconButton>
+                            <IconButton
+                                $size={24}
+                                $active={recording}
+                                title={recording ? "Recording…" : animation.tracks.length ? "Record the animation as a video" : "Add a keyframe first to record a video"}
+                                disabled={recording || !animation.tracks.length}
+                                onClick={() => void recordAnimation()}
+                            >
+                                <VideoCamera size={14} weight={recording ? "fill" : "regular"} color={recording ? "var(--danger)" : undefined} />
+                            </IconButton>
+                            <IconButton $size={24} title="Delete this keyframe" disabled={!atKey || !selectedIds.length} onClick={removeKey}>
+                                <Trash size={14} />
+                            </IconButton>
+                        </div>
+                    </Side>
+                    <IconButton $size={26} title="Close timeline" onClick={() => setOpen(false)} style={{ alignSelf: "flex-start" }}>
+                        <X size={14} />
                     </IconButton>
-                    <IconButton $size={24} title="Delete this keyframe" disabled={!atKey || !selectedIds.length} onClick={removeKey}>
-                        <Trash size={14} />
-                    </IconButton>
-                </div>
-            </Side>
-            <IconButton $size={26} title="Close timeline" onClick={() => setOpen(false)} style={{ alignSelf: "flex-start" }}>
-                <X size={14} />
-            </IconButton>
-        </Root>
+                </Root>
+            )}
+        </AnimatePresence>
     );
 }
 

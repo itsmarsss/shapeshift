@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import styled from "styled-components";
+import * as m from "motion/react-m";
+import { item, list, rise } from "../ui/motion";
 import { ArrowLeft, Compass, Cube } from "@phosphor-icons/react";
 import { GlobalStyle } from "../components/ui";
 import { useResolvedTheme } from "../settings/theme";
@@ -38,7 +40,7 @@ const Header = styled.header`
     }
 `;
 
-const Main = styled.main`
+const Main = styled(m.main).attrs(rise)`
     width: min(1080px, 100%);
     margin: 0 auto;
     padding: 28px 20px 48px;
@@ -56,14 +58,14 @@ const Main = styled.main`
     }
 `;
 
-const Grid = styled.div`
+const Grid = styled(m.div).attrs({ variants: list, initial: "hidden", animate: "shown" })`
     display: grid;
     // Two across on phones, more on wider screens.
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 14px;
 `;
 
-const Card = styled.a`
+const Card = styled(m.a).attrs({ variants: item })`
     display: flex;
     flex-direction: column;
     border: 1px solid var(--border);

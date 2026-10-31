@@ -1,5 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import styled from "styled-components";
+import * as m from "motion/react-m";
+import { item, list, rise } from "../ui/motion";
 import { ArrowLeft, Check, Sparkle } from "@phosphor-icons/react";
 import { PLANS, PRO_PRICES, type BillingInterval } from "@shapeshift/shared/billing/plans";
 import { GlobalStyle, Segment, Segmented } from "../components/ui";
@@ -31,7 +33,7 @@ const Back = styled.a`
     }
 `;
 
-const Head = styled.header`
+const Head = styled(m.header).attrs(rise)`
     max-width: 640px;
     margin: 32px auto 24px;
     text-align: center;
@@ -59,7 +61,7 @@ const Banner = styled.div`
     text-align: center;
 `;
 
-const Cards = styled.div`
+const Cards = styled(m.div).attrs({ variants: list, initial: "hidden", animate: "shown" })`
     max-width: 760px;
     margin: 0 auto;
     display: grid;
@@ -67,7 +69,7 @@ const Cards = styled.div`
     gap: 16px;
 `;
 
-const Card = styled.section<{ $featured?: boolean }>`
+const Card = styled(m.section).attrs({ variants: item })<{ $featured?: boolean }>`
     display: flex;
     flex-direction: column;
     gap: 14px;
