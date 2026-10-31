@@ -30,7 +30,29 @@ function withControls(move: (c: CameraControls) => void) {
     else pending = () => move(controls!);
 }
 
-const PAD = { paddingTop: 0.6, paddingBottom: 0.6, paddingLeft: 0.6, paddingRight: 0.6 };
+// Room around what's framed, plus room for the panels covering the sides and
+// bottom, so it lands in the part of the view that's still visible.
+function padding(box: THREE.Box3) {
+    const editor = document.querySelector<HTMLElement>("[data-editor]");
+    const css = editor ? getComputedStyle(editor) : null;
+    const px = (name: string) => parseFloat(css?.getPropertyValue(name) ?? "") || 0;
+    const width = editor?.clientWidth || window.innerWidth;
+    const height = editor?.clientHeight || window.innerHeight;
+    const left = px("--left-inset");
+    const right = px("--right-inset");
+    const bottom = px("--bottom-offset");
+    const freeWidth = Math.max(200, width - left - right);
+    const freeHeight = Math.max(200, height - bottom);
+    const size = box.getSize(new THREE.Vector3());
+    const across = Math.max(size.x, size.z) + 1.2;
+    const tall = size.y + 1.2;
+    return {
+        paddingTop: 0.6,
+        paddingBottom: 0.6 + (tall * bottom) / freeHeight,
+        paddingLeft: 0.6 + (across * left) / freeWidth,
+        paddingRight: 0.6 + (across * right) / freeWidth,
+    };
+}
 
 // Everything, or just the selection when there is one. Flat ground planes are
 // left out of "everything", so the camera frames the subject.
@@ -55,14 +77,14 @@ function bounds(onlySelection: boolean) {
 export function frameScene() {
     withControls((c) => {
         const box = bounds(false);
-        if (box) void c.fitToBox(box, true, PAD);
+        if (box) void c.fitToBox(box, true, padding(box));
     });
 }
 
 export function frameSelection() {
     withControls((c) => {
         const box = bounds(true);
-        if (box) void c.fitToBox(box, true, PAD);
+        if (box) void c.fitToBox(box, true, padding(box));
     });
 }
 

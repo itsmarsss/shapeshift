@@ -191,3 +191,24 @@ test('closes the color picker with Escape and keeps the selection', async ({ pag
   await expect(page.getByRole('dialog', { name: 'Pick color' })).toHaveCount(0)
   await expect(page.locator('input[value="Sphere"]')).toBeVisible()
 })
+
+test('combines two selected shapes from the inspector', async ({ page }) => {
+  await openEditor(page)
+  await page.getByTitle('Add box').click()
+  await page.getByTitle('Add sphere').click()
+  const count = () => page.evaluate(() => JSON.parse(localStorage.getItem('shapeshift-scene') ?? '{"objects":[]}').objects.length)
+  await expect.poll(count).toBe(2)
+  // Nothing floats over the view for this any more; it's in the inspector.
+  await expect(page.getByText('First object')).toHaveCount(0)
+  await page.keyboard.press('ControlOrMeta+a')
+  await page.getByRole('button', { name: 'Join' }).click()
+  await expect.poll(count).toBe(1)
+})
+
+test('keeps the get-started card clear of the side panels', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await openEditor(page)
+  const card = (await page.getByRole('region', { name: 'Get started' }).boundingBox())!
+  const inspector = (await page.getByText('Inspector', { exact: true }).locator('..').locator('..').boundingBox())!
+  expect(card.x).toBeGreaterThanOrEqual(inspector.x + inspector.width)
+})

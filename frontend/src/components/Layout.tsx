@@ -9,7 +9,6 @@ import { GlobalStyle } from "./ui";
 import Topbar from "./Topbar";
 import Toolbar from "./Toolbar";
 import Inspector from "./Inspector";
-import BooleanPanel from "./BooleanPanel";
 import { HistoryPanel } from "./HistoryPanel";
 import { StartCard } from "./StartCard";
 import { ViewCube } from "./ViewCube";
@@ -42,6 +41,7 @@ const Stage = styled.div`
 export function Layout() {
     useShortcuts();
     const showChat = useUI((s) => s.showChat);
+    const showInspector = useUI((s) => s.showInspector);
     const handsOn = useHands((s) => s.status !== "off");
     const showSettings = useUI((s) => s.showSettings);
     const showTemplates = useUI((s) => s.showTemplates);
@@ -56,9 +56,16 @@ export function Layout() {
     }, [theme]);
     return (
         <Root
+            data-editor
             style={
                 {
                     "--chat-width": showChat && !compact ? "360px" : "0px",
+                    // How much of each side the panels cover, so things meant
+                    // for the middle of the 3D view (cards, the camera's fit)
+                    // land in the part that's still visible. On phones the
+                    // panels are bottom sheets instead.
+                    "--left-inset": compact ? "0px" : showInspector ? "354px" : "70px",
+                    "--right-inset": showChat && !compact ? "372px" : "0px",
                     // Panels along the bottom sit above the timeline when it's open.
                     "--bottom-offset": timelineOpen ? `${(compact ? 120 : TIMELINE_HEIGHT) + 12}px` : "0px",
                 } as CSSProperties
@@ -71,7 +78,6 @@ export function Layout() {
             </Stage>
             <Toolbar />
             <Inspector />
-            <BooleanPanel />
             <HistoryPanel />
             <Timeline />
             <OfflineNote />
