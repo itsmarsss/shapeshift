@@ -26,7 +26,7 @@ import { useScene, type TransformMode } from "../scene/store";
 import { SHAPE_LABELS } from "../scene/commands";
 import { addShape } from "../scene/selection";
 import { insertLibraryItem, libraryPreview, LIBRARY } from "../scene/library";
-import { renderThumbnail } from "../scene/thumbnail";
+import { useThumbnails } from "../scene/useThumbnails";
 import { PRIMITIVES, type LightType, type Primitive } from "@shapeshift/shared/scene/schema";
 import { IconButton } from "./ui";
 import { COMPACT } from "../ui/compact";
@@ -187,7 +187,8 @@ function ShapePicker({ anchor, onClose }: { anchor: HTMLElement; onClose: () => 
     const ref = useRef<HTMLDivElement>(null);
     const [tab, setTab] = useState<"shapes" | "objects">("shapes");
     // Drawn once, the first time the Objects tab opens.
-    const pictures = useMemo(() => (tab === "objects" ? LIBRARY.map((item) => renderThumbnail(libraryPreview(item), 112, 84)) : null), [tab]);
+    const previews = useMemo(() => (tab === "objects" ? LIBRARY.map(libraryPreview) : []), [tab]);
+    const pictures = useThumbnails(previews, 112, 84);
     const rect = anchor.getBoundingClientRect();
     useEffect(() => {
         const away = (e: PointerEvent) => {
@@ -228,7 +229,7 @@ function ShapePicker({ anchor, onClose }: { anchor: HTMLElement; onClose: () => 
                             onClose();
                         }}
                     >
-                        {pictures?.[i] ? <Thumb src={pictures[i]!} alt="" /> : <Thumb as="span" />}
+                        {pictures[i] ? <Thumb src={pictures[i]!} alt="" /> : <Thumb as="span" />}
                         {item.name}
                     </Tile>
                 ))}

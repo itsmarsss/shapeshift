@@ -1,178 +1,120 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, type CSSProperties } from "react";
 import styled from "styled-components";
-import * as m from "motion/react-m";
-import { item, list, rise } from "../ui/motion";
-import { ArrowRight, Compass, Cube, Plus, SignOut, Sparkle } from "@phosphor-icons/react";
-import { GlobalStyle } from "../components/ui";
-import { useResolvedTheme } from "../settings/theme";
+import { ArrowRight, Cube, Plus } from "@phosphor-icons/react";
 import { useAccount } from "../account/store";
-import { Grid, SceneCard } from "../account/SceneCard";
+import { SceneCard } from "../account/SceneCard";
 import { useScene } from "../scene/store";
 import { TEMPLATES, buildTemplate } from "../scene/templates";
-import { renderThumbnail } from "../scene/thumbnail";
+import { useThumbnails } from "../scene/useThumbnails";
 import { editorLinks } from "./links";
+import { SiteShell } from "../site/SiteShell";
+import { Container, Empty, PageHead, PrimaryAction, SecondaryAction, SectionHead, TileArt, TileCaption, Tiles, appearing, entering, tile } from "../site/parts";
 
-const Page = styled.div`
-    // The editor turns off page scrolling, so pages scroll inside themselves.
-    height: 100%;
-    overflow-y: auto;
-    background: var(--bg);
-    color: var(--text);
-`;
-
-const Header = styled.header`
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    height: calc(56px + env(safe-area-inset-top, 0px));
-    padding: env(safe-area-inset-top, 0px) 20px 0;
-    background: color-mix(in srgb, var(--surface) 90%, transparent);
-    backdrop-filter: blur(10px);
-    border-bottom: 1px solid var(--border);
-
-    img {
-        width: 26px;
-        height: 26px;
-    }
-    b {
-        flex: 1;
-        font-size: 15px;
-    }
-    small {
-        color: var(--text-muted);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        min-width: 0;
-    }
-    button,
-    a.plan {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        height: 32px;
-        padding: 0 10px;
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        background: transparent;
-        color: var(--text);
-        white-space: nowrap;
-        text-decoration: none;
-    }
-    a.plan {
-        border-color: var(--accent);
-        color: var(--accent);
-    }
-`;
-
-const Main = styled(m.main).attrs(rise)`
-    width: min(1080px, 100%);
-    margin: 0 auto;
-    padding: 28px 20px 48px;
-
-    h1 {
-        margin: 0 0 24px;
-        font-size: 26px;
-        letter-spacing: -0.01em;
-    }
-    h2 {
-        margin: 32px 0 12px;
-        font-size: 15px;
-        color: var(--text-muted);
-        font-weight: 600;
-    }
-`;
-
-const Starters = styled(m.div).attrs({ variants: list, initial: "hidden", animate: "shown" })`
+// The scene that's open in the editor on this device, front and centre.
+const Continue = styled.a`
     display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(150px, 1fr);
-    gap: 12px;
-    overflow-x: auto;
-    padding-bottom: 4px;
-    scrollbar-width: thin;
-`;
-
-const Starter = styled(m.a).attrs({ variants: item })<{ $primary?: boolean }>`
-    display: flex;
-    flex-direction: column;
-    border: 1px solid ${(p) => (p.$primary ? "var(--accent)" : "var(--border)")};
-    border-radius: 12px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    border: 1px solid var(--border);
+    border-radius: 18px;
     overflow: hidden;
     background: var(--surface);
     color: var(--text);
     text-decoration: none;
-    transition: border-color 0.12s ease, transform 0.12s ease;
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease;
+    ${entering}
 
     &:hover {
-        border-color: var(--accent);
-        transform: translateY(-1px);
+        border-color: var(--border-strong);
+        box-shadow: 0 14px 36px rgba(0, 0, 0, 0.12);
     }
-    img,
     .art {
-        width: 100%;
-        aspect-ratio: 4 / 3;
-        object-fit: cover;
+        position: relative;
+        aspect-ratio: 2 / 1;
+        background: linear-gradient(160deg, var(--surface-raised), var(--surface-hover));
         display: grid;
         place-items: center;
-        background: var(--surface-raised);
-        color: ${(p) => (p.$primary ? "var(--accent)" : "var(--text-faint)")};
+        color: var(--text-faint);
     }
-    span {
-        padding: 8px 10px 10px;
-        font-weight: 600;
-        font-size: 13px;
-    }
-`;
-
-const Continue = styled.a`
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 10px;
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    background: var(--surface);
-    color: var(--text);
-    text-decoration: none;
-
-    img {
-        width: 120px;
-        aspect-ratio: 4 / 3;
+    .art img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
         object-fit: cover;
-        border-radius: 8px;
-        background: var(--surface-raised);
+        display: block;
+        ${appearing}
     }
-    div {
-        flex: 1;
+    .text {
+        padding: 28px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 6px;
         min-width: 0;
     }
+    .kicker {
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
     b {
-        display: block;
+        font-size: 20px;
+        letter-spacing: -0.015em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
     small {
         color: var(--text-muted);
+        font-size: 13px;
     }
-    > svg {
-        color: var(--accent);
-        flex-shrink: 0;
-        margin-right: 6px;
+    .go {
+        margin-top: 14px;
+        align-self: flex-start;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 38px;
+        padding: 0 16px;
+        border-radius: 10px;
+        background: var(--accent);
+        color: var(--accent-text);
+        font-weight: 600;
     }
-    &:hover {
-        border-color: var(--accent);
+    &:hover .go svg {
+        transform: translateX(2px);
+    }
+    .go svg {
+        transition: transform 0.15s ease;
+    }
+
+    @media (max-width: 640px) {
+        grid-template-columns: 1fr;
+
+        .art {
+            aspect-ratio: 16 / 10;
+        }
+        .text {
+            padding: 16px 16px 18px;
+        }
+        b {
+            font-size: 17px;
+        }
     }
 `;
 
-const Empty = styled.div`
-    padding: 36px 16px;
-    border: 1px dashed var(--border-strong);
-    border-radius: 14px;
-    text-align: center;
-    color: var(--text-muted);
-    line-height: 1.6;
+const Starter = styled.a<{ $blank?: boolean }>`
+    ${tile}
+    ${(p) => p.$blank && "border-style: dashed; border-color: var(--border-strong);"}
+
+    ${TileArt} {
+        color: ${(p) => (p.$blank ? "var(--accent)" : "var(--text-faint)")};
+        background: ${(p) => (p.$blank ? "var(--surface)" : "")};
+    }
 `;
 
 // The first page a signed-in person sees: their saved scenes and ways to
@@ -185,97 +127,91 @@ export default function HomePage() {
     const cloudTitle = useAccount((s) => s.cloudTitle);
     const error = useAccount((s) => s.saveError);
     const local = useScene((s) => s.doc);
-    const theme = useResolvedTheme();
 
-    useEffect(() => {
-        document.documentElement.dataset.theme = theme;
-    }, [theme]);
-    useEffect(() => {
-        void useAccount.getState().load();
-    }, []);
     useEffect(() => {
         // Signed out elsewhere, or the session ran out: go straight to the editor.
         if (loaded && !user) location.replace("/edit");
         else if (user) void useAccount.getState().refreshScenes();
     }, [loaded, user]);
 
-    const templateImages = useMemo(() => TEMPLATES.map((t) => renderThumbnail(buildTemplate(t))), []);
     const hasLocal = local.objects.length > 0 || local.lights.length > 0;
-    const localImage = useMemo(() => (hasLocal ? renderThumbnail(local) : null), [hasLocal, local]);
+    // The scene open on this device first, then the templates.
+    const docs = useMemo(() => [hasLocal ? local : null, ...TEMPLATES.map(buildTemplate)], [hasLocal, local]);
+    const [localImage, ...templateImages] = useThumbnails(docs);
     const firstName = user?.name?.split(" ")[0];
 
     return (
-        <Page>
-            <GlobalStyle />
-            <Header>
-                <img src="/icon.svg" alt="" />
-                <b>ShapeShift</b>
-                {user && <small>{user.email}</small>}
-                <a className="plan" href="/explore" style={{ borderColor: "var(--border)", color: "var(--text)" }}>
-                    <Compass size={16} />
-                    Explore
-                </a>
-                {user && (
-                    <a className="plan" href="/pricing">
-                        <Sparkle size={16} />
-                        {user.plan === "pro" ? "Pro" : "Upgrade"}
-                    </a>
-                )}
-                {user && (
-                    <button onClick={() => void useAccount.getState().signOut().then(() => location.replace("/edit"))}>
-                        <SignOut size={16} />
-                        Sign out
-                    </button>
-                )}
-            </Header>
-            <Main>
-                <h1>{firstName ? `Welcome back, ${firstName}` : "Welcome back"}</h1>
+        <SiteShell page="home">
+            <Container>
+                <PageHead>
+                    <div>
+                        <h1>{firstName ? `Welcome back, ${firstName}` : "Welcome back"}</h1>
+                        <p>Pick up where you left off, or start something new.</p>
+                    </div>
+                    <PrimaryAction href={editorLinks.blank}>
+                        <Plus size={16} weight="bold" />
+                        New scene
+                    </PrimaryAction>
+                </PageHead>
 
                 {hasLocal && (
-                    <>
-                        <h2>Pick up where you left off</h2>
-                        <Continue href="/edit">
-                            {localImage ? <img src={localImage} alt="" /> : <span />}
-                            <div>
-                                <b>{cloudId ? cloudTitle || "Untitled scene" : "Your last scene"}</b>
-                                <small>{cloudId ? "Saved to the cloud" : "Only on this device, not saved to the cloud yet"}</small>
-                            </div>
-                            <ArrowRight size={20} />
-                        </Continue>
-                    </>
+                    <Continue href="/edit" style={{ "--i": 1 } as CSSProperties}>
+                        <div className="art">{localImage ? <img src={localImage} alt="" /> : <Cube size={40} />}</div>
+                        <div className="text">
+                            <span className="kicker">Continue</span>
+                            <b>{cloudId ? cloudTitle || "Untitled scene" : "Your last scene"}</b>
+                            <small>{cloudId ? "Saved to the cloud" : "Only on this device, not saved to the cloud yet"}</small>
+                            <span className="go">
+                                Open it
+                                <ArrowRight size={16} weight="bold" />
+                            </span>
+                        </div>
+                    </Continue>
                 )}
 
-                <h2>Start something new</h2>
-                <Starters>
-                    <Starter href={editorLinks.blank} $primary>
-                        <span className="art">
-                            <Plus size={36} />
-                        </span>
-                        <span>Blank scene</span>
+                <SectionHead>
+                    <h2>Start from a template</h2>
+                </SectionHead>
+                <Tiles $min={180}>
+                    <Starter href={editorLinks.blank} $blank style={{ "--i": 2 } as CSSProperties}>
+                        <TileArt>
+                            <Plus size={34} />
+                        </TileArt>
+                        <TileCaption>
+                            <b>Blank scene</b>
+                            <small>An empty stage</small>
+                        </TileCaption>
                     </Starter>
                     {TEMPLATES.map((t, i) => (
-                        <Starter key={t.id} href={editorLinks.template(t.id)} title={t.blurb}>
-                            {templateImages[i] ? <img src={templateImages[i]!} alt="" /> : <span className="art" />}
-                            <span>{t.name}</span>
+                        <Starter key={t.id} href={editorLinks.template(t.id)} title={t.blurb} style={{ "--i": i + 3 } as CSSProperties}>
+                            <TileArt>{templateImages[i] ? <img src={templateImages[i]!} alt="" /> : null}</TileArt>
+                            <TileCaption>
+                                <b>{t.name}</b>
+                                <small>{t.blurb}</small>
+                            </TileCaption>
                         </Starter>
                     ))}
-                </Starters>
+                </Tiles>
 
-                <h2>Your scenes{scenes.length ? ` · ${scenes.length}` : ""}</h2>
+                <SectionHead>
+                    <h2>Your scenes</h2>
+                    {scenes.length > 0 && <span>{scenes.length}</span>}
+                </SectionHead>
                 {scenes.length ? (
-                    <Grid>
-                        {scenes.map((s) => (
-                            <SceneCard key={s.id} scene={s} onOpen={() => location.assign(editorLinks.scene(s.id))} />
+                    <Tiles $min={200}>
+                        {scenes.map((s, i) => (
+                            <SceneCard key={s.id} scene={s} index={i} onOpen={() => location.assign(editorLinks.scene(s.id))} />
                         ))}
-                    </Grid>
+                    </Tiles>
                 ) : (
                     <Empty>
                         <Cube size={32} />
-                        <br />
+                        <b>{error && loaded ? "Couldn't load your scenes" : "No saved scenes yet"}</b>
                         {error && loaded ? error : "Scenes you save to the cloud show up here, on any device you sign in on."}
+                        <SecondaryAction href="/edit">Open the editor</SecondaryAction>
                     </Empty>
                 )}
-            </Main>
-        </Page>
+            </Container>
+        </SiteShell>
     );
 }
