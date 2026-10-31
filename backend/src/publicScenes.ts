@@ -53,3 +53,27 @@ export async function sharePage(request: Request, env: Env, slug: string): Promi
         .on("head", { element: (el) => void el.append(tags, { html: true }) })
         .transform(page);
 }
+
+const EXPLORE_PAGE = 24;
+
+// GET /api/explore?before=<ms>: scenes their owners chose to show in Explore,
+// newest first, a page at a time. Only what a share page already shows.
+export async function handleExplore(request: Request, env: Env): Promise<Response | null> {
+    const url = new URL(request.url);
+    if (url.pathname !== "/api/explore") return null;
+    if (request.method !== "GET") return fail(405, "Method not allowed.");
+    const before = Number(url.searchParams.get("before")) || Number.MAX_SAFE_INTEGER;
+    const { results } = await env.DB.prepare(
+        `SELECT s.public_slug AS slug, s.title, s.published_at, u.name FROM scenes s JOIN users u ON u.id = s.owner_id
+         WHERE s.listed = 1 AND s.public_slug IS NOT NULL AND s.published_at < ?1
+         ORDER BY s.published_at DESC LIMIT ?2`
+    )
+        .bind(before, EXPLORE_PAGE + 1)
+        .all<{ slug: string; title: string; published_at: number; name: string | null }>();
+    const page = results.slice(0, EXPLORE_PAGE);
+    // Not cached, so a scene you just listed shows up right away.
+    return json({
+        scenes: page.map((r) => ({ slug: r.slug, title: r.title, author: r.name, publishedAt: r.published_at })),
+        next: results.length > EXPLORE_PAGE ? page[page.length - 1].published_at : null,
+    });
+}
