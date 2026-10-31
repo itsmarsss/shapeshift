@@ -32,7 +32,8 @@ const Card = styled.div`
 
     @media ${COMPACT} {
         top: auto;
-        bottom: calc(var(--gap) + env(safe-area-inset-bottom, 0px) + var(--bottom-offset, 0px));
+        // Above the shape toolbar that runs along the bottom on phones.
+        bottom: calc(var(--gap) * 2 + 48px + env(safe-area-inset-bottom, 0px) + var(--bottom-offset, 0px));
         left: 50%;
         transform: translateX(-50%);
         width: calc(100% - 24px);
