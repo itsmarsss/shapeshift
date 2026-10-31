@@ -28,6 +28,7 @@
     { "binding": "DB", "database_name": "shapeshift", "database_id": "bed9dbc7-8c71-47b7-a6f5-582704c9a092", "migrations_dir": "migrations" }
   ],
   "r2_buckets": [{ "binding": "SCENES", "bucket_name": "shapeshift-scenes" }],
+  "analytics_engine_datasets": [{ "binding": "EVENTS", "dataset": "shapeshift_events" }],
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
   "vars": {
     "AGENT_MODEL": "claude-opus-5-5",
