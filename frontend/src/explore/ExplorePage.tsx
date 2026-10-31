@@ -58,7 +58,8 @@ const Main = styled.main`
 
 const Grid = styled.div`
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    // Two across on phones, more on wider screens.
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 14px;
 `;
 
