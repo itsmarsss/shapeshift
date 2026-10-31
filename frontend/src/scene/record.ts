@@ -4,9 +4,17 @@ import { useScene } from "./store";
 import { useTimeline } from "./timeline";
 import { viewportCanvas } from "../viewport/snapshot";
 
-type RecordState = { recording: boolean; error: string | null };
+// `note` is a short message about the last recording, shown for a moment.
+type RecordState = { recording: boolean; note: string | null };
 
-export const useRecording = create<RecordState>()(() => ({ recording: false, error: null }));
+export const useRecording = create<RecordState>()(() => ({ recording: false, note: null }));
+
+let clear: ReturnType<typeof setTimeout> | undefined;
+function say(note: string) {
+    clearTimeout(clear);
+    useRecording.setState({ note });
+    clear = setTimeout(() => useRecording.setState({ note: null }), 7000);
+}
 
 function pickType() {
     const types = ["video/mp4;codecs=avc1", "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
@@ -18,16 +26,13 @@ function pickType() {
 export async function recordAnimation() {
     const canvas = viewportCanvas();
     const type = pickType();
-    if (!canvas || !type) {
-        useRecording.setState({ error: "This browser can't record video." });
-        return;
-    }
+    if (!canvas || !type) return say("This browser can't record video. Try Chrome, Edge or Safari.");
     if (useRecording.getState().recording) return;
 
     const scene = useScene.getState();
     const timeline = useTimeline.getState();
     const before = { mode: scene.mode, selection: scene.selectedIds, time: timeline.time, loop: scene.doc.animation.loop };
-    useRecording.setState({ recording: true, error: null });
+    useRecording.setState({ recording: true, note: null });
     scene.setMode("render");
     scene.select(null);
     timeline.pause();
@@ -66,5 +71,8 @@ export async function recordAnimation() {
     useRecording.setState({ recording: false });
 
     const blob = new Blob(chunks, { type });
-    download(blob, `shapeshift.${type.startsWith("video/mp4") ? "mp4" : "webm"}`, type);
+    const mp4 = type.startsWith("video/mp4");
+    download(blob, `shapeshift.${mp4 ? "mp4" : "webm"}`, type);
+    // Firefox only records WebM, which some phones and apps won't open.
+    say(mp4 ? "Saved your video as MP4." : "Saved as WebM, since this browser can't make MP4. Chrome, Edge and Safari save MP4.");
 }
