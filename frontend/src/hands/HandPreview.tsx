@@ -10,7 +10,8 @@ import { useSettings } from "../settings/store";
 const Box = styled.div`
     position: absolute;
     bottom: calc(var(--gap) + var(--bottom-offset, 0px));
-    left: var(--gap);
+    // Beside the toolbar and inspector, not under them.
+    left: max(var(--gap), var(--left-inset, 0px));
     width: 220px;
     padding: 4px;
     background: var(--surface);
@@ -176,14 +177,22 @@ export function HandPreview() {
             </Frame>
             {status === "running" && (
                 <Legend>
+                    <b>Pinch an object</b>
+                    <span>Grab and move it</span>
+                    <b>Pinch + reach</b>
+                    <span>Push or pull what you hold</span>
+                    <b>Hold + other hand</b>
+                    <span>Spread to resize, twist to turn</span>
+                    <b>Pinch empty space</b>
+                    <span>Look around</span>
+                    <b>Hold an open hand</b>
+                    <span>Menu: add shapes, copy, delete</span>
                     <b>Thumb + middle</b>
                     <span>Talk to the assistant</span>
                     <b>Thumb + ring</b>
                     <span>Next mode</span>
                     <b>Thumb + pinky</b>
                     <span>Undo</span>
-                    <b>Pinch + reach</b>
-                    <span>Push or pull what you hold</span>
                 </Legend>
             )}
         </Box>

@@ -22,3 +22,19 @@ export async function signIn(page: Page, email: string) {
   await page.getByPlaceholder('000000').fill(code)
   await expect(page.getByRole('button', { name: /sign in/i })).toHaveCount(0)
 }
+
+// Picks an item from the top bar's File menu.
+export async function fromFileMenu(page: Page, item: string) {
+  await page.getByRole('button', { name: 'File' }).click()
+  await page.getByRole('menuitem', { name: item }).click()
+}
+
+// How many objects with this name the saved scene has. The editor saves its
+// scene a moment after each change, so poll this rather than read it once.
+export function countNamed(page: Page, name: string) {
+  return () =>
+    page.evaluate(
+      (n) => (JSON.parse(localStorage.getItem('shapeshift-scene') ?? '{"objects":[]}').objects as { name: string }[]).filter((o) => o.name === n).length,
+      name,
+    )
+}

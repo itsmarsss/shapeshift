@@ -9,3 +9,6 @@ dist/
 .dev.vars
 frontend/test-results
 frontend/playwright-report
+
+# Working notes, logs and plans (kept out of the repo)
+dev/

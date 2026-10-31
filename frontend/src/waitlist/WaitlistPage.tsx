@@ -4,7 +4,9 @@ import { ArrowRight, CheckCircle } from "@phosphor-icons/react";
 import { GlobalStyle, Input } from "../components/ui";
 
 const Page = styled.main`
-    min-height: 100vh;
+    // The editor turns off page scrolling, so pages scroll inside themselves.
+    height: 100%;
+    overflow-y: auto;
     display: grid;
     place-items: center;
     padding: 24px;

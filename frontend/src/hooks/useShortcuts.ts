@@ -4,6 +4,7 @@ import { PRIMITIVES } from "@shapeshift/shared/scene/schema";
 import { addShape, dropSelection, duplicateSelection, groupSelection, removeSelection, selectAll, ungroupSelection } from "../scene/selection";
 import { useTools } from "../viewport/tools";
 import { useUI } from "../ui/store";
+import { frameSelection } from "../viewport/frame";
 
 const TRANSFORM_KEYS = { w: "translate", e: "rotate", r: "scale" } as const;
 
@@ -58,6 +59,8 @@ export function useShortcuts() {
             } else if (key === "escape") {
                 if (useTools.getState().tool !== "select") useTools.getState().setTool("select");
                 else s.select(null);
+            } else if (!mod && key === "f") {
+                frameSelection();
             } else if (!mod && key in TRANSFORM_KEYS) {
                 s.setTransformMode(TRANSFORM_KEYS[key as keyof typeof TRANSFORM_KEYS]);
             }

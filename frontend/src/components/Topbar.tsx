@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import {
+    CaretDown,
     DotsThree,
     ArrowUUpLeft,
     ArrowUUpRight,
@@ -17,6 +18,9 @@ import {
     Printer,
     Shapes,
     SquaresFour,
+    SignOut,
+    Sparkle,
+    UserCircle,
     SlidersHorizontal,
     TrayArrowDown,
 } from "@phosphor-icons/react";
@@ -24,6 +28,7 @@ import { useScene, type EditorMode } from "../scene/store";
 import { download, exportGLB, importModel, parseSceneFile, saveSceneFile } from "../scene/io";
 import { takeSnapshot } from "../viewport/snapshot";
 import { useUI } from "../ui/store";
+import { toggleInspector, useInspectorVisible } from "../ui/inspector";
 import { useHands } from "../hands/tracker";
 import { useSettings } from "../settings/store";
 import { IconButton, Segment, Segmented } from "./ui";
@@ -31,13 +36,20 @@ import { CollabBar } from "../collab/CollabBar";
 import { useAccount } from "../account/store";
 import { AccountButton } from "../account/AccountButton";
 import { useTimeline } from "../scene/timeline";
-import { COMPACT, useCompact } from "../ui/compact";
+import { COMPACT, MEDIUM, useCompact } from "../ui/compact";
 
 const Bar = styled.div`
     height: var(--topbar);
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    // The sides take what their buttons need and the mode switch centers in
+    // what's left, so nothing wraps on a laptop screen.
+    grid-template-columns: auto 1fr auto;
+    gap: 8px;
     align-items: center;
+
+    @media ${MEDIUM} {
+        padding-left: 8px;
+    }
     padding: 0 8px 0 16px;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
@@ -45,6 +57,8 @@ const Bar = styled.div`
     z-index: 100;
 
     @media ${COMPACT} {
+        // Sides size to their buttons so the mode switch can sit between them.
+        grid-template-columns: auto 1fr auto;
         padding: 0 4px;
         padding-top: env(safe-area-inset-top, 0px);
         height: calc(var(--topbar) + env(safe-area-inset-top, 0px));
@@ -64,6 +78,10 @@ const Brand = styled.a`
     color: var(--text);
     text-decoration: none;
 
+    @media ${MEDIUM} {
+        display: none;
+    }
+
     &[href]:hover {
         color: var(--accent);
     }
@@ -73,11 +91,57 @@ const Brand = styled.a`
     }
 `;
 
+// The mode switch, tightened on phones so the bar fits a 360px screen.
+const Modes = styled(Segmented)`
+    justify-self: center;
+
+    @media ${MEDIUM} {
+        button {
+            padding: 0 8px;
+        }
+    }
+`;
+
+// Hand control is what ShapeShift is about, so it gets a named button.
+const HandsButton = styled.button`
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    margin: 0 2px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: transparent;
+    color: var(--text);
+    font-weight: 500;
+
+    &:hover {
+        background: var(--surface-hover);
+    }
+    &[aria-pressed="true"] {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--accent-text);
+    }
+    @media ${MEDIUM} {
+        padding: 0 8px;
+
+        span {
+            display: none;
+        }
+    }
+`;
+
 const Sep = styled.div`
     width: 1px;
     height: 18px;
     margin: 0 6px;
     background: var(--border);
+
+    @media ${MEDIUM} {
+        margin: 0 2px;
+    }
 `;
 
 // Buttons that move into the "more" menu on small screens.
@@ -94,6 +158,8 @@ const Menu = styled.div`
     top: calc(100% + 6px);
     left: 0;
     min-width: 220px;
+    max-height: calc(100vh - var(--topbar) - 24px);
+    overflow-y: auto;
     padding: 6px;
     display: flex;
     flex-direction: column;
@@ -123,7 +189,27 @@ const Menu = styled.div`
 
 type MenuItem = { label: string; icon: React.ReactNode; onClick: () => void; active?: boolean };
 
-function MoreMenu({ items }: { items: MenuItem[] }) {
+const MenuButton = styled.button`
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 30px;
+    padding: 0 8px 0 10px;
+    border: 0;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--text);
+    font-weight: 500;
+
+    &:hover,
+    &[aria-expanded="true"] {
+        background: var(--surface-hover);
+    }
+`;
+
+// Opens a list of actions. With a label it's a named menu like File; without
+// one it's the ⋯ button that holds everything on phones.
+function MoreMenu({ items, label }: { items: MenuItem[]; label?: string }) {
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
     useEffect(() => {
@@ -136,9 +222,16 @@ function MoreMenu({ items }: { items: MenuItem[] }) {
     }, [open]);
     return (
         <div ref={ref} style={{ position: "relative" }}>
-            <IconButton title="More" $active={open} onClick={() => setOpen((v) => !v)}>
-                <DotsThree size={20} weight="bold" />
-            </IconButton>
+            {label ? (
+                <MenuButton type="button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+                    {label}
+                    <CaretDown size={12} weight="bold" />
+                </MenuButton>
+            ) : (
+                <IconButton title="More" $active={open} onClick={() => setOpen((v) => !v)}>
+                    <DotsThree size={20} weight="bold" />
+                </IconButton>
+            )}
             {open && (
                 <Menu role="menu">
                     {items.map((item) => (
@@ -163,10 +256,11 @@ function MoreMenu({ items }: { items: MenuItem[] }) {
 
 const PrintDialog = lazy(() => import("./PrintDialog"));
 
-const MODES: { mode: EditorMode; label: string }[] = [
-    { mode: "object", label: "Object" },
-    { mode: "edit", label: "Edit" },
-    { mode: "render", label: "Render" },
+// Named for what you do in each, not after 3D-software terms.
+const MODES: { mode: EditorMode; label: string; hint: string }[] = [
+    { mode: "object", label: "Arrange", hint: "Add, move and style shapes" },
+    { mode: "edit", label: "Reshape", hint: "Drag the points of a shape to change its form" },
+    { mode: "render", label: "Preview", hint: "See it lit and shaded, without the editing helpers" },
 ];
 
 // Renders the current view at twice the screen's resolution, without editor
@@ -189,9 +283,8 @@ export function Topbar() {
     const canRedo = useScene((s) => s.future.length > 0);
     const mode = useScene((s) => s.mode);
     const setMode = useScene((s) => s.setMode);
-    const showInspector = useUI((s) => s.showInspector);
+    const showInspector = useInspectorVisible();
     const showChat = useUI((s) => s.showChat);
-    const setShowInspector = useUI((s) => s.setShowInspector);
     const setShowChat = useUI((s) => s.setShowChat);
     const setShowSettings = useUI((s) => s.setShowSettings);
     const setShowTemplates = useUI((s) => s.setShowTemplates);
@@ -201,6 +294,7 @@ export function Topbar() {
     const setHands = useHands((s) => s.setEnabled);
     const [printing, setPrinting] = useState(false);
     const signedIn = useAccount((s) => s.user !== null);
+    const plan = useAccount((s) => s.user?.plan);
     const openRef = useRef<HTMLInputElement>(null);
     const importRef = useRef<HTMLInputElement>(null);
 
@@ -229,8 +323,7 @@ export function Topbar() {
     }
 
     const compact = useCompact();
-    const menuItems: MenuItem[] = [
-        ...(signedIn ? [{ label: "All scenes", icon: <SquaresFour size={18} />, onClick: () => location.assign("/") }] : []),
+    const fileItems: MenuItem[] = [
         {
             label: "New scene",
             icon: <FilePlus size={18} />,
@@ -246,11 +339,26 @@ export function Topbar() {
         { label: "Save image", icon: <Camera size={18} />, onClick: saveImage },
         { label: "Export as GLB", icon: <Export size={18} />, onClick: () => exportGLB(useScene.getState().doc) },
         { label: "Export for 3D printing", icon: <Printer size={18} />, onClick: () => setPrinting(true) },
+    ];
+    const menuItems: MenuItem[] = [
+        ...(signedIn
+            ? [
+                  { label: "All scenes", icon: <SquaresFour size={18} />, onClick: () => location.assign("/") },
+                  { label: "My scenes", icon: <FolderOpen size={18} />, onClick: () => useAccount.getState().setShowScenes(true) },
+              ]
+            : [{ label: "Sign in", icon: <UserCircle size={18} />, onClick: () => useAccount.getState().setShowSignIn(true) }]),
+        ...fileItems,
         { label: "Redo", icon: <ArrowUUpRight size={18} />, onClick: redo },
         { label: "History", icon: <ClockCounterClockwise size={18} />, onClick: () => setShowHistory(!showHistory), active: showHistory },
         { label: "Animation timeline", icon: <FilmStrip size={18} />, onClick: () => setTimelineOpen(!timelineOpen), active: timelineOpen },
         { label: handStatus === "off" ? "Hand control" : "Turn off hand control", icon: <Hand size={18} />, onClick: () => setHands(handStatus === "off"), active: handStatus !== "off" },
         { label: "Settings", icon: <GearSix size={18} />, onClick: () => setShowSettings(true) },
+        ...(signedIn
+            ? [
+                  { label: plan === "pro" ? "Manage your plan" : "Upgrade to Pro", icon: <Sparkle size={18} />, onClick: () => location.assign("/pricing") },
+                  { label: "Sign out", icon: <SignOut size={18} />, onClick: () => void useAccount.getState().signOut() },
+              ]
+            : []),
     ];
 
     return (
@@ -261,37 +369,7 @@ export function Topbar() {
                 </Brand>
                 {compact && <MoreMenu items={menuItems} />}
                 <Wide>
-                    <IconButton
-                        title="New scene"
-                        onClick={() => {
-                            const empty = useScene.getState().doc.objects.length === 0;
-                            if (empty || !useSettings.getState().confirmNew || confirm("Start a new scene? You can undo this.")) run({ type: "clear" });
-                        }}
-                    >
-                        <FilePlus size={18} />
-                    </IconButton>
-                    <IconButton title="Start from a template" onClick={() => setShowTemplates(true)}>
-                        <Shapes size={18} />
-                    </IconButton>
-                    <IconButton title="Open scene" onClick={() => openRef.current?.click()}>
-                        <FolderOpen size={18} />
-                    </IconButton>
-                    <IconButton title="Save scene" onClick={() => saveSceneFile(useScene.getState().doc)}>
-                        <FloppyDisk size={18} />
-                    </IconButton>
-                    <Sep />
-                    <IconButton title="Import model" onClick={() => importRef.current?.click()}>
-                        <TrayArrowDown size={18} />
-                    </IconButton>
-                    <IconButton title="Save an image of the view" onClick={saveImage}>
-                        <Camera size={18} />
-                    </IconButton>
-                    <IconButton title="Export as GLB" onClick={() => exportGLB(useScene.getState().doc)}>
-                        <Export size={18} />
-                    </IconButton>
-                    <IconButton title="Export for 3D printing" onClick={() => setPrinting(true)}>
-                        <Printer size={18} />
-                    </IconButton>
+                    <MoreMenu items={fileItems} label="File" />
                 </Wide>
                 <input ref={openRef} type="file" accept=".json" hidden onChange={onOpen} />
                 {printing && (
@@ -301,15 +379,18 @@ export function Topbar() {
                 )}
                 <input ref={importRef} type="file" accept=".glb,.gltf" hidden onChange={onImport} />
             </Group>
-            <Segmented>
-                {MODES.map(({ mode: m, label }) => (
-                    <Segment key={m} $active={mode === m} onClick={() => setMode(m)}>
+            <Modes>
+                {MODES.map(({ mode: m, label, hint }) => (
+                    <Segment key={m} $active={mode === m} title={hint} onClick={() => setMode(m)}>
                         {label}
                     </Segment>
                 ))}
-            </Segmented>
+            </Modes>
             <Group $end>
-                <AccountButton />
+                {/* On phones the account lives in the ⋯ menu. */}
+                <Wide>
+                    <AccountButton />
+                </Wide>
                 <CollabBar />
                 <IconButton title="Undo" disabled={!canUndo} onClick={undo}>
                     <ArrowUUpLeft size={18} />
@@ -325,15 +406,17 @@ export function Topbar() {
                     <IconButton title="Animation timeline" $active={timelineOpen} onClick={() => setTimelineOpen(!timelineOpen)}>
                         <FilmStrip size={18} />
                     </IconButton>
-                    <IconButton
+                    <HandsButton
+                        type="button"
                         title={handStatus === "off" ? "Turn on hand control" : "Turn off hand control"}
-                        $active={handStatus !== "off"}
+                        aria-pressed={handStatus !== "off"}
                         onClick={() => setHands(handStatus === "off")}
                     >
-                        <Hand size={18} />
-                    </IconButton>
+                        <Hand size={16} weight={handStatus === "off" ? "regular" : "fill"} />
+                        <span>Hands</span>
+                    </HandsButton>
                 </Wide>
-                <IconButton title="Inspector" $active={showInspector} onClick={() => setShowInspector(!showInspector)}>
+                <IconButton title="Inspector" $active={showInspector} onClick={toggleInspector}>
                     <SlidersHorizontal size={18} />
                 </IconButton>
                 <IconButton title="Assistant" $active={showChat} onClick={() => setShowChat(!showChat)}>

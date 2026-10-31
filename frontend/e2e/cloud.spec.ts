@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { openEditor, signIn, uniqueEmail } from './helpers'
+import { openEditor, signIn, uniqueEmail, countNamed } from './helpers'
 
 test('signs in, saves to the cloud, shares a link and remixes it', async ({ page }) => {
   await openEditor(page)
@@ -36,13 +36,13 @@ test('signs in, saves to the cloud, shares a link and remixes it', async ({ page
   await page.getByRole('link', { name: /Remix/ }).or(page.getByText('Remix in ShapeShift')).first().click()
   await expect(page.getByTitle('Add box')).toBeVisible()
   await page.keyboard.press('Escape')
-  await expect(page.locator('select option', { hasText: 'Cone' })).toHaveCount(1)
+  await expect.poll(countNamed(page, 'Cone')).toBe(1)
 
   // The embed's remix link opens a copy straight in the editor.
   await page.goto(`/s/${slug}?remix=1`)
   await expect(page.getByTitle('Add box')).toBeVisible()
   await page.keyboard.press('Escape')
-  await expect(page.locator('select option', { hasText: 'Cone' })).toHaveCount(1)
+  await expect.poll(countNamed(page, 'Cone')).toBe(1)
 })
 
 test('joins the waitlist once', async ({ page }) => {
@@ -76,13 +76,13 @@ test('shows signed-in people their scenes before the editor', async ({ page }) =
   await expect(page.getByRole('heading', { name: 'Your scenes · 1' })).toBeVisible()
   await page.getByTitle('Open', { exact: true }).click()
   await expect(page).toHaveURL(/\/edit$/)
-  await expect(page.locator('select option', { hasText: 'Torus' }).first()).toBeAttached()
+  await expect.poll(countNamed(page, 'Torus')).toBeGreaterThan(0)
 
   await page.goto('/')
   await page.getByRole('link', { name: 'Blank scene' }).click()
   await expect(page.getByRole('region', { name: 'Get started' })).toBeVisible()
   await page.getByTitle('Undo').click()
-  await expect(page.locator('select option', { hasText: 'Torus' }).first()).toBeAttached()
+  await expect.poll(countNamed(page, 'Torus')).toBeGreaterThan(0)
 
   await page.goto('/')
   await page.getByRole('button', { name: 'Sign out' }).click()

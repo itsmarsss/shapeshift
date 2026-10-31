@@ -52,7 +52,7 @@ Pro is sold through Stripe Checkout, and people manage or cancel it in the Strip
 2. Add a webhook endpoint for `https://<your domain>/api/billing/webhook` with `checkout.session.completed` and `customer.subscription.created`, `.updated` and `.deleted`
 3. From `backend`, set the secrets: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_MONTHLY` and `STRIPE_PRICE_YEARLY` (`pnpm exec wrangler secret put <name>`)
 
-Without them the pricing page says Pro isn't available yet and everyone stays on the free plan. Locally, put test-mode values in `backend/.dev.vars` and forward webhooks with `stripe listen --forward-to localhost:5173/api/billing/webhook`.
+Without them the pricing page says Pro isn't available yet and everyone stays on the free plan. Locally, put test-mode values in `backend/.dev.vars` and forward webhooks while you test with `stripe listen --events checkout.session.completed,customer.subscription.created,customer.subscription.updated,customer.subscription.deleted --forward-to localhost:5173/api/billing/webhook`. Its signing secret (`stripe listen --print-secret`) goes in `STRIPE_WEBHOOK_SECRET`.
 
 ## Project layout
 

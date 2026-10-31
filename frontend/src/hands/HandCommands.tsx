@@ -8,7 +8,7 @@ import { PoseTracker, type Pose } from "./poses";
 import { live, useHands } from "./tracker";
 
 const NEXT_MODE: Record<EditorMode, EditorMode> = { object: "edit", edit: "render", render: "object" };
-const MODE_LABEL: Record<EditorMode, string> = { object: "Object mode", edit: "Edit mode", render: "Render mode" };
+const MODE_LABEL: Record<EditorMode, string> = { object: "Arrange", edit: "Reshape", render: "Preview" };
 
 const pop = keyframes`
     from { opacity: 0; transform: translate(-50%, 6px) scale(0.96); }

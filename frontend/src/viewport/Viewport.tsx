@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type MutableRefObject } from "react";
 import { useTimeline } from "../scene/timeline";
 import { transformCommand } from "../scene/autokey";
 import type { Pose } from "../scene/animation";
@@ -14,14 +14,15 @@ import { cutGeometries } from "../scene/holes";
 import { ToolFloor, WorkplaneGrid } from "./Workplane";
 import { Ruler } from "./Ruler";
 import { SizeHandles } from "./SizeHandles";
-import { snapOnWorkplane, useTools } from "./tools";
+import { snapOnWorkplane, useTools, workplaneQuaternion } from "./tools";
 import { SceneLight } from "./SceneLight";
 import { MultiTransform } from "./MultiTransform";
 import { PeerCursors } from "./PeerCursors";
 import { SceneEnvironment } from "./SceneEnvironment";
 import { EditOverlay } from "./EditOverlay";
 import { SnapshotBridge } from "./SnapshotBridge";
-import { FrameBridge } from "./FrameBridge";
+import { CameraBridge } from "./CameraBridge";
+import { useObjectDrag } from "./useObjectDrag";
 import { useGizmoColors } from "./GizmoTheme";
 import { useHands } from "../hands/tracker";
 import { useHandHover } from "../hands/tracker";
@@ -78,6 +79,74 @@ function withLightPoses(lights: Light[], poses: Map<string, Pose>): Light[] {
         return p ? { ...l, position: p.position ?? l.position, color: p.color ?? l.color, intensity: p.intensity ?? l.intensity } : l;
     });
 }
+
+type ItemsProps = {
+    objects: SceneObject[];
+    lights: Light[];
+    selectedIds: string[];
+    selectedId: string | null;
+    hoveredId: string | null;
+    peerColors: Map<string, string>;
+    editing: boolean;
+    pick: (id: string, event: ThreeEvent<MouseEvent>) => void;
+    busy: MutableRefObject<boolean>;
+    setSelectedMesh: (mesh: THREE.Mesh | null) => void;
+    cuts: Map<string, MeshProps["cut"]>;
+    looks: Map<string, MeshProps["look"]>;
+};
+
+type MeshProps = ComponentProps<typeof SceneMesh>;
+
+// The scene's objects and light markers. Lives inside the canvas so pressing
+// one can start a drag; see useObjectDrag.
+function SceneItems({ objects, lights, selectedIds, selectedId, hoveredId, peerColors, editing, pick, busy, setSelectedMesh, cuts, looks }: ItemsProps) {
+    const mode = useScene((s) => s.mode);
+    const select = useScene((s) => s.select);
+    const drawn = useRef(new Map<string, Vec3>());
+    drawn.current = new Map([...objects.map((o) => [o.id, o.position] as const), ...lights.map((l) => [l.id, l.position] as const)]);
+    const positions = useCallback(() => drawn.current, []);
+    // A tool like the workplane or ruler takes the press instead of a drag.
+    const canDrag = useCallback(() => useTools.getState().tool === "select", []);
+    const surface = useCallback(() => workplaneQuaternion(useTools.getState().workplane), []);
+    const { onPointerDown, onHover } = useObjectDrag({ positions, pick, busy, canDrag, surface });
+    // In object mode a press selects (and may drag); clicks only select in the other modes.
+    const click = mode === "object" ? noop : pick;
+    const clickLight = mode === "object" ? noop : (id: string) => select(id);
+    return (
+        <>
+            {lights.map((l) => (
+                <SceneLight
+                    key={l.id}
+                    light={l}
+                    selected={l.id === selectedId}
+                    showMarker={editing}
+                    onSelect={clickLight}
+                    onPress={onPointerDown}
+                    onHover={onHover}
+                    markerRef={l.id === selectedId ? setSelectedMesh : undefined}
+                />
+            ))}
+            {objects.map((o) => (
+                <SceneMesh
+                    key={o.id}
+                    object={o}
+                    selected={selectedIds.includes(o.id)}
+                    hovered={o.id === hoveredId}
+                    peerColor={peerColors.get(o.id)}
+                    showSelection={mode === "object"}
+                    onSelect={click}
+                    onPress={onPointerDown}
+                    onHover={onHover}
+                    meshRef={o.id === selectedId ? setSelectedMesh : undefined}
+                    cut={cuts.get(o.id)}
+                    look={looks.get(o.id)}
+                />
+            ))}
+        </>
+    );
+}
+
+const noop = () => {};
 
 export function Viewport() {
     const gizmoColors = useGizmoColors();
@@ -195,16 +264,6 @@ export function Viewport() {
                     shadow-normalBias={0.02}
                 />
             )}
-            {lights.map((l) => (
-                <SceneLight
-                    key={l.id}
-                    light={l}
-                    selected={l.id === selectedId}
-                    showMarker={editing}
-                    onSelect={select}
-                    markerRef={l.id === selectedId ? setSelectedMesh : undefined}
-                />
-            ))}
             <CameraControls
                 makeDefault
                 azimuthRotateSpeed={settings.orbitSpeed}
@@ -215,7 +274,7 @@ export function Viewport() {
             <CameraSettings />
             <SceneEnvironment preset={environment} />
             <SnapshotBridge />
-            <FrameBridge />
+            <CameraBridge />
             <PeerCursors />
             {handsOn && (
                 <Suspense fallback={null}>
@@ -223,20 +282,20 @@ export function Viewport() {
                 </Suspense>
             )}
 
-            {objects.map((o) => (
-                <SceneMesh
-                    key={o.id}
-                    object={o}
-                    selected={selectedIds.includes(o.id)}
-                    hovered={o.id === hoveredId}
-                    peerColor={peerColors.get(o.id)}
-                    showSelection={mode === "object"}
-                    onSelect={pick}
-                    meshRef={o.id === selectedId ? setSelectedMesh : undefined}
-                    cut={cuts.get(o.id)}
-                    look={looks.get(o.id)}
-                />
-            ))}
+            <SceneItems
+                objects={objects}
+                lights={lights}
+                selectedIds={selectedIds}
+                selectedId={selectedId}
+                hoveredId={hoveredId}
+                peerColors={peerColors}
+                editing={editing}
+                pick={pick}
+                busy={gizmoBusy}
+                setSelectedMesh={setSelectedMesh}
+                cuts={cuts}
+                looks={looks}
+            />
             {editing && tool !== "select" && <ToolFloor onClick={applyTool} />}
             {editing && <Ruler />}
 

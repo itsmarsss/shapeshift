@@ -10,7 +10,9 @@ import { api, ApiError } from "../account/api";
 const SignInDialog = lazy(() => import("../account/SignInDialog"));
 
 const Page = styled.div`
-    min-height: 100vh;
+    // The editor turns off page scrolling, so pages scroll inside themselves.
+    height: 100%;
+    overflow-y: auto;
     background: radial-gradient(1000px 500px at 50% -10%, color-mix(in srgb, var(--accent) 16%, transparent), transparent), var(--bg);
     color: var(--text);
     padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 56px;
@@ -175,6 +177,7 @@ export default function PricingPage() {
     const [available, setAvailable] = useState<boolean | null>(null);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [slow, setSlow] = useState(false);
     const upgraded = new URLSearchParams(location.search).has("upgraded");
     const theme = useResolvedTheme();
     const pro = user?.plan === "pro";
@@ -194,7 +197,11 @@ export default function PricingPage() {
         if (!upgraded || pro) return;
         let tries = 0;
         const timer = setInterval(() => {
-            if (++tries > 10) return clearInterval(timer);
+            if (++tries > 10) {
+                clearInterval(timer);
+                setSlow(true);
+                return;
+            }
             void useAccount.getState().load();
         }, 1500);
         return () => clearInterval(timer);
@@ -257,7 +264,11 @@ export default function PricingPage() {
                 </Segmented>
             </Head>
 
-            {upgraded && <Banner role="status">{pro ? "You're on Pro. Thanks for supporting ShapeShift!" : "Finishing your upgrade…"}</Banner>}
+            {upgraded && <Banner role="status">{pro
+                        ? "You're on Pro. Thanks for supporting ShapeShift!"
+                        : slow
+                          ? "Your payment went through, but your plan hasn't updated yet. Refresh this page in a minute."
+                          : "Finishing your upgrade…"}</Banner>}
 
             <Cards>
                 <Card aria-label="Free plan">

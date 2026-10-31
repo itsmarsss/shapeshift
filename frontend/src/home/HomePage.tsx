@@ -11,7 +11,9 @@ import { renderThumbnail } from "../scene/thumbnail";
 import { editorLinks } from "./links";
 
 const Page = styled.div`
-    min-height: 100vh;
+    // The editor turns off page scrolling, so pages scroll inside themselves.
+    height: 100%;
+    overflow-y: auto;
     background: var(--bg);
     color: var(--text);
 `;

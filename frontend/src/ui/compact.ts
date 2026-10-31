@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 // as bottom sheets, one at a time.
 export const COMPACT_WIDTH = 720;
 export const COMPACT = `(max-width: ${COMPACT_WIDTH}px)`;
+// Small tablets and narrow windows: the full layout, but the top bar drops its
+// text labels to fit.
+export const MEDIUM = "(max-width: 1000px)";
 
 export function isCompact() {
     return typeof window !== "undefined" && window.matchMedia(COMPACT).matches;

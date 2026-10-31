@@ -1,10 +1,15 @@
 import { expect, test, type Page } from '@playwright/test'
-import { openEditor } from './helpers'
+import { fromFileMenu, openEditor } from './helpers'
 
 const field = (page: Page, label: string, index = 0) =>
   page.locator(`xpath=//div[normalize-space(.)="${label}"]/following-sibling::div[1]//input`).nth(index)
 
-const pick = (page: Page, name: string) => page.locator('select').first().selectOption({ label: name })
+// Picks by name from the inspector's list, opening the scene panel first if nothing is selected.
+const pick = async (page: Page, name: string) => {
+  const list = page.locator('select').first()
+  if (!(await list.isVisible())) await page.getByTitle('Inspector').click()
+  await list.selectOption({ label: name })
+}
 
 test('adds shapes from the shape picker and edits their parameters', async ({ page }) => {
   await openEditor(page)
@@ -37,7 +42,7 @@ test('cuts holes out of a group and keeps the parts editable', async ({ page }) 
   await expect(page.getByText(/group “Group”/)).toBeVisible()
   await expect(page.getByRole('radio', { name: 'Hole' })).toHaveAttribute('aria-checked', 'false')
 
-  await page.getByTitle('Export for 3D printing').click()
+  await fromFileMenu(page, 'Export for 3D printing')
   const dialog = page.getByRole('dialog', { name: 'Export for 3D printing' })
   const download = page.waitForEvent('download')
   await dialog.getByRole('button', { name: 'Download STL' }).click()
@@ -59,6 +64,8 @@ test('aligns and mirrors the selection', async ({ page }) => {
   await page.keyboard.press('1')
   await page.keyboard.press('2')
   await pick(page, 'Sphere')
+  // Exact numbers live under More options, which stays open once opened.
+  await page.getByRole('button', { name: 'More options' }).click()
   await field(page, 'Position (m)').fill('3')
   await field(page, 'Position (m)', 1).fill('2')
   await field(page, 'Position (m)', 1).blur()
