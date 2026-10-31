@@ -475,6 +475,9 @@ function Section({ id }: { id: SectionId }) {
         case "data":
             return (
                 <Group>
+                    <Row label="Share anonymous usage" hint="Counts like how long a first creation takes and crash reports, with nothing that says who you are. Helps us make ShapeShift easier">
+                        <Toggle k="shareUsage" />
+                    </Row>
                     <Row label="Show the intro again">
                         <Button
                             type="button"

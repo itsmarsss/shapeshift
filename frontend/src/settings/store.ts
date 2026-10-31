@@ -29,6 +29,8 @@ export type Settings = {
     cameraId: string;
     showHandPreview: boolean;
     showSkeleton: boolean;
+    // Anonymous usage numbers and crash reports; see telemetry.ts.
+    shareUsage: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -53,6 +55,7 @@ export const DEFAULT_SETTINGS: Settings = {
     cameraId: "",
     showHandPreview: true,
     showSkeleton: true,
+    shareUsage: true,
 };
 
 const safeStorage: StateStorage = {
