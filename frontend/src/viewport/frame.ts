@@ -15,9 +15,12 @@ export const useCameraAngles = create<{ azimuth: number; polar: number }>(() => 
 
 let controls: CameraControls | null = null;
 let pending: (() => void) | null = null;
+// Asks the canvas for a frame; it only draws when something changes.
+let redraw = () => {};
 
-export function attachControls(next: CameraControls | null) {
+export function attachControls(next: CameraControls | null, invalidate?: () => void) {
     controls = next;
+    if (invalidate) redraw = invalidate;
     if (next && pending) {
         const run = pending;
         pending = null;
@@ -107,6 +110,13 @@ export function viewFrom(side: ViewSide) {
         const turns = Math.round((c.azimuthAngle - azimuth) / (Math.PI * 2));
         void c.rotateTo(azimuth + turns * Math.PI * 2, polar, true);
     });
+}
+
+// Turns the camera around what it's looking at, for dragging the view cube.
+export function orbitBy(azimuth: number, polar: number) {
+    if (!controls) return;
+    void controls.rotate(azimuth, polar, false);
+    redraw();
 }
 
 // Where a point on screen (0 to 1 across and down) meets the floor, if it does.

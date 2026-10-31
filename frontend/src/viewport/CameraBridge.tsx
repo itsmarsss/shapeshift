@@ -7,8 +7,9 @@ import { attachControls, useCameraAngles } from "./frame";
 // the view cube in step with the camera.
 export function CameraBridge() {
     const controls = useThree((s) => s.controls) as unknown as CameraControls | null;
+    const invalidate = useThree((s) => s.invalidate);
     useEffect(() => {
-        attachControls(controls);
+        attachControls(controls, invalidate);
         if (!controls) return;
         const update = () => useCameraAngles.setState({ azimuth: controls.azimuthAngle, polar: controls.polarAngle });
         update();
@@ -17,6 +18,6 @@ export function CameraBridge() {
             controls.removeEventListener("update", update);
             attachControls(null);
         };
-    }, [controls]);
+    }, [controls, invalidate]);
     return null;
 }
