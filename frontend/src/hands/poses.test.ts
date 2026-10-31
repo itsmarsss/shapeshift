@@ -42,15 +42,15 @@ describe("poses", () => {
 
     it("fires once per hold and only after the pose is held for a few frames", () => {
         const touch = touching(openHand, POSES.voice);
-        expect(run([touch, touch, touch])).toEqual([]);
+        expect(run(Array(6).fill(touch))).toEqual([]);
         expect(run(Array(30).fill(touch))).toEqual(["voice"]);
     });
 
     it("needs the fingers to part before firing again", () => {
         const touch = touching(openHand, POSES.mode);
-        const seq = [...Array(6).fill(touch), ...Array(40).fill(openHand), ...Array(6).fill(touch)];
+        const seq = [...Array(10).fill(touch), ...Array(40).fill(openHand), ...Array(10).fill(touch)];
         expect(run(seq)).toEqual(["mode", "mode"]);
-        expect(run([...Array(6).fill(touch), openHand, ...Array(6).fill(touch)])).toEqual(["mode"]);
+        expect(run([...Array(10).fill(touch), openHand, ...Array(10).fill(touch)])).toEqual(["mode"]);
     });
 
     it("ignores a brush past the threshold", () => {

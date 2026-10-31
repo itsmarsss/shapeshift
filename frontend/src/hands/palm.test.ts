@@ -47,4 +47,18 @@ describe("open palm", () => {
         for (let time = 1033; time <= 1033 + HOLD_MS + 66; time += 33) again.push(t.update(open, time));
         expect(again.filter(Boolean)).toEqual(["Right"]);
     });
+
+    it("waits while the hand moves, and after a pinch", () => {
+        const t = new PalmTracker();
+        const at = (dx: number): HandFrame[] => [{ handedness: "Right", landmarks: openHand.map((v, i) => (i % 3 === 0 ? v + dx : v)) }];
+        // Sweeping across the view with an open hand never opens it.
+        for (let time = 0, x = 0; time <= HOLD_MS * 3; time += 33, x += 0.01) expect(t.update(at(x), time)).toBeNull();
+
+        const p = new PalmTracker();
+        p.update([{ handedness: "Right", landmarks: pinch(openHand) }], 0);
+        const fired: (string | null)[] = [];
+        for (let time = 33; time <= 1000 + HOLD_MS + 100; time += 33) fired.push(p.update(at(0), time));
+        // Only once the pinch is a second gone and the hold has run its full time.
+        expect(fired.findIndex(Boolean) * 33 + 33).toBeGreaterThanOrEqual(1000 + HOLD_MS);
+    });
 });
