@@ -160,3 +160,22 @@ test('turns the camera from the view cube and fits the scene in view', async ({ 
   await page.keyboard.press('Escape')
   await expect(page.getByTitle('Fit everything in view (F)')).toBeEnabled()
 })
+
+test('keeps the inspector simple, with exact numbers under More options', async ({ page }) => {
+  await openEditor(page)
+  await page.getByTitle('Add sphere').click()
+  await expect(page.getByText('Position (m)')).toHaveCount(0)
+
+  // Metal needs something to reflect, so the lighting switches to Studio too.
+  await page.getByRole('button', { name: 'Gold', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Gold', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('select').filter({ hasText: 'Studio' }).last()).toHaveValue('studio')
+
+  await page.getByRole('button', { name: 'More options' }).click()
+  await expect(page.getByText('Position (m)')).toBeVisible()
+  // The choice sticks for the next object.
+  await page.getByTitle('Add box').click()
+  await expect(page.getByText('Position (m)')).toBeVisible()
+  await page.getByRole('button', { name: 'Fewer options' }).click()
+  await expect(page.getByText('Position (m)')).toHaveCount(0)
+})
