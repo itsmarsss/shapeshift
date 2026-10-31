@@ -4,7 +4,8 @@ import { PRIMITIVES } from "@shapeshift/shared/scene/schema";
 import { addShape, dropSelection, duplicateSelection, groupSelection, removeSelection, selectAll, ungroupSelection } from "../scene/selection";
 import { useTools } from "../viewport/tools";
 import { useUI } from "../ui/store";
-import { frameSelection } from "../viewport/frame";
+import { frameSelection, useCameraAngles } from "../viewport/frame";
+import { nudgeDirection, nudgeSelection, type Arrow } from "../scene/nudge";
 
 const TRANSFORM_KEYS = { w: "translate", e: "rotate", r: "scale" } as const;
 
@@ -27,6 +28,22 @@ export function useShortcuts() {
                 return;
             }
             if (isTyping(e.target) || ui.showSettings || ui.showOnboarding) return;
+
+            // Arrow keys nudge the selection along the floor, one snap step
+            // (or a tenth of a metre), ten times that with Shift. With Alt, up
+            // and down raise and lower it instead.
+            if (e.key.startsWith("Arrow") && !mod && s.selectedIds.length && s.mode === "object") {
+                const step = (s.snap.enabled ? s.snap.translate : 0.1) * (e.shiftKey ? 10 : 1);
+                const arrow = e.key as Arrow;
+                let offset: [number, number, number];
+                if (e.altKey && (arrow === "ArrowUp" || arrow === "ArrowDown")) offset = [0, arrow === "ArrowUp" ? step : -step, 0];
+                else {
+                    const [x, z] = nudgeDirection(arrow, useCameraAngles.getState().azimuth);
+                    offset = [x * step, 0, z * step];
+                }
+                if (nudgeSelection(offset)) e.preventDefault();
+                return;
+            }
 
             if (mod && key === "z") {
                 e.preventDefault();
@@ -65,7 +82,14 @@ export function useShortcuts() {
                 s.setTransformMode(TRANSFORM_KEYS[key as keyof typeof TRANSFORM_KEYS]);
             }
         }
+        const onKeyUp = (e: KeyboardEvent) => {
+            if (e.key.startsWith("Arrow")) useScene.getState().endCoalesce();
+        };
         window.addEventListener("keydown", onKeyDown);
-        return () => window.removeEventListener("keydown", onKeyDown);
+        window.addEventListener("keyup", onKeyUp);
+        return () => {
+            window.removeEventListener("keydown", onKeyDown);
+            window.removeEventListener("keyup", onKeyUp);
+        };
     }, []);
 }
