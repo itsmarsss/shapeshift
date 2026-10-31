@@ -9,10 +9,15 @@ import { live, useHandHover } from "./tracker";
 import { editableMesh } from "../scene/geometry";
 import { nearestVertex, objectMatrix, useEditSelection } from "../viewport/editSelection";
 import { useSettings } from "../settings/store";
+import type { Vec3 } from "@shapeshift/shared/scene/schema";
+import { MAX_FACTOR, MIN_FACTOR, stretched } from "./stretch";
 
 type Drag =
     | { kind: "object"; id: string; plane: THREE.Plane; offset: THREE.Vector3; reach: number }
     | { kind: "vertex"; id: string; index: number; plane: THREE.Plane; inverse: THREE.Matrix4; positions: number[]; indices: number[] }
+    // One hand held an object and the other joined: spreading the hands
+    // scales it and twisting them turns it about its upright axis.
+    | { kind: "stretch"; id: string; scale: Vec3; rotation: Vec3; factor: number; twist: number }
     | { kind: "orbit" };
 
 // How far an object moves, as a share of its distance, per meter the hand moves toward or away from the camera.
@@ -22,6 +27,7 @@ const ZOOM_SPEED = 12;
 const PAN_SPEED = 6;
 const objectHand = (): Handedness => useSettings.getState().handObject;
 const VERTEX_RADIUS = 0.06;
+
 
 export function HandControls() {
     const camera = useThree((s) => s.camera);
@@ -132,8 +138,25 @@ export function HandControls() {
         state.run({ type: "transform", target: d.id, position: [s(p.x), s(p.y), s(p.z)] }, { coalesce: `hand:${d.id}` });
     }
 
+    function pairStart(holding: Handedness | null) {
+        const d = drag.current;
+        const object = d?.kind === "object" && holding ? useScene.getState().doc.objects.find((o) => o.id === d.id) : undefined;
+        drag.current = object ? { kind: "stretch", id: object.id, scale: object.scale, rotation: object.rotation, factor: 1, twist: 0 } : null;
+    }
+
+    function stretch(scale: number, twist: number) {
+        const d = drag.current;
+        if (d?.kind !== "stretch") return;
+        d.factor = Math.min(MAX_FACTOR, Math.max(MIN_FACTOR, d.factor * scale));
+        d.twist += twist;
+        const state = useScene.getState();
+        const next = stretched(d, d.factor, d.twist, state.snap.enabled ? state.snap.rotate : null);
+        state.run({ type: "transform", target: d.id, ...next }, { coalesce: `hand:${d.id}` });
+    }
+
     function end() {
-        if (drag.current?.kind === "object" || drag.current?.kind === "vertex") useScene.getState().endCoalesce();
+        const kind = drag.current?.kind;
+        if (kind === "object" || kind === "vertex" || kind === "stretch") useScene.getState().endCoalesce();
         drag.current = null;
     }
 
@@ -144,6 +167,8 @@ export function HandControls() {
             if (intent.type === "start") start(intent.handedness, intent.x, intent.y);
             else if (intent.type === "move") move(intent.x, intent.y, intent.dx, intent.dy, intent.depth);
             else if (intent.type === "end") end();
+            else if (intent.type === "pairStart") pairStart(intent.holding);
+            else if (drag.current?.kind === "stretch") stretch(intent.scale, intent.twist);
             else if (controls) {
                 controls.dolly(intent.zoom * ZOOM_SPEED * useSettings.getState().handZoomSpeed, false);
                 controls.truck(-intent.panX * PAN_SPEED, -intent.panY * PAN_SPEED, false);
