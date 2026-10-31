@@ -322,3 +322,15 @@ test('sends anonymous usage events until turned off in settings', async ({ page 
   await page.waitForTimeout(500)
   expect(events.length).toBe(sent)
 })
+
+test('records the animation as a video and says which format it saved', async ({ page }) => {
+  await openEditor(page)
+  await page.getByTitle('Add box').click()
+  await page.getByTitle('Animation timeline').click()
+  await page.getByRole('button', { name: 'Keyframe', exact: true }).click()
+  const download = page.waitForEvent('download', { timeout: 30_000 })
+  await page.getByTitle('Record the animation as a video').click()
+  const file = (await download).suggestedFilename()
+  expect(file).toMatch(/^shapeshift\.(mp4|webm)$/)
+  await expect(page.getByRole('status').filter({ hasText: file.endsWith('mp4') ? 'MP4' : 'WebM' })).toBeVisible()
+})

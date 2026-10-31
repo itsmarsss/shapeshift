@@ -209,6 +209,7 @@ export function Timeline() {
     const run = useScene((s) => s.run);
     const track = useRef<HTMLDivElement>(null);
     const recording = useRecording((s) => s.recording);
+    const recordNote = useRecording((s) => s.note);
 
     const { duration, loop } = animation;
     const mine = selectedIds.flatMap((id) => keyTimes(animation, id));
@@ -309,7 +310,8 @@ export function Timeline() {
                     />
                 ))}
                 <Head style={{ left: pct(time) }} />
-                {!animation.tracks.length && (
+                {recordNote && <Hint role="status">{recordNote}</Hint>}
+                {!recordNote && !animation.tracks.length && (
                     <Hint>Pick a shape and press Keyframe, then move the playhead and move the shape. Or ask the assistant to “make it spin”.</Hint>
                 )}
             </Track>
@@ -339,7 +341,7 @@ export function Timeline() {
                     <IconButton
                         $size={24}
                         $active={recording}
-                        title={recording ? "Recording…" : "Record the animation as a video"}
+                        title={recording ? "Recording…" : animation.tracks.length ? "Record the animation as a video" : "Add a keyframe first to record a video"}
                         disabled={recording || !animation.tracks.length}
                         onClick={() => void recordAnimation()}
                     >
