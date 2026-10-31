@@ -524,11 +524,14 @@ export function SettingsModal() {
 
     useEffect(() => {
         if (!open) return;
+        // Caught on the way in, so closing settings doesn't also clear the selection.
         const onKey = (e: KeyboardEvent) => {
-            if (e.key === "Escape") setOpen(false);
+            if (e.key !== "Escape") return;
+            e.stopPropagation();
+            setOpen(false);
         };
-        window.addEventListener("keydown", onKey);
-        return () => window.removeEventListener("keydown", onKey);
+        window.addEventListener("keydown", onKey, true);
+        return () => window.removeEventListener("keydown", onKey, true);
     }, [open, setOpen]);
 
     if (!open) return null;
