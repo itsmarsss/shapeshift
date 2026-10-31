@@ -10,6 +10,7 @@ import { loadChat, saveChat } from "./persist";
 import { onRoomChat, sendChatTurn, useCollab } from "../collab/session";
 import type { SharedTurn } from "@shapeshift/shared/collab/protocol";
 import { track } from "../telemetry";
+import { loadCsg } from "../scene/csg";
 
 type HistoryEntry = SceneState["past"][number];
 
@@ -161,6 +162,8 @@ export const useAssistant = create<AssistantState>()((set, get) => {
 
         send: (raw, attachments = []) => {
             track("assistant_prompt");
+            // The assistant may combine shapes; have the cutting library ready.
+            void loadCsg();
             const prompt = raw.trim() || (attachments.length ? "Build this." : "");
             if (!prompt || get().running) return;
             const id = nanoid(8);

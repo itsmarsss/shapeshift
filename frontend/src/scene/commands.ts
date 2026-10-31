@@ -2,6 +2,7 @@ import type { Axis, Command, Geometry, Light, LightType, Material, Primitive, Sc
 import { current, isDraft } from "immer";
 import * as THREE from "three";
 import { booleanGeometry, boundsIn, hullPoints, localBounds, objectMatrix } from "./geometry";
+import { CsgNotReady } from "./csg";
 import { LIGHT_PROPERTIES, OBJECT_PROPERTIES, currentValue, removeKeysAt, removeTracksFor, resolveAnimationTargets, setKey, valueFits } from "./animation";
 
 export const DEFAULT_GEOMETRY: Record<Primitive, Geometry> = {
@@ -459,7 +460,13 @@ export function applyCommand(doc: SceneDoc, cmd: Command, newId: () => string): 
         if (!a) return { ok: false, error: `No object named "${cmd.target}"` };
         if (!b) return { ok: false, error: `No object named "${cmd.tool}"` };
         if (a.id === b.id) return { ok: false, error: "Pick two different objects" };
-        const result = booleanGeometry(cmd.operation, a, b);
+        let result: ReturnType<typeof booleanGeometry>;
+        try {
+            result = booleanGeometry(cmd.operation, a, b);
+        } catch (err) {
+            if (err instanceof CsgNotReady) return { ok: false, error: err.message };
+            throw err;
+        }
         if (!result) return { ok: false, error: "The result is empty" };
         a.geometry = result.geometry;
         a.position = result.position;

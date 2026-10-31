@@ -11,6 +11,7 @@ import * as THREE from "three";
 import { useScene } from "../scene/store";
 import { SceneMesh, type MeshLook } from "./SceneMesh";
 import { cutGeometries } from "../scene/holes";
+import { useCsg } from "../scene/csg";
 import { ToolFloor, WorkplaneGrid } from "./Workplane";
 import { Ruler } from "./Ruler";
 import { SizeHandles } from "./SizeHandles";
@@ -176,7 +177,10 @@ export function Viewport() {
 
     const tool = useTools((s) => s.tool);
     const workplane = useTools((s) => s.workplane);
-    const cuts = useMemo(() => cutGeometries(objects), [objects]);
+    // Redone once the cutting library arrives, if holes were drawn uncut.
+    const csgReady = useCsg((s) => s.ready);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const cuts = useMemo(() => cutGeometries(objects), [objects, csgReady]);
     const looks = useMemo(() => {
         const map = new Map<string, MeshLook>();
         for (const o of objects) {

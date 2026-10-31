@@ -10,6 +10,7 @@ import { SceneDoc } from "@shapeshift/shared/scene/schema";
 import { worldBounds } from "../assistant/assistant";
 import { SceneMesh } from "../viewport/SceneMesh";
 import { cutGeometries } from "../scene/holes";
+import { useCsg } from "../scene/csg";
 import { SceneLight } from "../viewport/SceneLight";
 import { SceneEnvironment } from "../viewport/SceneEnvironment";
 import { REMIX_KEY } from "./remix";
@@ -193,6 +194,7 @@ function Scene({ doc }: { doc: SceneDoc }) {
         const p = poses.get(o.id);
         return p ? { ...o, position: p.position ?? o.position, rotation: p.rotation ?? o.rotation, scale: p.scale ?? o.scale, material: p.color ? { ...o.material, color: p.color } : o.material } : o;
     });
+    useCsg((s) => s.ready);
     const cuts = cutGeometries(objects);
     const lights = doc.lights.map((l) => {
         const p = poses.get(l.id);

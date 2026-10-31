@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { boundsIn, flipWinding, toMeshGeometry } from "./geometry";
-import { solidMeshes } from "./holes";
+import { holeGroups, solidMeshes } from "./holes";
+import { loadCsg } from "./csg";
 import { animationClip } from "./clip";
 import { DEFAULT_MATERIAL } from "./commands";
 import { SceneDoc, type SceneObject } from "@shapeshift/shared/scene/schema";
@@ -71,6 +72,7 @@ export function toThreeScene(doc: SceneDoc): THREE.Scene {
 }
 
 export async function exportGLB(doc: SceneDoc) {
+    if (holeGroups(doc.objects).size) await loadCsg();
     track("export", "glb");
     const { GLTFExporter } = await import("three/examples/jsm/exporters/GLTFExporter.js");
     const clip = animationClip(doc);
@@ -123,6 +125,8 @@ export function printableBounds(doc: SceneDoc, ids: string[] = []) {
 // millimetres, and the model resting on the bed, so it's turned and moved to fit.
 export async function stlBuffer(doc: SceneDoc, { size, ids }: PrintOptions): Promise<DataView> {
     const { STLExporter } = await import("three/examples/jsm/exporters/STLExporter.js");
+    // Holes have to be cut out before the shape is written.
+    if (holeGroups(doc.objects).size) await loadCsg();
     const { objects, box } = printableBounds(doc, ids);
     const chosen = new Set(objects.map((o) => o.id));
     const root = new THREE.Group();

@@ -3,7 +3,8 @@ import { mergeGeometries, mergeVertices, toCreasedNormals } from "three/examples
 import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
 import { Font, type FontData } from "three/examples/jsm/loaders/FontLoader.js";
 import helvetiker from "three/examples/fonts/helvetiker_regular.typeface.json";
-import { ADDITION, Brush, Evaluator, INTERSECTION, SUBTRACTION } from "three-bvh-csg";
+import type { Brush } from "three-bvh-csg";
+import { requireCsg } from "./csg";
 import type { Geometry, SceneObject, Vec3 } from "@shapeshift/shared/scene/schema";
 
 const SEGMENTS = 48;
@@ -251,7 +252,7 @@ export function flipWinding(geometry: THREE.BufferGeometry) {
 export function brushFor(o: SceneObject): Brush {
     const geometry = buildGeometry(o.geometry);
     const mirrored = o.scale[0] * o.scale[1] * o.scale[2] < 0;
-    const brush = new Brush(mirrored ? flipWinding(geometry) : geometry);
+    const brush = new (requireCsg().Brush)(mirrored ? flipWinding(geometry) : geometry);
     brush.position.set(...o.position);
     brush.rotation.set(...o.rotation);
     brush.scale.set(...o.scale);
@@ -259,14 +260,15 @@ export function brushFor(o: SceneObject): Brush {
     return brush;
 }
 
-const OPERATIONS = { union: ADDITION, subtract: SUBTRACTION, intersect: INTERSECTION };
+const OPERATIONS = { union: "ADDITION", subtract: "SUBTRACTION", intersect: "INTERSECTION" } as const;
 
 export function booleanGeometry(
     operation: keyof typeof OPERATIONS,
     a: SceneObject,
     b: SceneObject
 ): { geometry: Geometry; position: Vec3 } | null {
-    const result = new Evaluator().evaluate(brushFor(a), brushFor(b), OPERATIONS[operation]);
+    const csg = requireCsg();
+    const result = new csg.Evaluator().evaluate(brushFor(a), brushFor(b), csg[OPERATIONS[operation]]);
     const geometry = result.geometry;
     if (!geometry.getAttribute("position")?.count) return null;
     geometry.computeBoundingBox();
