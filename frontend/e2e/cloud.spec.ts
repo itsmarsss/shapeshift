@@ -73,7 +73,8 @@ test('shows signed-in people their scenes before the editor', async ({ page }) =
 
   await page.goto('/')
   await expect(page.getByRole('heading', { name: /Welcome back/ })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Your scenes · 1' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Your scenes' })).toBeVisible()
+  await expect(page.getByTitle('Open', { exact: true })).toHaveCount(1)
   await page.getByTitle('Open', { exact: true }).click()
   await expect(page).toHaveURL(/\/edit$/)
   await expect.poll(countNamed(page, 'Torus')).toBeGreaterThan(0)
@@ -85,7 +86,8 @@ test('shows signed-in people their scenes before the editor', async ({ page }) =
   await expect.poll(countNamed(page, 'Torus')).toBeGreaterThan(0)
 
   await page.goto('/')
-  await page.getByRole('button', { name: 'Sign out' }).click()
+  await page.getByTitle(email).click()
+  await page.getByRole('menuitem', { name: 'Sign out' }).click()
   await expect(page).toHaveURL(/\/edit$/)
   await page.goto('/')
   await expect(page.getByTitle('Add box')).toBeVisible()

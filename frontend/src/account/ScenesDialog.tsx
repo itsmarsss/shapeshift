@@ -48,8 +48,8 @@ export function ScenesDialog() {
             )}
             {scenes.length ? (
                 <Grid>
-                    {scenes.map((s) => (
-                        <SceneCard key={s.id} scene={s} />
+                    {scenes.map((s, i) => (
+                        <SceneCard key={s.id} scene={s} index={i} />
                     ))}
                 </Grid>
             ) : (

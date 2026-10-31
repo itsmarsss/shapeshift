@@ -1,46 +1,30 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import styled from "styled-components";
-import * as m from "motion/react-m";
-import { item, list, rise } from "../ui/motion";
-import { ArrowLeft, Check, Sparkle } from "@phosphor-icons/react";
+import { Check, Sparkle } from "@phosphor-icons/react";
 import { PLANS, PRO_PRICES, type BillingInterval } from "@shapeshift/shared/billing/plans";
-import { GlobalStyle, Segment, Segmented } from "../components/ui";
-import { useResolvedTheme } from "../settings/theme";
+import { Segment, Segmented } from "../components/ui";
+import { SiteShell } from "../site/SiteShell";
+import { entering } from "../site/parts";
 import { useAccount } from "../account/store";
 import { api, ApiError } from "../account/api";
 import { track } from "../telemetry";
 
-const SignInDialog = lazy(() => import("../account/SignInDialog"));
-
-const Page = styled.div`
-    // The editor turns off page scrolling, so pages scroll inside themselves.
-    height: 100%;
-    overflow-y: auto;
-    background: radial-gradient(1000px 500px at 50% -10%, color-mix(in srgb, var(--accent) 16%, transparent), transparent), var(--bg);
-    color: var(--text);
-    padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 56px;
+// A soft glow behind the top of the page.
+const Hero = styled.div`
+    background: radial-gradient(900px 420px at 50% -80px, color-mix(in srgb, var(--accent) 14%, transparent), transparent);
+    padding: 0 20px 64px;
 `;
 
-const Back = styled.a`
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--text-muted);
-    text-decoration: none;
-
-    &:hover {
-        color: var(--text);
-    }
-`;
-
-const Head = styled(m.header).attrs(rise)`
+const Head = styled.header`
     max-width: 640px;
-    margin: 32px auto 24px;
+    margin: 0 auto 28px;
+    padding-top: 48px;
+    ${entering}
     text-align: center;
 
     h1 {
         margin: 0 0 8px;
-        font-size: 32px;
+        font-size: 36px;
         letter-spacing: -0.02em;
     }
     p {
@@ -61,7 +45,7 @@ const Banner = styled.div`
     text-align: center;
 `;
 
-const Cards = styled(m.div).attrs({ variants: list, initial: "hidden", animate: "shown" })`
+const Cards = styled.div`
     max-width: 760px;
     margin: 0 auto;
     display: grid;
@@ -69,12 +53,13 @@ const Cards = styled(m.div).attrs({ variants: list, initial: "hidden", animate: 
     gap: 16px;
 `;
 
-const Card = styled(m.section).attrs({ variants: item })<{ $featured?: boolean }>`
+const Card = styled.section<{ $featured?: boolean }>`
+    ${entering}
     display: flex;
     flex-direction: column;
     gap: 14px;
-    padding: 22px;
-    border-radius: 16px;
+    padding: 26px;
+    border-radius: 18px;
     background: var(--surface);
     border: 1px solid ${(p) => (p.$featured ? "var(--accent)" : "var(--border)")};
     box-shadow: ${(p) => (p.$featured ? "0 16px 40px color-mix(in srgb, var(--accent) 18%, transparent)" : "none")};
@@ -176,21 +161,15 @@ export default function PricingPage() {
     const user = useAccount((s) => s.user);
     const loaded = useAccount((s) => s.loaded);
     const usage = useAccount((s) => s.usage);
-    const showSignIn = useAccount((s) => s.showSignIn);
     const [period, setPeriod] = useState<BillingInterval>("year");
     const [available, setAvailable] = useState<boolean | null>(null);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [slow, setSlow] = useState(false);
     const upgraded = new URLSearchParams(location.search).has("upgraded");
-    const theme = useResolvedTheme();
     const pro = user?.plan === "pro";
 
     useEffect(() => {
-        document.documentElement.dataset.theme = theme;
-    }, [theme]);
-    useEffect(() => {
-        void useAccount.getState().load();
         api.billing()
             .then((b) => setAvailable(b.available))
             .catch(() => setAvailable(false));
@@ -250,90 +229,85 @@ export default function PricingPage() {
         );
 
     return (
-        <Page>
-            <GlobalStyle />
-            <Back href={user ? "/" : "/edit"}>
-                <ArrowLeft size={16} />
-                {user ? "Your scenes" : "Back to the editor"}
-            </Back>
-            <Head>
-                <h1>Make more with Pro</h1>
-                <p>Everything that runs on your device is free, always. Pro adds more assistant help and room for more scenes in the cloud.</p>
-                <Segmented>
-                    <Segment $active={period === "month"} onClick={() => setPeriod("month")}>
-                        Monthly
-                    </Segment>
-                    <Segment $active={period === "year"} onClick={() => setPeriod("year")}>
-                        Yearly · {PRO_PRICES.year.note}
-                    </Segment>
-                </Segmented>
-            </Head>
+        <SiteShell page="pricing">
+            <Hero>
+                <Head>
+                    <h1>Make more with Pro</h1>
+                    <p>Everything that runs on your device is free, always. Pro adds more assistant help and room for more scenes in the cloud.</p>
+                    <Segmented>
+                        <Segment $active={period === "month"} onClick={() => setPeriod("month")}>
+                            Monthly
+                        </Segment>
+                        <Segment $active={period === "year"} onClick={() => setPeriod("year")}>
+                            Yearly · {PRO_PRICES.year.note}
+                        </Segment>
+                    </Segmented>
+                </Head>
 
-            {upgraded && <Banner role="status">{pro
-                        ? "You're on Pro. Thanks for supporting ShapeShift!"
-                        : slow
-                          ? "Your payment went through, but your plan hasn't updated yet. Refresh this page in a minute."
-                          : "Finishing your upgrade…"}</Banner>}
+                {upgraded && (
+                    <Banner role="status">
+                        {pro
+                            ? "You're on Pro. Thanks for supporting ShapeShift!"
+                            : slow
+                              ? "Your payment went through, but your plan hasn't updated yet. Refresh this page in a minute."
+                              : "Finishing your upgrade…"}
+                    </Banner>
+                )}
 
-            <Cards>
-                <Card aria-label="Free plan">
-                    <h2>Free</h2>
-                    <Price>
-                        $0 <small>forever</small>
-                    </Price>
-                    <ul>
-                        {FREE_FEATURES.map((f) => (
-                            <li key={f}>
-                                <Check size={16} weight="bold" />
-                                {f}
-                            </li>
-                        ))}
-                    </ul>
-                    {user && !pro ? <Cta disabled>Your plan</Cta> : <Cta onClick={() => location.assign("/edit")}>Start creating</Cta>}
-                </Card>
-                <Card $featured aria-label="Pro plan">
-                    <h2>
-                        <Sparkle size={18} weight="fill" color="var(--accent)" /> Pro
-                    </h2>
-                    <Price>
-                        ${price.amount} <small>/ {period}</small>
-                    </Price>
-                    <ul>
-                        {PRO_FEATURES.map((f) => (
-                            <li key={f}>
-                                <Check size={16} weight="bold" />
-                                {f}
-                            </li>
-                        ))}
-                    </ul>
-                    {proButton}
-                    {error && <Small role="alert">{error}</Small>}
-                    {pro && usage?.status === "canceling" && renews && <Small>Pro ends on {renews}. You can turn it back on from Manage billing.</Small>}
-                    {pro && usage?.status === "past_due" && <Small>Your last payment didn't go through. Update your card in Manage billing.</Small>}
-                    {!pro && <Small>Cancel anytime. Payments are handled by Stripe.</Small>}
-                </Card>
-            </Cards>
+                <Cards>
+                    <Card aria-label="Free plan" style={{ "--i": 1 } as CSSProperties}>
+                        <h2>Free</h2>
+                        <Price>
+                            $0 <small>forever</small>
+                        </Price>
+                        <ul>
+                            {FREE_FEATURES.map((f) => (
+                                <li key={f}>
+                                    <Check size={16} weight="bold" />
+                                    {f}
+                                </li>
+                            ))}
+                        </ul>
+                        {user && !pro ? <Cta disabled>Your plan</Cta> : <Cta onClick={() => location.assign("/edit")}>Start creating</Cta>}
+                    </Card>
+                    <Card $featured aria-label="Pro plan" style={{ "--i": 2 } as CSSProperties}>
+                        <h2>
+                            <Sparkle size={18} weight="fill" color="var(--accent)" /> Pro
+                        </h2>
+                        <Price>
+                            ${price.amount} <small>/ {period}</small>
+                        </Price>
+                        <ul>
+                            {PRO_FEATURES.map((f) => (
+                                <li key={f}>
+                                    <Check size={16} weight="bold" />
+                                    {f}
+                                </li>
+                            ))}
+                        </ul>
+                        {proButton}
+                        {error && <Small role="alert">{error}</Small>}
+                        {pro && usage?.status === "canceling" && renews && <Small>Pro ends on {renews}. You can turn it back on from Manage billing.</Small>}
+                        {pro && usage?.status === "past_due" && <Small>Your last payment didn't go through. Update your card in Manage billing.</Small>}
+                        {!pro && <Small>Cancel anytime. Payments are handled by Stripe.</Small>}
+                    </Card>
+                </Cards>
 
-            {usage && (
-                <Small style={{ marginTop: 20 }}>
-                    {user ? "This month you've" : "As a visitor, this month you've"} used {usage.prompts.used} of {usage.prompts.limit} assistant prompts.
-                </Small>
-            )}
+                {usage && (
+                    <Small style={{ marginTop: 20 }}>
+                        {user ? "This month you've" : "As a visitor, this month you've"} used {usage.prompts.used} of {usage.prompts.limit} assistant prompts.
+                    </Small>
+                )}
 
-            <Faq>
-                <dt>What counts as a prompt?</dt>
-                <dd>Each message you send the assistant. However many steps it takes to build what you asked for, it's one prompt.</dd>
-                <dt>What happens to my scenes if I cancel?</dt>
-                <dd>Nothing is deleted. You keep everything you saved; you just can't add more cloud scenes past the free limit.</dd>
-                <dt>Do I need Pro to use hand control or export?</dt>
-                <dd>No. Everything that runs on your device, including hands, voice, templates and every export, is free.</dd>
-            </Faq>
-
-            {showSignIn && (
-                <Suspense fallback={null}>
-                    <SignInDialog />
-                </Suspense>
-            )}
-        </Page>
+                <Faq>
+                    <dt>What counts as a prompt?</dt>
+                    <dd>Each message you send the assistant. However many steps it takes to build what you asked for, it's one prompt.</dd>
+                    <dt>What happens to my scenes if I cancel?</dt>
+                    <dd>Nothing is deleted. You keep everything you saved; you just can't add more cloud scenes past the free limit.</dd>
+                    <dt>Do I need Pro to use hand control or export?</dt>
+                    <dd>No. Everything that runs on your device, including hands, voice, templates and every export, is free.</dd>
+                </Faq>
+            </Hero>
+        </SiteShell>
     );
 }

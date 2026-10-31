@@ -1,34 +1,28 @@
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import styled from "styled-components";
-import * as m from "motion/react-m";
-import { item, list } from "../ui/motion";
+import { tile } from "../site/parts";
 import { Check, Cube, LinkSimple, PencilSimple, Trash } from "@phosphor-icons/react";
 import { Input } from "../components/ui";
 import { api, type CloudScene } from "./api";
 import { embedCode } from "../viewer/embed";
 import { useAccount } from "./store";
 
-// Cards come in one after another.
-export const Grid = styled(m.div).attrs({ variants: list, initial: "hidden", animate: "shown" })`
+export const Grid = styled.div`
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
     gap: 12px;
 `;
 
-const Card = styled(m.div).attrs({ variants: item })<{ $current: boolean }>`
-    border: 1px solid ${(p) => (p.$current ? "var(--accent)" : "var(--border)")};
-    border-radius: 12px;
-    overflow: hidden;
-    background: var(--bg);
-    display: flex;
-    flex-direction: column;
+const Card = styled.div<{ $current: boolean }>`
+    ${tile}
+    ${(p) => p.$current && "border-color: var(--accent);"}
 `;
 
 const Preview = styled.button`
     aspect-ratio: 4 / 3;
     border: 0;
     padding: 0;
-    background: var(--surface-raised);
+    background: linear-gradient(160deg, var(--surface-raised), var(--surface-hover));
     display: grid;
     place-items: center;
     color: var(--text-faint);
@@ -114,7 +108,8 @@ const Shared = styled.div`
 
 // One saved scene: its preview, name, sharing and delete. `onOpen` replaces
 // opening it in the current editor, for pages outside the editor.
-export function SceneCard({ scene, onOpen }: { scene: CloudScene; onOpen?: () => void }) {
+// index staggers the cards' entrance when a list of them appears.
+export function SceneCard({ scene, onOpen, index = 0 }: { scene: CloudScene; onOpen?: () => void; index?: number }) {
     const { id, title, updatedAt, publicSlug, listed } = scene;
     const setListed = useAccount((s) => s.setListed);
     const cloudId = useAccount((s) => s.cloudId);
@@ -140,7 +135,7 @@ export function SceneCard({ scene, onOpen }: { scene: CloudScene; onOpen?: () =>
     const [broken, setBroken] = useState(false);
 
     return (
-        <Card $current={cloudId === id}>
+        <Card $current={cloudId === id} style={{ "--i": index } as CSSProperties}>
             <Preview title="Open" onClick={() => (onOpen ? onOpen() : void openScene(id))}>
                 {broken ? <Cube size={36} /> : <img src={api.thumbnailUrl(id, updatedAt)} alt="" onError={() => setBroken(true)} />}
             </Preview>

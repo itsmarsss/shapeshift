@@ -3,7 +3,7 @@ import styled from "styled-components";
 import { Dialog } from "../account/Dialog";
 import { useScene } from "../scene/store";
 import { TEMPLATES, buildTemplate, type Template } from "../scene/templates";
-import { renderThumbnail } from "../scene/thumbnail";
+import { useThumbnails } from "../scene/useThumbnails";
 import { useUI } from "../ui/store";
 import { frameScene } from "../viewport/frame";
 import { track } from "../telemetry";
@@ -69,7 +69,8 @@ function TemplateCard({ template, image, onPick }: { template: Template; image: 
 
 export function TemplatesDialog() {
     const setShow = useUI((s) => s.setShowTemplates);
-    const images = useMemo(() => TEMPLATES.map((t) => renderThumbnail(buildTemplate(t))), []);
+    const docs = useMemo(() => TEMPLATES.map(buildTemplate), []);
+    const images = useThumbnails(docs);
     const close = () => setShow(false);
 
     function pick(template: Template) {
