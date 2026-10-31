@@ -345,3 +345,20 @@ test('records the animation as a video and says which format it saved', async ({
   expect(file).toMatch(/^shapeshift\.(mp4|webm)$/)
   await expect(page.getByRole('status').filter({ hasText: file.endsWith('mp4') ? 'MP4' : 'WebM' })).toBeVisible()
 })
+
+test('sends feedback with a picture of the scene', async ({ page }) => {
+  await openEditor(page)
+  await page.getByTitle('Add box').click()
+  let sent: { message: string; picture?: string } | undefined
+  await page.route('/api/feedback', async (route) => {
+    sent = route.request().postDataJSON()
+    await route.fulfill({ json: { ok: true } })
+  })
+  await fromFileMenu(page, 'Send feedback')
+  const dialog = page.getByRole('dialog', { name: 'Send feedback' })
+  await dialog.getByLabel('Your feedback').fill('Rotating is hard to find')
+  await dialog.getByRole('button', { name: 'Send' }).click()
+  await expect(dialog.getByText('Thanks! We read every message.')).toBeVisible()
+  expect(sent?.message).toBe('Rotating is hard to find')
+  expect(sent?.picture).toMatch(/^data:image\/jpeg;base64,/)
+})

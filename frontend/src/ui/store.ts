@@ -19,12 +19,14 @@ type UIState = {
     showChat: boolean;
     showSettings: boolean;
     showTemplates: boolean;
+    showFeedback: boolean;
     showHistory: boolean;
     showOnboarding: boolean;
     setShowInspector: (v: boolean) => void;
     setShowChat: (v: boolean) => void;
     setShowSettings: (v: boolean) => void;
     setShowTemplates: (v: boolean) => void;
+    setShowFeedback: (v: boolean) => void;
     setShowHistory: (v: boolean) => void;
     setShowOnboarding: (v: boolean) => void;
 };
@@ -40,12 +42,14 @@ export const useUI = create<UIState>()((set) => ({
     showSettings: false,
     showOnboarding: needsOnboarding(),
     showTemplates: false,
+    showFeedback: false,
     showHistory: false,
     setShowInspector: (showInspector) => set(showInspector && isCompact() ? { showInspector, showChat: false, showHistory: false } : { showInspector }),
     setShowChat: (showChat) => set(showChat && isCompact() ? { showChat, showInspector: false, showHistory: false } : { showChat }),
     setShowHistory: (showHistory) => set(showHistory && isCompact() ? { showHistory, showInspector: false, showChat: false } : { showHistory }),
     setShowSettings: (showSettings) => set({ showSettings }),
     setShowTemplates: (showTemplates) => set({ showTemplates }),
+    setShowFeedback: (showFeedback) => set({ showFeedback }),
     setShowOnboarding: (showOnboarding) => {
         if (!showOnboarding) {
             try {
