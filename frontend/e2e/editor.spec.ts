@@ -181,3 +181,16 @@ test('keeps the inspector simple, with exact numbers under More options', async 
   await page.getByRole('button', { name: 'Fewer options' }).click()
   await expect(page.getByText('Position (m)')).toHaveCount(0)
 })
+
+test('combines two selected shapes from the inspector', async ({ page }) => {
+  await openEditor(page)
+  await page.getByTitle('Add box').click()
+  await page.getByTitle('Add sphere').click()
+  const count = () => page.evaluate(() => JSON.parse(localStorage.getItem('shapeshift-scene') ?? '{"objects":[]}').objects.length)
+  await expect.poll(count).toBe(2)
+  // Nothing floats over the view for this any more; it's in the inspector.
+  await expect(page.getByText('First object')).toHaveCount(0)
+  await page.keyboard.press('ControlOrMeta+a')
+  await page.getByRole('button', { name: 'Join' }).click()
+  await expect.poll(count).toBe(1)
+})
