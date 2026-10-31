@@ -136,7 +136,9 @@ const Head = styled.div`
 
 const Hint = styled.div`
     position: absolute;
-    inset: 0 12px;
+    // Above the time labels along the bottom.
+    inset: 0 12px 20px;
+    line-height: 1.3;
     display: flex;
     align-items: center;
     color: var(--text-faint);
@@ -308,7 +310,7 @@ export function Timeline() {
                 ))}
                 <Head style={{ left: pct(time) }} />
                 {!animation.tracks.length && (
-                    <Hint>Select something and press Keyframe, move the playhead, move it, and press Keyframe again. Or ask the assistant to “make it spin”.</Hint>
+                    <Hint>Pick a shape and press Keyframe, then move the playhead and move the shape. Or ask the assistant to “make it spin”.</Hint>
                 )}
             </Track>
             <Side>
