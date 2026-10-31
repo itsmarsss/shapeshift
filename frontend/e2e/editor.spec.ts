@@ -181,3 +181,13 @@ test('keeps the inspector simple, with exact numbers under More options', async 
   await page.getByRole('button', { name: 'Fewer options' }).click()
   await expect(page.getByText('Position (m)')).toHaveCount(0)
 })
+
+test('closes the color picker with Escape and keeps the selection', async ({ page }) => {
+  await openEditor(page)
+  await page.getByTitle('Add sphere').click()
+  await page.getByRole('button', { name: /^Color: #/ }).click()
+  await page.getByRole('dialog', { name: 'Pick color' }).getByRole('button', { name: '#46a758' }).click()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog', { name: 'Pick color' })).toHaveCount(0)
+  await expect(page.locator('input[value="Sphere"]')).toBeVisible()
+})
