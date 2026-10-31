@@ -165,7 +165,8 @@ function useSuggestions(): string[] {
         return [`Make ${selected.name} brushed gold`, `Make ${selected.name} twice as tall`, `Put a small red sphere on top of ${selected.name}`];
     }
     if (count === 0) {
-        return ["Build a snowman with a hat and a carrot nose", "Make a wooden table with four chairs", "Create a small rocket on a launch pad"];
+        // The get-started card already offers the snowman, so these are different ideas.
+        return ["Make a wooden table with four chairs", "Create a small rocket on a launch pad", "Build a little red race car"];
     }
     return ["Line up five spheres in rainbow colors", "Add a ground plane under everything", "Describe what's in the scene"];
 }

@@ -372,7 +372,7 @@ function Section({ id }: { id: SectionId }) {
                         <Row label="Axis lines">
                             <Toggle k="showAxes" />
                         </Row>
-                        <Row label="Shadows in Render mode">
+                        <Row label="Shadows in Preview">
                             <Toggle k="shadows" />
                         </Row>
                     </Group>
