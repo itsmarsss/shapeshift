@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import styled from "styled-components";
-import { ArrowRight, Cube, Plus, SignOut, Sparkle } from "@phosphor-icons/react";
+import { ArrowRight, Compass, Cube, Plus, SignOut, Sparkle } from "@phosphor-icons/react";
 import { GlobalStyle } from "../components/ui";
 import { useResolvedTheme } from "../settings/theme";
 import { useAccount } from "../account/store";
@@ -209,6 +209,10 @@ export default function HomePage() {
                 <img src="/icon.svg" alt="" />
                 <b>ShapeShift</b>
                 {user && <small>{user.email}</small>}
+                <a className="plan" href="/explore" style={{ borderColor: "var(--border)", color: "var(--text)" }}>
+                    <Compass size={16} />
+                    Explore
+                </a>
                 {user && (
                     <a className="plan" href="/pricing">
                         <Sparkle size={16} />

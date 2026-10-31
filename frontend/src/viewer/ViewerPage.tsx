@@ -3,7 +3,7 @@ import styled from "styled-components";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { CameraControls } from "@react-three/drei";
 import * as THREE from "three";
-import { ArrowSquareOut, Check, Code, Copy, Cube } from "@phosphor-icons/react";
+import { ArrowSquareOut, Check, Code, Compass, Copy, Cube } from "@phosphor-icons/react";
 import { Button, GlobalStyle } from "../components/ui";
 import { evaluate } from "../scene/animation";
 import { SceneDoc } from "@shapeshift/shared/scene/schema";
@@ -282,6 +282,10 @@ export default function ViewerPage({ slug }: { slug: string }) {
                             <span>Embed</span>
                         </Action>
                     )}
+                    <Action href="/explore" title="More scenes people have shared">
+                        <Compass size={16} />
+                        <span>Explore</span>
+                    </Action>
                     <Action href="/" title="Open the editor">
                         <ArrowSquareOut size={16} />
                         <span>Open the editor</span>
