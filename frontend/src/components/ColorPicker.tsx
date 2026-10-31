@@ -215,12 +215,17 @@ export function ColorPicker({ value, onChange, onCommit, label = "Color" }: Prop
             const target = e.target as Node;
             if (!pop.current?.contains(target) && !trigger.current?.contains(target)) dismiss();
         };
-        const key = (e: KeyboardEvent) => e.key === "Escape" && dismiss();
+        // Caught on the way in, so the editor's Escape (clear the selection) doesn't also run.
+        const key = (e: KeyboardEvent) => {
+            if (e.key !== "Escape") return;
+            e.stopPropagation();
+            dismiss();
+        };
         window.addEventListener("pointerdown", outside);
-        window.addEventListener("keydown", key);
+        window.addEventListener("keydown", key, true);
         return () => {
             window.removeEventListener("pointerdown", outside);
-            window.removeEventListener("keydown", key);
+            window.removeEventListener("keydown", key, true);
         };
     }, [open]);
 

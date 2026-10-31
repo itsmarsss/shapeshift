@@ -11,7 +11,7 @@ import { IconButton, Panel } from "./ui";
 import { Composer, type ComposerHandle } from "./assistant/Composer";
 import { TurnView } from "./assistant/TurnView";
 
-const Root = styled(Panel)`
+const Root = styled(Panel)<{ $empty?: boolean }>`
     top: calc(var(--topbar) + var(--gap));
     bottom: var(--gap);
     right: var(--gap);
@@ -30,7 +30,10 @@ const Root = styled(Panel)`
         padding-bottom: env(safe-area-inset-bottom, 0px);
         box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.4);
         z-index: 60;
-        height: 72vh;
+        // Before the first message there's little to show, so the sheet
+        // only takes the room it needs and leaves the scene in view.
+        height: ${(p) => (p.$empty ? "auto" : "72vh")};
+        max-height: 72vh;
     }
 `;
 
@@ -227,14 +230,14 @@ export function ChatPanel() {
     if (!show) return null;
 
     return (
-        <Root aria-label="Assistant">
+        <Root aria-label="Assistant" $empty={turns.length === 0}>
             <Header>
                 <Mark>
                     <Sparkle size={16} weight="fill" />
                 </Mark>
                 <Titles>
                     <Title>Assistant</Title>
-                    <Subtitle>{info ? modelName(info) : "Edits your scene from plain language"}</Subtitle>
+                    <Subtitle title={info ? `Model: ${modelName(info)}` : undefined}>Builds and changes things for you</Subtitle>
                 </Titles>
                 <IconButton title="New chat" onClick={reset} disabled={turns.length === 0}>
                     <NotePencil size={16} />
@@ -267,7 +270,7 @@ export function ChatPanel() {
             </div>
             <Hint>
                 <PromptsLeft />
-                Enter to send · Shift+Enter for a new line · / to focus
+                {!window.matchMedia("(pointer: coarse)").matches && "Enter to send · Shift+Enter for a new line · / to focus"}
             </Hint>
         </Root>
     );

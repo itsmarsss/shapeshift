@@ -385,7 +385,7 @@ function SelectionSection({ count, groups }: { count: number; groups: string[] }
     return (
         <>
             <Muted>
-                {count} objects selected{shared ? ` · group “${shared}”` : ""}. Shift-click to add or remove one.
+                {count} objects selected{shared ? ` · group “${shared}”` : ""}.{touchOnly() ? "" : " Shift-click to add or remove one."}
             </Muted>
             <div>
                 <FieldLabel>Group</FieldLabel>
@@ -488,6 +488,9 @@ function looksLike(material: Material, preset: MaterialFields) {
     );
 }
 
+// Keyboard tips only make sense with a keyboard and mouse.
+const touchOnly = () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+
 const ENVIRONMENT_LABELS: Record<Environment, string> = {
     none: "None (plain lights)",
     studio: "Studio",
@@ -557,7 +560,7 @@ export function Inspector() {
 
                 {multi && <SelectionSection count={selectedObjects.length} groups={groups} />}
 
-                {selected && !multi && mode === "edit" && <Muted>Click a vertex to move it. Shift-click to select more.</Muted>}
+                {selected && !multi && mode === "edit" && <Muted>{touchOnly() ? "Tap a point to move it." : "Click a point to move it. Shift-click to select more."}</Muted>}
 
                 {selected && !multi && (
                     <>
@@ -571,7 +574,7 @@ export function Inspector() {
                                 }}
                                 onBlur={endCoalesce}
                             />
-                            {selected.group && <Muted style={{ marginTop: 6 }}>In group “{selected.group}”. Alt-click picks one part.</Muted>}
+                            {selected.group && <Muted style={{ marginTop: 6 }}>In group “{selected.group}”.{touchOnly() ? "" : " Alt-click picks one part."}</Muted>}
                             {pose && <Muted style={{ marginTop: 6 }}>Animated. Moving it adds a keyframe at {time.toFixed(1)}s.</Muted>}
                         </div>
                         <div>
