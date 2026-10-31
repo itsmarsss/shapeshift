@@ -32,6 +32,7 @@ type AccountState = {
     renameScene: (id: string, title: string) => Promise<void>;
     deleteScene: (id: string) => Promise<void>;
     setShared: (id: string, shared: boolean) => Promise<string | null>;
+    setListed: (id: string, listed: boolean) => Promise<void>;
     unlink: () => void;
 };
 
@@ -188,6 +189,19 @@ export const useAccount = create<AccountState>()((set, get) => ({
         const { scene } = shared ? await api.publish(id) : await api.unpublish(id);
         set((s) => ({ scenes: s.scenes.map((x) => (x.id === id ? scene : x)) }));
         return scene.publicSlug ? `${location.origin}/s/${scene.publicSlug}` : null;
+    },
+
+    // Ticks right away; goes back if the server says no.
+    setListed: async (id, listed) => {
+        const mark = (value: boolean) => set((s) => ({ scenes: s.scenes.map((x) => (x.id === id ? { ...x, listed: value } : x)) }));
+        mark(listed);
+        try {
+            const { scene } = await api.setListed(id, listed);
+            set((s) => ({ scenes: s.scenes.map((x) => (x.id === id ? scene : x)) }));
+        } catch (err) {
+            mark(!listed);
+            set({ saveError: message(err) });
+        }
     },
 
     unlink: () => {

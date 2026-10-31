@@ -112,7 +112,8 @@ const Shared = styled.div`
 // One saved scene: its preview, name, sharing and delete. `onOpen` replaces
 // opening it in the current editor, for pages outside the editor.
 export function SceneCard({ scene, onOpen }: { scene: CloudScene; onOpen?: () => void }) {
-    const { id, title, updatedAt, publicSlug } = scene;
+    const { id, title, updatedAt, publicSlug, listed } = scene;
+    const setListed = useAccount((s) => s.setListed);
     const cloudId = useAccount((s) => s.cloudId);
     const openScene = useAccount((s) => s.openScene);
     const renameScene = useAccount((s) => s.renameScene);
@@ -187,6 +188,12 @@ export function SceneCard({ scene, onOpen }: { scene: CloudScene; onOpen?: () =>
                     </button>
                     <span>·</span>
                     <button onClick={() => void setShared(id, false)}>Stop sharing</button>
+                </Shared>
+            )}
+            {publicSlug && (
+                <Shared as="label" title="List it in the public Explore gallery, where anyone can see and remix it">
+                    <input type="checkbox" checked={Boolean(listed)} onChange={(e) => void setListed(id, e.target.checked)} />
+                    Show in Explore
                 </Shared>
             )}
         </Card>
