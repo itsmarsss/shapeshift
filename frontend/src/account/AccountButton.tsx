@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import { CheckCircle, CloudArrowUp, CloudSlash, FolderOpen, SignOut, Sparkle, UserCircle, WarningCircle } from "@phosphor-icons/react";
-import { COMPACT } from "../ui/compact";
+import { COMPACT, MEDIUM } from "../ui/compact";
 import { PLANS } from "@shapeshift/shared/billing/plans";
 import { useAccount } from "./store";
 
@@ -21,12 +21,13 @@ const SignIn = styled.button`
     background: transparent;
     color: var(--text);
     font-weight: 500;
+    white-space: nowrap;
 
     &:hover {
         background: var(--surface-hover);
     }
     span {
-        @media ${COMPACT} {
+        @media ${MEDIUM} {
             display: none;
         }
     }
