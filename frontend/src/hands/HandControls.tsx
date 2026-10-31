@@ -6,6 +6,7 @@ import { useScene } from "../scene/store";
 import type { Handedness } from "./gestures";
 import { IntentTracker } from "./intents";
 import { live, useHandHover } from "./tracker";
+import { useHandMenu } from "./menu";
 import { editableMesh } from "../scene/geometry";
 import { nearestVertex, objectMatrix, useEditSelection } from "../viewport/editSelection";
 import { useSettings } from "../settings/store";
@@ -163,8 +164,21 @@ export function HandControls() {
     useFrame(() => {
         if (live.hands === lastHands.current) return;
         lastHands.current = live.hands;
-        for (const intent of intents.current.update(live.hands)) {
-            if (intent.type === "start") start(intent.handedness, intent.x, intent.y);
+        const pending = intents.current.update(live.hands);
+        // The hand menu owns the hands while it's open. Intents are still read
+        // so the pinch that picks from the menu doesn't start a drag after.
+        if (useHandMenu.getState().open) {
+            if (drag.current) end();
+            if (useHandHover.getState().hoveredId !== null) useHandHover.setState({ hoveredId: null });
+            return;
+        }
+        for (const intent of pending) {
+            if (intent.type === "start") {
+                const spent = useHandMenu.getState().spent;
+                const pinchId = live.hands.find((h) => h.handedness === intent.handedness)?.pinchId;
+                if (spent?.handedness === intent.handedness && spent.pinchId === pinchId) drag.current = null;
+                else start(intent.handedness, intent.x, intent.y);
+            }
             else if (intent.type === "move") move(intent.x, intent.y, intent.dx, intent.dy, intent.depth);
             else if (intent.type === "end") end();
             else if (intent.type === "pairStart") pairStart(intent.holding);
