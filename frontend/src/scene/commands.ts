@@ -51,6 +51,11 @@ const SPOTS: [number, number][] = [];
 for (let x = -6; x <= 6; x++) for (let z = -6; z <= 6; z++) SPOTS.push([x * SPOT_STEP + 0, z * SPOT_STEP + 0]);
 SPOTS.sort((a, b) => Math.hypot(...a) - Math.hypot(...b) || b[0] - a[0] || b[1] - a[1]);
 
+// Where a new shape of this kind sits to rest on the floor at x, z.
+export function restingAt(primitive: Primitive, x: number, z: number): Vec3 {
+    return [x, restingPose(DEFAULT_GEOMETRY[primitive], 1).position[1], z];
+}
+
 function freeSpot(doc: SceneDoc): [number, number] {
     const spot = SPOTS.find(([px, pz]) =>
         doc.objects.every((o) => Math.hypot(o.position[0] - px, o.position[2] - pz) >= SPOT_STEP * 0.8)

@@ -87,6 +87,16 @@ export function viewFrom(side: ViewSide) {
     });
 }
 
+// Where a point on screen (0 to 1 across and down) meets the floor, if it does.
+export function floorPointAt(x: number, y: number): [number, number] | null {
+    if (!controls) return null;
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(new THREE.Vector2(x * 2 - 1, -(y * 2 - 1)), controls.camera);
+    const hit = ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
+    // Too far off toward the horizon isn't a useful place to put something.
+    return hit && hit.length() < 40 ? [hit.x, hit.z] : null;
+}
+
 // Back to where a new scene starts.
 export function resetView() {
     withControls((c) => void c.setLookAt(4, 3.5, 6, 0, 0, 0, true));
