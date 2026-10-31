@@ -298,3 +298,14 @@ test('stacks a dragged shape on top of another', async ({ page }) => {
   await page.mouse.up()
   await expect.poll(async () => (await sphere())?.[1]).toBeCloseTo(1.5)
 })
+
+test('adds a ready-made object as one group', async ({ page }) => {
+  await openEditor(page)
+  await page.getByTitle('All shapes').click()
+  await page.getByRole('tab', { name: 'Objects' }).click()
+  await page.getByTitle('Add a chair').click()
+  await expect(page.getByText(/group “Chair”/)).toBeVisible()
+  await expect.poll(countNamed(page, 'Seat')).toBe(1)
+  await page.getByTitle('Undo').click()
+  await expect.poll(countNamed(page, 'Seat')).toBe(0)
+})
