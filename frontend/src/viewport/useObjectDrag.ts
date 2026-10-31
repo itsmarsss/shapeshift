@@ -5,6 +5,7 @@ import * as THREE from "three";
 import type { Vec3 } from "@shapeshift/shared/scene/schema";
 import { useScene } from "../scene/store";
 import { transformCommand } from "../scene/autokey";
+import { worldBounds } from "../assistant/assistant";
 
 // How far the pointer moves before a press becomes a drag, so a plain click
 // still just selects.
@@ -33,6 +34,7 @@ const floor = () => new THREE.Quaternion();
 
 export function useObjectDrag({ positions, pick, busy, canDrag = always, surface = floor }: Options) {
     const camera = useThree((s) => s.camera);
+    const scene = useThree((s) => s.scene);
     const gl = useThree((s) => s.gl);
     const controls = useThree((s) => s.controls) as unknown as CameraControls | null;
     const invalidate = useThree((s) => s.invalidate);
@@ -70,9 +72,42 @@ export function useObjectDrag({ positions, pick, busy, canDrag = always, surface
             let base = new Map(ids.map((s) => [s, drawn.get(s)!] as const));
             let origin = e.point.clone();
             let applied = base;
+            const start = base;
+            const firstOf = (m: Map<string, Vec3>) => m.values().next().value!;
             const turn = surface();
             const back = turn.clone().invert();
             const normal = new THREE.Vector3(0, 1, 0).applyQuaternion(turn);
+            // On the floor, dragging over another shape sets the selection
+            // down on top of it, so stacking needs no fiddling.
+            const onFloor = normal.y > 0.999;
+            const dragged = new Set(ids);
+            const bottoms = useScene
+                .getState()
+                .doc.objects.filter((o) => dragged.has(o.id))
+                .map((o) => worldBounds(o).min[1]);
+            const bottom = bottoms.length ? Math.min(...bottoms) : null;
+            // Resting on the floor or on another shape, rather than lifted on
+            // purpose: then moving off a shape brings it back down to the floor.
+            let resting =
+                bottom !== null &&
+                (Math.abs(bottom) < 0.01 ||
+                    useScene
+                        .getState()
+                        .doc.objects.some((o) => !dragged.has(o.id) && Math.abs(worldBounds(o).max[1] - bottom) < 0.02));
+
+            // The top of another shape under the pointer, if there is one.
+            // Anywhere on it counts, not just its top face, so it's forgiving.
+            function surfaceBelow(): number | null {
+                if (!onFloor || bottom === null) return null;
+                const objects = useScene.getState().doc.objects;
+                for (const hit of ray.intersectObject(scene, true)) {
+                    const id = hit.object.name;
+                    if (!id || dragged.has(id)) continue;
+                    const other = objects.find((o) => o.id === id);
+                    if (other) return worldBounds(other).max[1];
+                }
+                return null;
+            }
 
             if (controls) controls.enabled = false;
 
@@ -104,6 +139,8 @@ export function useObjectDrag({ positions, pick, busy, canDrag = always, surface
                 }
                 if (ev.shiftKey !== vertical) {
                     vertical = ev.shiftKey;
+                    // Lifted on purpose now, so it stays at the height it's given.
+                    if (vertical) resting = false;
                     base = applied;
                     const at = pointer(ev);
                     if (at) origin = at;
@@ -119,6 +156,14 @@ export function useObjectDrag({ positions, pick, busy, canDrag = always, surface
                 const { snap, run } = useScene.getState();
                 if (snap.enabled) delta.divideScalar(snap.translate).round().multiplyScalar(snap.translate);
                 delta.applyQuaternion(turn);
+                if (!vertical) {
+                    const top = surfaceBelow();
+                    // `base` may already have been raised by a Shift-drag;
+                    // measure from where the selection's bottom started.
+                    const floor = resting ? 0 : null;
+                    const target = top ?? floor;
+                    if (target !== null) delta.y = target - bottom! - (firstOf(base)[1] - firstOf(start)[1]);
+                }
                 applied = new Map([...base].map(([s, p]) => [s, [p[0] + delta.x, p[1] + delta.y, p[2] + delta.z] as Vec3]));
                 run(
                     [...applied].map(([s, position]) => transformCommand(s, { position })),
@@ -150,7 +195,7 @@ export function useObjectDrag({ positions, pick, busy, canDrag = always, surface
             window.addEventListener("pointerup", up);
             window.addEventListener("pointercancel", up);
         },
-        [camera, gl, controls, invalidate, pick, positions, busy, setCursor, canDrag, surface]
+        [camera, gl, scene, controls, invalidate, pick, positions, busy, setCursor, canDrag, surface]
     );
 
     // A grab hand over things that can be dragged.
