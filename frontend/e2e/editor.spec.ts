@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { openEditor } from './helpers'
+import { fromFileMenu, openEditor } from './helpers'
 
 test('adds a shape from the toolbar and undoes it', async ({ page }) => {
   await openEditor(page)
@@ -58,7 +58,7 @@ test('explains it when the assistant is unavailable', async ({ page }) => {
 
 test('starts from a template and undoes it', async ({ page }) => {
   await openEditor(page)
-  await page.getByTitle('Start from a template').click()
+  await fromFileMenu(page, 'Start from a template')
   await page.getByRole('dialog', { name: 'Start from a template' }).getByRole('button', { name: /Snowman/ }).click()
   await expect(page.locator('select option', { hasText: 'Carrot nose' }).first()).toBeAttached()
   await page.getByTitle('Undo').click()
@@ -68,7 +68,7 @@ test('starts from a template and undoes it', async ({ page }) => {
 test('exports a shape for 3D printing', async ({ page }) => {
   await openEditor(page)
   await page.getByTitle('Add box').click()
-  await page.getByTitle('Export for 3D printing').click()
+  await fromFileMenu(page, 'Export for 3D printing')
   const dialog = page.getByRole('dialog', { name: 'Export for 3D printing' })
   await dialog.getByRole('button', { name: 'Small' }).click()
   await expect(dialog).toContainText('50 × 50 × 50 mm')
