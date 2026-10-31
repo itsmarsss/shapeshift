@@ -4,6 +4,7 @@ import { solidMeshes } from "./holes";
 import { animationClip } from "./clip";
 import { DEFAULT_MATERIAL } from "./commands";
 import { SceneDoc, type SceneObject } from "@shapeshift/shared/scene/schema";
+import { track } from "../telemetry";
 
 export function download(data: BlobPart, filename: string, type: string) {
     const url = URL.createObjectURL(new Blob([data], { type }));
@@ -70,6 +71,7 @@ export function toThreeScene(doc: SceneDoc): THREE.Scene {
 }
 
 export async function exportGLB(doc: SceneDoc) {
+    track("export", "glb");
     const { GLTFExporter } = await import("three/examples/jsm/exporters/GLTFExporter.js");
     const clip = animationClip(doc);
     const result = await new GLTFExporter().parseAsync(toThreeScene(doc), { binary: true, ...(clip ? { animations: [clip] } : {}) });
@@ -147,6 +149,7 @@ export async function stlBuffer(doc: SceneDoc, { size, ids }: PrintOptions): Pro
 }
 
 export async function exportSTL(doc: SceneDoc, options: PrintOptions) {
+    track("export", "stl");
     const data = await stlBuffer(doc, options);
     download(data.buffer as ArrayBuffer, "scene.stl", "model/stl");
 }

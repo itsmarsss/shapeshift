@@ -3,6 +3,7 @@ import { GestureTracker, type HandFrame, type HandState } from "./gestures";
 import type { WorkerMessage } from "./handWorker";
 import { tuning } from "./gestures";
 import { useSettings } from "../settings/store";
+import { track } from "../telemetry";
 
 export type HandStatus = "off" | "starting" | "running" | "error";
 
@@ -111,7 +112,10 @@ export const useHands = create<HandStore>()((set, get) => ({
 
         worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
             const msg = e.data;
-            if (msg.type === "ready") set({ status: "running" });
+            if (msg.type === "ready") {
+                set({ status: "running" });
+                track("hands_on");
+            }
             else if (msg.type === "error") {
                 teardown();
                 set({ status: "error", error: "Hand tracking failed to load." });

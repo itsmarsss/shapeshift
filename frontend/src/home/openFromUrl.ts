@@ -2,6 +2,7 @@ import { useScene } from "../scene/store";
 import { TEMPLATES } from "../scene/templates";
 import { useAccount } from "../account/store";
 import { frameScene } from "../viewport/frame";
+import { track } from "../telemetry";
 
 // Acts on a link from the scene gallery: a saved scene, a template or a blank
 // scene. Each is a normal edit, so undo brings back what was open before.
@@ -27,6 +28,7 @@ export function openFromUrl() {
     // Not the saved scene any more, so changes mustn't autosave over it.
     useAccount.getState().unlink();
     if (template) {
+        track("template_used", template.id);
         run([{ type: "clear" }, ...template.commands], { select: false });
         frameScene();
     } else if (useScene.getState().doc.objects.length || useScene.getState().doc.lights.length) {

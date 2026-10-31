@@ -6,6 +6,7 @@ import { TEMPLATES, buildTemplate, type Template } from "../scene/templates";
 import { renderThumbnail } from "../scene/thumbnail";
 import { useUI } from "../ui/store";
 import { frameScene } from "../viewport/frame";
+import { track } from "../telemetry";
 
 const Note = styled.p`
     margin: 0 0 14px;
@@ -72,6 +73,7 @@ export function TemplatesDialog() {
     const close = () => setShow(false);
 
     function pick(template: Template) {
+        track("template_used", template.id);
         const { run } = useScene.getState();
         // One undo step, so undo brings back whatever was there before.
         run([{ type: "clear" }, ...template.commands], { select: false });
