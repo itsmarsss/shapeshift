@@ -6,7 +6,7 @@ import { useScene } from "../scene/store";
 import type { Handedness } from "./gestures";
 import { IntentTracker } from "./intents";
 import { live, useHandHover } from "./tracker";
-import { useHandMenu } from "./menu";
+import { useHandActivity, useHandMenu, type HandActivity } from "./menu";
 import { editableMesh } from "../scene/geometry";
 import { nearestVertex, objectMatrix, useEditSelection } from "../viewport/editSelection";
 import { useSettings } from "../settings/store";
@@ -139,7 +139,16 @@ export function HandControls() {
         state.run({ type: "transform", target: d.id, position: [s(p.x), s(p.y), s(p.z)] }, { coalesce: `hand:${d.id}` });
     }
 
+    // A two-hand pinch without a held object moves the camera.
+    const pairing = useRef(false);
+    function report() {
+        const kind = drag.current?.kind;
+        const activity: HandActivity = kind ?? (pairing.current ? "camera" : null);
+        if (useHandActivity.getState().activity !== activity) useHandActivity.setState({ activity });
+    }
+
     function pairStart(holding: Handedness | null) {
+        pairing.current = true;
         const d = drag.current;
         const object = d?.kind === "object" && holding ? useScene.getState().doc.objects.find((o) => o.id === d.id) : undefined;
         drag.current = object ? { kind: "stretch", id: object.id, scale: object.scale, rotation: object.rotation, factor: 1, twist: 0 } : null;
@@ -156,6 +165,7 @@ export function HandControls() {
     }
 
     function end() {
+        pairing.current = false;
         const kind = drag.current?.kind;
         if (kind === "object" || kind === "vertex" || kind === "stretch") useScene.getState().endCoalesce();
         drag.current = null;
@@ -170,6 +180,7 @@ export function HandControls() {
         if (useHandMenu.getState().open) {
             if (drag.current) end();
             if (useHandHover.getState().hoveredId !== null) useHandHover.setState({ hoveredId: null });
+            report();
             return;
         }
         for (const intent of pending) {
@@ -189,6 +200,7 @@ export function HandControls() {
             }
         }
         hover();
+        report();
     });
 
     return null;

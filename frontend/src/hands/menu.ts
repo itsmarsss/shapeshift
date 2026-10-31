@@ -12,3 +12,7 @@ export type HandMenuState = {
 };
 
 export const useHandMenu = create<HandMenuState>()(() => ({ open: null, hover: null, spent: null }));
+
+// What hand control is doing right now, so the cursors can say so.
+export type HandActivity = "object" | "vertex" | "stretch" | "orbit" | "camera" | null;
+export const useHandActivity = create<{ activity: HandActivity }>()(() => ({ activity: null }));
