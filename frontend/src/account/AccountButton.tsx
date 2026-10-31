@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
-import { CheckCircle, CloudArrowUp, CloudSlash, FolderOpen, SignOut, Sparkle, UserCircle, WarningCircle } from "@phosphor-icons/react";
+import { ChatTeardropText, CheckCircle, CloudArrowUp, CloudSlash, FolderOpen, SignOut, Sparkle, UserCircle, WarningCircle } from "@phosphor-icons/react";
 import { COMPACT, MEDIUM } from "../ui/compact";
 import { PLANS } from "@shapeshift/shared/billing/plans";
 import { useAccount } from "./store";
+import { useUI } from "../ui/store";
 
 const Wrap = styled.div`
     position: relative;
@@ -201,6 +202,9 @@ export function AccountButton() {
                     </button>
                     <button role="menuitem" onClick={act(() => location.assign("/pricing"))}>
                         <Sparkle size={18} /> {user.plan === "pro" ? "Manage your plan" : "Upgrade to Pro"}
+                    </button>
+                    <button role="menuitem" onClick={act(() => useUI.getState().setShowFeedback(true))}>
+                        <ChatTeardropText size={18} /> Send feedback
                     </button>
                     <button role="menuitem" onClick={act(() => void useAccount.getState().signOut())}>
                         <SignOut size={18} /> Sign out
