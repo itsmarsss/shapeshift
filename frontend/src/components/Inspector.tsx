@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NumberInput } from "./NumberInput";
 import { ArrangeSection, HoleToggle, ShapeSection } from "./ModelingSections";
 import styled from "styled-components";
@@ -11,6 +11,7 @@ import { selectSelected, selectSelectedLight, selectSelectedObjects, useScene } 
 import { duplicateSelection, groupSelection, removeSelection, selectionTargets, ungroupSelection } from "../scene/selection";
 import { ENVIRONMENTS, type Command, type Environment, type Light, type Material, type SceneObject, type Vec3 } from "@shapeshift/shared/scene/schema";
 import { toggleInspector, useInspectorVisible } from "../ui/inspector";
+import { loadCsg } from "../scene/csg";
 import { UNIT_SCALE, useSettings } from "../settings/store";
 import { ColorPicker } from "./ColorPicker";
 import { Button, FieldLabel, IconButton, Input, Panel, PanelHeader, PanelTitle, Select } from "./ui";
@@ -312,6 +313,8 @@ function CombineSection() {
         })
     );
     const [error, setError] = useState<string | null>(null);
+    // Two shapes selected: fetch the cutting library before a button is pressed.
+    useEffect(() => void loadCsg(), []);
     if (!primary || !other) return null;
     return (
         <div>

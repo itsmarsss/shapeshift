@@ -7,7 +7,9 @@ import { cloudflare } from '@cloudflare/vite-plugin'
 const VENDOR_CHUNKS: [RegExp, string][] = [
   [/node_modules\/(react|react-dom|scheduler)\//, 'react'],
   [/node_modules\/three\/build\//, 'three'],
-  [/node_modules\/(@react-three|three-stdlib|camera-controls|troika-|maath|meshline|three-mesh-bvh|three-bvh-csg)/, 'three-extras'],
+  [/node_modules\/(@react-three|three-stdlib|camera-controls|troika-|maath|meshline)/, 'three-extras'],
+  // Combining shapes and cutting holes, loaded only when needed.
+  [/node_modules\/(three-mesh-bvh|three-bvh-csg)\//, 'csg'],
 ]
 
 // CF_REMOTE_BINDINGS=0 runs everything locally, with no Cloudflare login:

@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import { Brush, Evaluator, SUBTRACTION } from "three-bvh-csg";
+import type { Brush, Evaluator } from "three-bvh-csg";
+import { csgNow } from "./csg";
 import type { Geometry, SceneObject } from "@shapeshift/shared/scene/schema";
 import { boundsIn, buildGeometry, flipWinding, objectMatrix } from "./geometry";
 
@@ -33,14 +34,20 @@ function brushOf(g: Geometry, mirrored: boolean): Brush {
     const slot = mirrored ? 1 : 0;
     if (!pair[slot]) {
         const geometry = buildGeometry(g);
-        pair[slot] = new Brush(mirrored ? flipWinding(geometry) : geometry);
+        pair[slot] = new (csgNow()!.Brush)(mirrored ? flipWinding(geometry) : geometry);
     }
     return pair[slot];
 }
 
-const evaluator = new Evaluator();
-evaluator.attributes = ["position", "normal"];
-evaluator.useGroups = false;
+let evaluator: Evaluator | null = null;
+function cutter(): Evaluator {
+    if (!evaluator) {
+        evaluator = new (csgNow()!.Evaluator)();
+        evaluator.attributes = ["position", "normal"];
+        evaluator.useGroups = false;
+    }
+    return evaluator;
+}
 
 const CACHE_LIMIT = 400;
 const cache = new Map<string, THREE.BufferGeometry>();
@@ -97,7 +104,7 @@ export function cutSolid(solid: SceneObject, holes: SceneObject[]): THREE.Buffer
     if (start === parts.length) return recall(prefixes[start])!;
 
     const cached = start > 0 ? recall(prefixes[start])! : null;
-    let result: Brush = cached ? (resultBrushes.get(cached) ?? new Brush(cached)) : brushOf(solid.geometry, false);
+    let result: Brush = cached ? (resultBrushes.get(cached) ?? new (csgNow()!.Brush)(cached)) : brushOf(solid.geometry, false);
     result.matrixAutoUpdate = false;
     result.matrix.identity();
     result.updateMatrixWorld(true);
@@ -108,7 +115,7 @@ export function cutSolid(solid: SceneObject, holes: SceneObject[]): THREE.Buffer
             brush.matrixAutoUpdate = false;
             brush.matrix.copy(matrix);
             brush.matrixWorld.copy(matrix);
-            const next = evaluator.evaluate(result, brush, SUBTRACTION);
+            const next = cutter().evaluate(result, brush, csgNow()!.SUBTRACTION);
             next.matrixAutoUpdate = false;
             next.updateMatrixWorld(true);
             resultBrushes.set(next.geometry, next);
@@ -125,7 +132,10 @@ export function cutSolid(solid: SceneObject, holes: SceneObject[]): THREE.Buffer
 // Cut geometry for every solid in a group that also has holes.
 export function cutGeometries(objects: SceneObject[]): Map<string, THREE.BufferGeometry> {
     const cuts = new Map<string, THREE.BufferGeometry>();
-    for (const { solids, holes } of holeGroups(objects).values()) {
+    const groups = holeGroups(objects);
+    // Holes draw uncut until the cutting library has loaded (see csg.ts).
+    if (!groups.size || !csgNow()) return cuts;
+    for (const { solids, holes } of groups.values()) {
         for (const solid of solids) {
             const cut = cutSolid(solid, holes);
             if (cut) cuts.set(solid.id, cut);
