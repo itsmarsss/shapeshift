@@ -1,6 +1,6 @@
 import { useState } from "react";
 import styled from "styled-components";
-import { CaretRight, Copy, SelectionPlus, SelectionSlash, Trash, X } from "@phosphor-icons/react";
+import { CaretRight, Copy, Intersect, SelectionPlus, SelectionSlash, Subtract, Trash, Unite, X } from "@phosphor-icons/react";
 import { useShallow } from "zustand/react/shallow";
 import { COMPACT } from "../ui/compact";
 import { useTimeline } from "../scene/timeline";
@@ -330,6 +330,50 @@ function LightSection({ light }: { light: Light }) {
     );
 }
 
+const COMBINE = [
+    { op: "union", label: "Join", Icon: Unite, hint: (a: string, b: string) => `Merge ${a} and ${b} into one shape` },
+    { op: "subtract", label: "Cut out", Icon: Subtract, hint: (a: string, b: string) => `Cut ${b} out of ${a}` },
+    { op: "intersect", label: "Keep overlap", Icon: Intersect, hint: (a: string, b: string) => `Keep only where ${a} and ${b} overlap` },
+] as const;
+
+// With exactly two objects selected, they can be merged into one shape. The
+// one picked last is kept; the other is used up.
+function CombineSection() {
+    const run = useScene((s) => s.run);
+    const [primary, other] = useScene(
+        useShallow((s) => {
+            const a = s.doc.objects.find((o) => o.id === s.selectedId);
+            const b = s.doc.objects.find((o) => o.id !== s.selectedId && s.selectedIds.includes(o.id));
+            return [a, b];
+        })
+    );
+    const [error, setError] = useState<string | null>(null);
+    if (!primary || !other) return null;
+    return (
+        <div>
+            <FieldLabel>Combine</FieldLabel>
+            <Tiles>
+                {COMBINE.map(({ op, label, Icon, hint }) => (
+                    <Tile
+                        key={op}
+                        type="button"
+                        $swatch="transparent"
+                        title={hint(primary.name, other.name)}
+                        onClick={() => {
+                            const [result] = run({ type: "boolean", operation: op, target: primary.id, tool: other.id });
+                            setError(result && !result.ok ? result.error : null);
+                        }}
+                    >
+                        <Icon size={22} />
+                        {label}
+                    </Tile>
+                ))}
+            </Tiles>
+            <Muted style={{ marginTop: 6 }}>{error ?? `Cut out removes ${other.name} from ${primary.name}.`}</Muted>
+        </div>
+    );
+}
+
 function SelectionSection({ count, groups }: { count: number; groups: string[] }) {
     const [name, setName] = useState("");
     const run = useScene((s) => s.run);
@@ -359,6 +403,7 @@ function SelectionSection({ count, groups }: { count: number; groups: string[] }
                     </Button>
                 )}
             </div>
+            {count === 2 && <CombineSection />}
             <div>
                 <FieldLabel>Color for all</FieldLabel>
                 <ColorPicker
