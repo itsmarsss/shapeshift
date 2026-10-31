@@ -54,6 +54,10 @@ Pro is sold through Stripe Checkout, and people manage or cancel it in the Strip
 
 Without them the pricing page says Pro isn't available yet and everyone stays on the free plan. Locally, put test-mode values in `backend/.dev.vars` and forward webhooks while you test with `stripe listen --events checkout.session.completed,customer.subscription.created,customer.subscription.updated,customer.subscription.deleted --forward-to localhost:5173/api/billing/webhook`. Its signing secret (`stripe listen --print-secret`) goes in `STRIPE_WEBHOOK_SECRET`.
 
+## Usage numbers and crash reports
+
+The app sends a few anonymous events (opened, first shape and how long it took, template used, assistant prompt, share, remix, export, hand control, upgrade clicked) to Workers Analytics Engine (dataset `shapeshift_events`). There are no cookies and nothing that identifies a person: just a random id kept in the browser. Crashes in the browser are logged by the Worker as `client error` lines, so Cloudflare log alerts can watch for them. People can turn both off in Settings → Data, and nothing is sent from `pnpm dev`.
+
 ## Project layout
 
 - `frontend/` is the editor: React, three.js and hand tracking. It runs entirely in the browser

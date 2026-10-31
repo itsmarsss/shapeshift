@@ -299,6 +299,30 @@ test('stacks a dragged shape on top of another', async ({ page }) => {
   await expect.poll(async () => (await sphere())?.[1]).toBeCloseTo(1.5)
 })
 
+test('sends anonymous usage events until turned off in settings', async ({ page }) => {
+  const events: { event: string; label: string }[] = []
+  await page.route('/api/events', async (route) => {
+    events.push(route.request().postDataJSON())
+    await route.fulfill({ status: 204 })
+  })
+  await openEditor(page)
+  await page.getByTitle('Add box').click()
+  await expect.poll(() => events.map((e) => e.event)).toContain('app_open')
+  await expect.poll(() => events.map((e) => e.event)).toContain('first_shape')
+  // Nothing personal goes along.
+  expect(JSON.stringify(events)).not.toMatch(/@/)
+
+  await page.getByTitle(/Settings/).click()
+  await page.getByRole('button', { name: 'Data' }).click()
+  await page.locator('div').filter({ hasText: /^Share anonymous usage/ }).getByRole('switch').click()
+  await page.keyboard.press('Escape')
+  const sent = events.length
+  await page.getByTitle('Add sphere').click()
+  await fromFileMenu(page, 'Save image')
+  await page.waitForTimeout(500)
+  expect(events.length).toBe(sent)
+})
+
 test('records the animation as a video and says which format it saved', async ({ page }) => {
   await openEditor(page)
   await page.getByTitle('Add box').click()

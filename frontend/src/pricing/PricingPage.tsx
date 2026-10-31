@@ -6,6 +6,7 @@ import { GlobalStyle, Segment, Segmented } from "../components/ui";
 import { useResolvedTheme } from "../settings/theme";
 import { useAccount } from "../account/store";
 import { api, ApiError } from "../account/api";
+import { track } from "../telemetry";
 
 const SignInDialog = lazy(() => import("../account/SignInDialog"));
 
@@ -208,6 +209,7 @@ export default function PricingPage() {
     }, [upgraded, pro]);
 
     async function go(action: "checkout" | "portal") {
+        if (action === "checkout") track("upgrade_clicked", period);
         setBusy(true);
         setError(null);
         try {

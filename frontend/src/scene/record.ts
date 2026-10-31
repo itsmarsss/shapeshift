@@ -3,6 +3,7 @@ import { download } from "./io";
 import { useScene } from "./store";
 import { useTimeline } from "./timeline";
 import { viewportCanvas } from "../viewport/snapshot";
+import { track } from "../telemetry";
 
 // `note` is a short message about the last recording, shown for a moment.
 type RecordState = { recording: boolean; note: string | null };
@@ -73,6 +74,7 @@ export async function recordAnimation() {
     const blob = new Blob(chunks, { type });
     const mp4 = type.startsWith("video/mp4");
     download(blob, `shapeshift.${mp4 ? "mp4" : "webm"}`, type);
+    track("export", mp4 ? "mp4" : "webm", duration);
     // Firefox only records WebM, which some phones and apps won't open.
     say(mp4 ? "Saved your video as MP4." : "Saved as WebM, since this browser can't make MP4. Chrome, Edge and Safari save MP4.");
 }

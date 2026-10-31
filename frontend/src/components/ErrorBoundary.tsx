@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import styled from "styled-components";
+import { reportError } from "../telemetry";
 
 const SCENE_KEY = "shapeshift-scene";
 const BACKUP_KEY = "shapeshift-scene-backup";
@@ -76,6 +77,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
 
     componentDidCatch(error: Error, info: ErrorInfo) {
         console.error("ShapeShift crashed", error, info.componentStack);
+        reportError(error, "render");
     }
 
     private reloadWithoutScene = () => {
