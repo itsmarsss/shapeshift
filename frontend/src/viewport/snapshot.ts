@@ -47,8 +47,17 @@ const DIRECTIONS: Record<Exclude<View, "current">, THREE.Vector3> = {
 };
 
 // Editor overlays that would only clutter the picture.
+// Editing aids that pictures of the scene leave out: gizmos, outlines, size
+// handles and the ruler line.
 export function isHelper(o: THREE.Object3D) {
-    return o.userData.helper === true || o.type === "TransformControlsGizmo" || o.type === "TransformControlsPlane" || o.type === "LineSegments";
+    return (
+        o.userData.helper === true ||
+        o.userData.handle === true ||
+        o.type === "TransformControlsGizmo" ||
+        o.type === "TransformControlsPlane" ||
+        o.type === "LineSegments" ||
+        o.type === "Line2"
+    );
 }
 
 export function framedCamera(scene: THREE.Scene, view: Exclude<View, "current">, aspect: number, targets?: string[]) {
