@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import {
     CaretDown,
+    ChatTeardropText,
     Compass,
     DotsThree,
     ArrowUUpLeft,
@@ -343,6 +344,7 @@ export function Topbar() {
         { label: "Export as GLB", icon: <Export size={18} />, onClick: () => exportGLB(useScene.getState().doc) },
         { label: "Export for 3D printing", icon: <Printer size={18} />, onClick: () => setPrinting(true) },
         { label: "Explore shared scenes", icon: <Compass size={18} />, onClick: () => location.assign("/explore") },
+        { label: "Send feedback", icon: <ChatTeardropText size={18} />, onClick: () => useUI.getState().setShowFeedback(true) },
     ];
     const menuItems: MenuItem[] = [
         ...(signedIn

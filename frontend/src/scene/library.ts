@@ -3,6 +3,7 @@ import { nanoid } from "nanoid";
 import type { Command, Primitive, SceneDoc, Vec3 } from "@shapeshift/shared/scene/schema";
 import { applyCommand, freeSpot } from "./commands";
 import { emptyDoc, useScene } from "./store";
+import { frameSelection } from "../viewport/frame";
 
 // Ready-made objects built from the app's own shapes, so they match its look,
 // work offline and stay editable part by part. Each goes in as one group.
@@ -166,7 +167,11 @@ export function insertLibraryItem(item: LibraryItem) {
     if (!ids.length) return;
     run({ type: "group", name: groupName(useScene.getState().doc, item.name), targets: ids }, { coalesce: key, select: false });
     endCoalesce();
-    selectMany(ids);
+    // The first part (a car's body, a chair's seat) leads the selection, so the
+    // inspector names it rather than the last wheel or leg.
+    selectMany([...ids.slice(1), ids[0]]);
+    // It may land out of view, especially on a phone; show it.
+    frameSelection();
 }
 
 // The object on its own, for its picture in the picker.

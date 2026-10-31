@@ -6,6 +6,7 @@ import { handleWaitlist } from "./waitlist";
 import { handleExplore, handlePublic, sharePage } from "./publicScenes";
 import { handleUsage } from "./usage";
 import { handleTelemetry } from "./telemetry";
+import { handleFeedback } from "./feedback";
 import { handleBilling } from "./billing";
 
 export { Room } from "./room";
@@ -28,6 +29,8 @@ export default {
         if (publicScene) return publicScene;
         const billing = await handleBilling(request, env);
         if (billing) return billing;
+        const feedback = await handleFeedback(request, env);
+        if (feedback) return feedback;
         const telemetry = await handleTelemetry(request, env);
         if (telemetry) return telemetry;
         const usage = await handleUsage(request, env);

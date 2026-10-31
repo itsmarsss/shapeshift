@@ -27,6 +27,7 @@ const SignInDialog = lazy(() => import("../account/SignInDialog"));
 const ScenesDialog = lazy(() => import("../account/ScenesDialog"));
 const SettingsModal = lazy(() => import("../settings/SettingsModal"));
 const TemplatesDialog = lazy(() => import("./TemplatesDialog"));
+const FeedbackDialog = lazy(() => import("./FeedbackDialog"));
 const Onboarding = lazy(() => import("./Onboarding"));
 
 const Root = styled.div`
@@ -47,6 +48,7 @@ export function Layout() {
     const handsOn = useHands((s) => s.status !== "off");
     const showSettings = useUI((s) => s.showSettings);
     const showTemplates = useUI((s) => s.showTemplates);
+    const showFeedback = useUI((s) => s.showFeedback);
     const showOnboarding = useUI((s) => s.showOnboarding);
     const timelineOpen = useTimeline((s) => s.open);
     const compact = useCompact();
@@ -91,6 +93,7 @@ export function Layout() {
                 {handsOn && <HandUI />}
                 {showSettings && <SettingsModal />}
                 {showTemplates && <TemplatesDialog />}
+                {showFeedback && <FeedbackDialog />}
                 {showSignIn && <SignInDialog />}
                 {showScenes && <ScenesDialog />}
                 {showOnboarding && <Onboarding />}
