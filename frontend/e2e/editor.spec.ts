@@ -163,6 +163,27 @@ test('turns the camera from the view cube and fits the scene in view', async ({ 
   await expect(page.getByTitle('Fit everything in view (F)')).toBeEnabled()
 })
 
+test('turns the view by dragging the view cube, without clicking a face', async ({ page }) => {
+  await openEditor(page)
+  const cube = page.getByTitle('View from the front').locator('..')
+  const turn = () => cube.evaluate((el) => (el as HTMLElement).style.transform)
+  const before = await turn()
+  const box = (await page.getByTitle('Drag to turn the view').boundingBox())!
+  const x = box.x + box.width / 2
+  const y = box.y + box.height / 2
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  await page.mouse.move(x + 60, y + 20, { steps: 8 })
+  // Back over the cube, so the release lands on a face.
+  await page.mouse.move(x + 6, y + 4, { steps: 8 })
+  await page.mouse.up()
+  await expect.poll(turn).not.toBe(before)
+  // Released over a face, but it was a drag: the view stays where it was dragged to.
+  const dragged = await turn()
+  await page.waitForTimeout(800)
+  expect(await turn()).toBe(dragged)
+})
+
 test('keeps the inspector simple, with exact numbers under More options', async ({ page }) => {
   await openEditor(page)
   await page.getByTitle('Add sphere').click()
