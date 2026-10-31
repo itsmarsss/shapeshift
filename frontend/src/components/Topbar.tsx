@@ -46,6 +46,10 @@ const Bar = styled.div`
     grid-template-columns: auto 1fr auto;
     gap: 8px;
     align-items: center;
+
+    @media ${MEDIUM} {
+        padding-left: 8px;
+    }
     padding: 0 8px 0 16px;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
@@ -91,7 +95,7 @@ const Brand = styled.a`
 const Modes = styled(Segmented)`
     justify-self: center;
 
-    @media ${COMPACT} {
+    @media ${MEDIUM} {
         button {
             padding: 0 8px;
         }
@@ -134,6 +138,10 @@ const Sep = styled.div`
     height: 18px;
     margin: 0 6px;
     background: var(--border);
+
+    @media ${MEDIUM} {
+        margin: 0 2px;
+    }
 `;
 
 // Buttons that move into the "more" menu on small screens.
