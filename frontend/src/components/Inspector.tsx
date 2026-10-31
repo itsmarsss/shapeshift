@@ -1,13 +1,13 @@
 import { useState } from "react";
 import styled from "styled-components";
-import { Copy, SelectionPlus, SelectionSlash, Trash, X } from "@phosphor-icons/react";
+import { CaretRight, Copy, SelectionPlus, SelectionSlash, Trash, X } from "@phosphor-icons/react";
 import { useShallow } from "zustand/react/shallow";
 import { COMPACT } from "../ui/compact";
 import { useTimeline } from "../scene/timeline";
 import { transformCommand } from "../scene/autokey";
 import { selectSelected, selectSelectedLight, selectSelectedObjects, useScene } from "../scene/store";
 import { duplicateSelection, groupSelection, removeSelection, ungroupSelection } from "../scene/selection";
-import { ENVIRONMENTS, type Command, type Environment, type Light, type Vec3 } from "@shapeshift/shared/scene/schema";
+import { ENVIRONMENTS, type Command, type Environment, type Light, type Material, type Vec3 } from "@shapeshift/shared/scene/schema";
 import { useUI } from "../ui/store";
 import { UNIT_SCALE, useSettings } from "../settings/store";
 import { ColorPicker } from "./ColorPicker";
@@ -180,6 +180,66 @@ function VectorField({
 
 const LIGHT_KIND: Record<Light["type"], string> = { point: "Point light", spot: "Spot light", directional: "Directional light" };
 
+const MoreToggle = styled.button`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    height: 30px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+
+    svg {
+        transition: transform 0.15s ease;
+    }
+    &[aria-expanded="true"] svg {
+        transform: rotate(90deg);
+    }
+    &:hover {
+        color: var(--text);
+    }
+`;
+
+const MORE_KEY = "shapeshift-inspector-more";
+
+function readMore() {
+    try {
+        return localStorage.getItem(MORE_KEY) === "1";
+    } catch {
+        return false;
+    }
+}
+
+// Exact numbers stay out of the way until someone asks for them, and the
+// choice sticks between objects and visits.
+function More({ children }: { children: React.ReactNode }) {
+    const [open, setOpen] = useState(readMore);
+    return (
+        <>
+            <MoreToggle
+                type="button"
+                aria-expanded={open}
+                onClick={() => {
+                    setOpen(!open);
+                    try {
+                        localStorage.setItem(MORE_KEY, open ? "0" : "1");
+                    } catch {
+                        // Optional.
+                    }
+                }}
+            >
+                <CaretRight size={12} weight="bold" />
+                {open ? "Fewer options" : "More options"}
+            </MoreToggle>
+            {open && children}
+        </>
+    );
+}
+
 function LightSection({ light }: { light: Light }) {
     const run = useScene((s) => s.run);
     const endCoalesce = useScene((s) => s.endCoalesce);
@@ -201,60 +261,61 @@ function LightSection({ light }: { light: Light }) {
                 />
                 <Muted style={{ marginTop: 6 }}>{LIGHT_KIND[light.type]}</Muted>
             </div>
-            <div>
-                <FieldLabel>Position</FieldLabel>
-                <VectorField
-                    value={light.position}
-                    step={snap.enabled ? snap.translate : 0.1}
-                    onCommit={endCoalesce}
-                    onChange={(position) => update("position", { position })}
-                />
-            </div>
-            {light.type !== "point" && (
+            <Grid $cols={2}>
+                <Sub>
+                    Color
+                    <ColorPicker label="Light color" value={light.color} onChange={(color) => update("color", { color })} onCommit={endCoalesce} />
+                </Sub>
+                <Sub>
+                    Brightness
+                    <NumberInput
+                        value={light.intensity}
+                        step={light.type === "directional" ? 0.1 : 1}
+                        min={0}
+                        max={1000}
+                        onCommit={endCoalesce}
+                        onChange={(intensity) => update("intensity", { intensity })}
+                    />
+                </Sub>
+            </Grid>
+            <More>
                 <div>
-                    <FieldLabel>Aim at</FieldLabel>
-                    <VectorField value={light.aim} step={0.1} onCommit={endCoalesce} onChange={(aim) => update("aim", { aim })} />
+                    <FieldLabel>Position</FieldLabel>
+                    <VectorField
+                        value={light.position}
+                        step={snap.enabled ? snap.translate : 0.1}
+                        onCommit={endCoalesce}
+                        onChange={(position) => update("position", { position })}
+                    />
                 </div>
-            )}
-            <div>
-                <FieldLabel>Light</FieldLabel>
-                <Grid $cols={2}>
-                    <Sub>
-                        Color
-                        <ColorPicker label="Light color" value={light.color} onChange={(color) => update("color", { color })} onCommit={endCoalesce} />
-                    </Sub>
-                    <Sub>
-                        Intensity
-                        <NumberInput
-                            value={light.intensity}
-                            step={light.type === "directional" ? 0.1 : 1}
-                            min={0}
-                            max={1000}
-                            onCommit={endCoalesce}
-                            onChange={(intensity) => update("intensity", { intensity })}
-                        />
-                    </Sub>
-                    {light.type !== "directional" && (
+                {light.type !== "point" && (
+                    <div>
+                        <FieldLabel>Aim at</FieldLabel>
+                        <VectorField value={light.aim} step={0.1} onCommit={endCoalesce} onChange={(aim) => update("aim", { aim })} />
+                    </div>
+                )}
+                {light.type !== "directional" && (
+                    <Grid $cols={2}>
                         <Sub>
                             Range (0 = ∞)
                             <NumberInput value={light.distance} step={0.5} min={0} onCommit={endCoalesce} onChange={(distance) => update("distance", { distance })} />
                         </Sub>
-                    )}
-                    {light.type === "spot" && (
-                        <Sub>
-                            Cone (°)
-                            <NumberInput
-                                value={light.angle * DEG}
-                                step={1}
-                                min={1}
-                                max={90}
-                                onCommit={endCoalesce}
-                                onChange={(deg) => update("angle", { angle: deg / DEG })}
-                            />
-                        </Sub>
-                    )}
-                </Grid>
-            </div>
+                        {light.type === "spot" && (
+                            <Sub>
+                                Cone (°)
+                                <NumberInput
+                                    value={light.angle * DEG}
+                                    step={1}
+                                    min={1}
+                                    max={90}
+                                    onCommit={endCoalesce}
+                                    onChange={(deg) => update("angle", { angle: deg / DEG })}
+                                />
+                            </Sub>
+                        )}
+                    </Grid>
+                )}
+            </More>
             <Actions>
                 <Button onClick={() => run({ type: "duplicate", target: light.id })}>
                     <Copy size={16} />
@@ -321,36 +382,40 @@ function SelectionSection({ count, groups }: { count: number; groups: string[] }
     );
 }
 
-const Presets = styled.div`
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 8px;
+const Tiles = styled.div`
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
 `;
 
-const Preset = styled.button<{ $swatch: string }>`
-    display: inline-flex;
+// A little shaded ball per material, so it reads as a material and not a color.
+const Tile = styled.button<{ $swatch: string; $glow?: boolean }>`
+    display: flex;
+    flex-direction: column;
     align-items: center;
     gap: 5px;
-    height: 24px;
-    padding: 0 8px 0 5px;
-    border-radius: 999px;
+    padding: 8px 4px 6px;
     border: 1px solid var(--border);
+    border-radius: 10px;
     background: transparent;
     color: var(--text-muted);
     font-size: 11px;
 
-    &::before {
-        content: "";
-        width: 12px;
-        height: 12px;
+    span {
+        width: 26px;
+        height: 26px;
         border-radius: 50%;
-        background: ${(p) => p.$swatch};
-        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+        background: radial-gradient(circle at 32% 30%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 42%), ${(p) => p.$swatch};
+        box-shadow: ${(p) => (p.$glow ? "0 0 10px 2px #ff4fd8aa" : "inset -3px -4px 8px rgba(0, 0, 0, 0.25)")};
     }
     &:hover {
         color: var(--text);
         border-color: var(--border-strong);
+    }
+    &[aria-pressed="true"] {
+        color: var(--text);
+        border-color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 8%, transparent);
     }
 `;
 
@@ -364,6 +429,19 @@ const MATERIAL_PRESETS: { name: string; swatch: string; material: MaterialFields
     { name: "Glass", swatch: "linear-gradient(135deg,#e8f4ff,#9cc9ff)", material: { color: "#ffffff", metalness: 0, roughness: 0.05, transmission: 1, emissiveIntensity: 0, opacity: 1 } },
     { name: "Neon", swatch: "#ff4fd8", material: { color: "#ff4fd8", emissive: "#ff4fd8", emissiveIntensity: 3, metalness: 0, roughness: 0.4, transmission: 0, opacity: 1 } },
 ];
+
+// Whether a material is close enough to a preset to count as it. Color only
+// matters for presets that set one.
+function looksLike(material: Material, preset: MaterialFields) {
+    const near = (a = 0, b = 0) => Math.abs(a - b) < 0.02;
+    return (
+        near(material.metalness, preset.metalness) &&
+        near(material.roughness, preset.roughness) &&
+        near(material.transmission, preset.transmission) &&
+        near(material.emissiveIntensity, preset.emissiveIntensity) &&
+        (preset.color === undefined || material.color.toLowerCase() === preset.color)
+    );
+}
 
 const ENVIRONMENT_LABELS: Record<Environment, string> = {
     none: "None (plain lights)",
@@ -452,124 +530,37 @@ export function Inspector() {
                             {pose && <Muted style={{ marginTop: 6 }}>Animated. Moving it adds a keyframe at {time.toFixed(1)}s.</Muted>}
                         </div>
                         <div>
-                            <FieldLabel>Position ({units})</FieldLabel>
-                            <VectorField
-                                value={pose?.position ?? selected.position}
-                                scale={unit}
-                                step={(snap.enabled ? snap.translate : 0.1) * unit}
+                            <FieldLabel>Color</FieldLabel>
+                            <ColorPicker
+                                value={selected.material.color}
+                                onChange={(color) => edit("color", { type: "material", target: selected.id, color })}
                                 onCommit={endCoalesce}
-                                onChange={(position) => edit("position", transformCommand(selected.id, { position }))}
-                            />
-                        </div>
-                        <div>
-                            <FieldLabel>Rotation ({angleUnit === "deg" ? "degrees" : "radians"})</FieldLabel>
-                            <VectorField
-                                value={pose?.rotation ?? selected.rotation}
-                                scale={angle}
-                                step={snap.enabled ? round(snap.rotate * angle) : angleUnit === "deg" ? 1 : 0.05}
-                                onCommit={endCoalesce}
-                                onChange={(rotation) => edit("rotation", transformCommand(selected.id, { rotation }))}
-                            />
-                        </div>
-                        <div>
-                            <FieldLabel>Scale</FieldLabel>
-                            <VectorField
-                                value={pose?.scale ?? selected.scale}
-                                step={snap.enabled ? snap.scale : 0.1}
-                                onCommit={endCoalesce}
-                                onChange={(scale) => edit("scale", transformCommand(selected.id, { scale }))}
                             />
                         </div>
                         <div>
                             <FieldLabel>Material</FieldLabel>
-                            <Grid $cols={2}>
-                                <Sub>
-                                    Color
-                                    <ColorPicker
-                                        value={selected.material.color}
-                                        onChange={(color) => edit("color", { type: "material", target: selected.id, color })}
-                                        onCommit={endCoalesce}
-                                    />
-                                </Sub>
-                                <Sub>
-                                    Opacity
-                                    <NumberInput
-                                        value={selected.material.opacity}
-                                        step={0.05}
-                                        min={0}
-                                        max={1}
-                                        onCommit={endCoalesce}
-                                        onChange={(opacity) => edit("opacity", { type: "material", target: selected.id, opacity })}
-                                    />
-                                </Sub>
-                                <Sub>
-                                    Metalness
-                                    <NumberInput
-                                        value={selected.material.metalness}
-                                        step={0.05}
-                                        min={0}
-                                        max={1}
-                                        onCommit={endCoalesce}
-                                        onChange={(metalness) => edit("metalness", { type: "material", target: selected.id, metalness })}
-                                    />
-                                </Sub>
-                                <Sub>
-                                    Roughness
-                                    <NumberInput
-                                        value={selected.material.roughness}
-                                        step={0.05}
-                                        min={0}
-                                        max={1}
-                                        onCommit={endCoalesce}
-                                        onChange={(roughness) => edit("roughness", { type: "material", target: selected.id, roughness })}
-                                    />
-                                </Sub>
-                            </Grid>
-                            <Presets>
+                            <Tiles>
                                 {MATERIAL_PRESETS.map((p) => (
-                                    <Preset
+                                    <Tile
                                         key={p.name}
-                                        title={p.name}
+                                        type="button"
+                                        aria-pressed={looksLike(selected.material, p.material)}
                                         $swatch={p.swatch}
-                                        onClick={() => run({ type: "material", target: selected.id, ...p.material })}
+                                        $glow={p.name === "Neon"}
+                                        onClick={() =>
+                                            run([
+                                                { type: "material", target: selected.id, ...p.material },
+                                                // Metal mirrors its surroundings, and plain lights leave
+                                                // nothing to mirror, so it would render black.
+                                                ...(p.material.metalness && environment === "none" ? [{ type: "environment", preset: "studio" } as const] : []),
+                                            ])
+                                        }
                                     >
+                                        <span />
                                         {p.name}
-                                    </Preset>
+                                    </Tile>
                                 ))}
-                            </Presets>
-                            <Grid $cols={2} style={{ marginTop: 8 }}>
-                                <Sub>
-                                    Glow color
-                                    <ColorPicker
-                                        label="Glow color"
-                                        value={selected.material.emissive ?? selected.material.color}
-                                        onChange={(emissive) => edit("emissive", { type: "material", target: selected.id, emissive })}
-                                        onCommit={endCoalesce}
-                                    />
-                                </Sub>
-                                <Sub>
-                                    Glow
-                                    <NumberInput
-                                        value={selected.material.emissiveIntensity ?? 0}
-                                        step={0.25}
-                                        min={0}
-                                        max={20}
-                                        onCommit={endCoalesce}
-                                        onChange={(emissiveIntensity) => edit("glow", { type: "material", target: selected.id, emissiveIntensity })}
-                                    />
-                                </Sub>
-                                <Sub>
-                                    Glass
-                                    <NumberInput
-                                        value={selected.material.transmission ?? 0}
-                                        step={0.05}
-                                        min={0}
-                                        max={1}
-                                        onCommit={endCoalesce}
-                                        onChange={(transmission) => edit("glass", { type: "material", target: selected.id, transmission })}
-                                    />
-                                </Sub>
-                            </Grid>
+                            </Tiles>
                         </div>
                         <Actions>
                             <Button onClick={() => run({ type: "duplicate", target: selected.id })}>
@@ -581,6 +572,106 @@ export function Inspector() {
                                 Delete
                             </Button>
                         </Actions>
+                        <More>
+                            <div>
+                                <FieldLabel>Position ({units})</FieldLabel>
+                                <VectorField
+                                    value={pose?.position ?? selected.position}
+                                    scale={unit}
+                                    step={(snap.enabled ? snap.translate : 0.1) * unit}
+                                    onCommit={endCoalesce}
+                                    onChange={(position) => edit("position", transformCommand(selected.id, { position }))}
+                                />
+                            </div>
+                            <div>
+                                <FieldLabel>Rotation ({angleUnit === "deg" ? "degrees" : "radians"})</FieldLabel>
+                                <VectorField
+                                    value={pose?.rotation ?? selected.rotation}
+                                    scale={angle}
+                                    step={snap.enabled ? round(snap.rotate * angle) : angleUnit === "deg" ? 1 : 0.05}
+                                    onCommit={endCoalesce}
+                                    onChange={(rotation) => edit("rotation", transformCommand(selected.id, { rotation }))}
+                                />
+                            </div>
+                            <div>
+                                <FieldLabel>Scale</FieldLabel>
+                                <VectorField
+                                    value={pose?.scale ?? selected.scale}
+                                    step={snap.enabled ? snap.scale : 0.1}
+                                    onCommit={endCoalesce}
+                                    onChange={(scale) => edit("scale", transformCommand(selected.id, { scale }))}
+                                />
+                            </div>
+                            <div>
+                                <FieldLabel>Fine-tune the material</FieldLabel>
+                                <Grid $cols={2}>
+                                        <Sub>
+                                            Opacity
+                                            <NumberInput
+                                                value={selected.material.opacity}
+                                                step={0.05}
+                                                min={0}
+                                                max={1}
+                                                onCommit={endCoalesce}
+                                                onChange={(opacity) => edit("opacity", { type: "material", target: selected.id, opacity })}
+                                            />
+                                        </Sub>
+                                        <Sub>
+                                            Metalness
+                                            <NumberInput
+                                                value={selected.material.metalness}
+                                                step={0.05}
+                                                min={0}
+                                                max={1}
+                                                onCommit={endCoalesce}
+                                                onChange={(metalness) => edit("metalness", { type: "material", target: selected.id, metalness })}
+                                            />
+                                        </Sub>
+                                        <Sub>
+                                            Roughness
+                                            <NumberInput
+                                                value={selected.material.roughness}
+                                                step={0.05}
+                                                min={0}
+                                                max={1}
+                                                onCommit={endCoalesce}
+                                                onChange={(roughness) => edit("roughness", { type: "material", target: selected.id, roughness })}
+                                            />
+                                        </Sub>
+                                        <Sub>
+                                            Glow color
+                                            <ColorPicker
+                                                label="Glow color"
+                                                value={selected.material.emissive ?? selected.material.color}
+                                                onChange={(emissive) => edit("emissive", { type: "material", target: selected.id, emissive })}
+                                                onCommit={endCoalesce}
+                                            />
+                                        </Sub>
+                                        <Sub>
+                                            Glow
+                                            <NumberInput
+                                                value={selected.material.emissiveIntensity ?? 0}
+                                                step={0.25}
+                                                min={0}
+                                                max={20}
+                                                onCommit={endCoalesce}
+                                                onChange={(emissiveIntensity) => edit("glow", { type: "material", target: selected.id, emissiveIntensity })}
+                                            />
+                                        </Sub>
+                                        <Sub>
+                                            Glass
+                                            <NumberInput
+                                                value={selected.material.transmission ?? 0}
+                                                step={0.05}
+                                                min={0}
+                                                max={1}
+                                                onCommit={endCoalesce}
+                                                onChange={(transmission) => edit("glass", { type: "material", target: selected.id, transmission })}
+                                            />
+                                        </Sub>
+                                </Grid>
+                            </div>
+                        </More>
                     </>
                 )}
 
