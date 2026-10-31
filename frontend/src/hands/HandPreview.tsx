@@ -184,6 +184,8 @@ export function HandPreview() {
                     <span>Spread to resize, twist to turn</span>
                     <b>Pinch empty space</b>
                     <span>Look around</span>
+                    <b>Hold an open hand</b>
+                    <span>Menu: add shapes, copy, delete</span>
                     <b>Thumb + middle</b>
                     <span>Talk to the assistant</span>
                     <b>Thumb + ring</b>
