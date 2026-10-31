@@ -36,12 +36,15 @@ import { CollabBar } from "../collab/CollabBar";
 import { useAccount } from "../account/store";
 import { AccountButton } from "../account/AccountButton";
 import { useTimeline } from "../scene/timeline";
-import { COMPACT, useCompact } from "../ui/compact";
+import { COMPACT, MEDIUM, useCompact } from "../ui/compact";
 
 const Bar = styled.div`
     height: var(--topbar);
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    // The sides take what their buttons need and the mode switch centers in
+    // what's left, so nothing wraps on a laptop screen.
+    grid-template-columns: auto 1fr auto;
+    gap: 8px;
     align-items: center;
     padding: 0 8px 0 16px;
     background: var(--surface);
@@ -70,6 +73,10 @@ const Brand = styled.a`
     margin-right: 12px;
     color: var(--text);
     text-decoration: none;
+
+    @media ${MEDIUM} {
+        display: none;
+    }
 
     &[href]:hover {
         color: var(--accent);
@@ -112,6 +119,13 @@ const HandsButton = styled.button`
         background: var(--accent);
         border-color: var(--accent);
         color: var(--accent-text);
+    }
+    @media ${MEDIUM} {
+        padding: 0 8px;
+
+        span {
+            display: none;
+        }
     }
 `;
 
@@ -234,10 +248,11 @@ function MoreMenu({ items, label }: { items: MenuItem[]; label?: string }) {
 
 const PrintDialog = lazy(() => import("./PrintDialog"));
 
-const MODES: { mode: EditorMode; label: string }[] = [
-    { mode: "object", label: "Object" },
-    { mode: "edit", label: "Edit" },
-    { mode: "render", label: "Render" },
+// Named for what you do in each, not after 3D-software terms.
+const MODES: { mode: EditorMode; label: string; hint: string }[] = [
+    { mode: "object", label: "Arrange", hint: "Add, move and style shapes" },
+    { mode: "edit", label: "Reshape", hint: "Drag the points of a shape to change its form" },
+    { mode: "render", label: "Preview", hint: "See it lit and shaded, without the editing helpers" },
 ];
 
 // Renders the current view at twice the screen's resolution, without editor
@@ -357,8 +372,8 @@ export function Topbar() {
                 <input ref={importRef} type="file" accept=".glb,.gltf" hidden onChange={onImport} />
             </Group>
             <Modes>
-                {MODES.map(({ mode: m, label }) => (
-                    <Segment key={m} $active={mode === m} onClick={() => setMode(m)}>
+                {MODES.map(({ mode: m, label, hint }) => (
+                    <Segment key={m} $active={mode === m} title={hint} onClick={() => setMode(m)}>
                         {label}
                     </Segment>
                 ))}
@@ -390,7 +405,7 @@ export function Topbar() {
                         onClick={() => setHands(handStatus === "off")}
                     >
                         <Hand size={16} weight={handStatus === "off" ? "regular" : "fill"} />
-                        Hands
+                        <span>Hands</span>
                     </HandsButton>
                 </Wide>
                 <IconButton title="Inspector" $active={showInspector} onClick={toggleInspector}>
