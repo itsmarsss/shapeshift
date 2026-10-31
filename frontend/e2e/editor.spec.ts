@@ -266,3 +266,35 @@ test('keeps a dragged shape on the floor', async ({ page }) => {
   await expect.poll(async () => (await position())?.[0] ?? 0).not.toBe(0)
   expect((await position())?.[1]).toBeCloseTo(0.5)
 })
+
+test('nudges the selection with the arrow keys, one undo step per press', async ({ page }) => {
+  await openEditor(page)
+  await page.getByTitle('Add box').click()
+  const position = () =>
+    page.evaluate(() => JSON.parse(localStorage.getItem('shapeshift-scene') ?? '{"objects":[]}').objects[0]?.position as number[] | undefined)
+  await expect.poll(position).toEqual([0, 0.5, 0])
+  await page.keyboard.press('ArrowRight')
+  await expect.poll(async () => (await position())?.[0]).toBeCloseTo(0.1)
+  await page.keyboard.press('Shift+ArrowUp')
+  await expect.poll(async () => (await position())?.[2]).toBeCloseTo(-1)
+  await page.keyboard.press('Alt+ArrowUp')
+  await expect.poll(async () => (await position())?.[1]).toBeCloseTo(0.6)
+  await page.getByTitle('Undo').click()
+  await expect.poll(async () => (await position())?.[1]).toBeCloseTo(0.5)
+})
+
+test('stacks a dragged shape on top of another', async ({ page }) => {
+  await openEditor(page)
+  await page.getByTitle('Add box').click()
+  await page.getByTitle('Add sphere').click()
+  const sphere = () =>
+    page.evaluate(() => (JSON.parse(localStorage.getItem('shapeshift-scene') ?? '{"objects":[]}').objects as { name: string; position: number[] }[]).find((o) => o.name === 'Sphere')?.position)
+  await expect.poll(sphere).toEqual([1.5, 0.5, 0])
+  const c = (await page.locator('canvas').first().boundingBox())!
+  // The sphere sits right of the box at the starting view; drop it on the box.
+  await page.mouse.move(c.x + c.width / 2 + 110, c.y + c.height / 2 - 20)
+  await page.mouse.down()
+  await page.mouse.move(c.x + c.width / 2 - 10, c.y + c.height / 2 - 30, { steps: 20 })
+  await page.mouse.up()
+  await expect.poll(async () => (await sphere())?.[1]).toBeCloseTo(1.5)
+})
