@@ -190,3 +190,15 @@ describe("anthropic conversion", () => {
         expect(message.content).toBeTruthy();
     });
 });
+
+describe("model choice", () => {
+    it("gives Pro the most capable model and everyone else the cheaper one", async () => {
+        const { modelFor } = await import("./agent");
+        const e = { AGENT_MODEL: "claude-sonnet-5-5", AGENT_MODEL_PRO: "claude-opus-5-5" } as Env;
+        expect(modelFor(e, "pro")).toBe("claude-opus-5-5");
+        expect(modelFor(e, "free")).toBe("claude-sonnet-5-5");
+        expect(modelFor(e, "guest")).toBe("claude-sonnet-5-5");
+        // Without a Pro model set, Pro uses the same one as everyone.
+        expect(modelFor({ AGENT_MODEL: "claude-sonnet-5-5", AGENT_MODEL_PRO: "" } as Env, "pro")).toBe("claude-sonnet-5-5");
+    });
+});

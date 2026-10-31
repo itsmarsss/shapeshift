@@ -3,9 +3,16 @@ import { anthropicProvider } from "./anthropic";
 import { ProviderError, type Provider } from "./provider";
 import { workersAiProvider } from "./workersAi";
 import { quotaMessage, refund, spend, subjectFor } from "./usage";
+import type { PlanId } from "@shapeshift/shared/billing/plans";
 
-export function pickProvider(env: Env): Provider | null {
-    if (env.ANTHROPIC_API_KEY) return anthropicProvider({ ...env, ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY });
+// Pro gets the most capable model; everyone else a strong, cheaper one, which
+// keeps free use affordable. Both are set in wrangler.jsonc.
+export function modelFor(env: Env, plan: PlanId): string {
+    return (plan === "pro" && env.AGENT_MODEL_PRO) || env.AGENT_MODEL || "claude-sonnet-5-5";
+}
+
+export function pickProvider(env: Env, plan: PlanId = "free"): Provider | null {
+    if (env.ANTHROPIC_API_KEY) return anthropicProvider({ ...env, ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY }, modelFor(env, plan));
     if (env.AI) return workersAiProvider(env);
     return null;
 }
@@ -27,8 +34,8 @@ function fail(code: AgentErrorCode, error: string, retryAfter?: number) {
     );
 }
 
-export function agentInfo(env: Env) {
-    const provider = pickProvider(env);
+export async function agentInfo(request: Request, env: Env) {
+    const provider = pickProvider(env, (await subjectFor(env, request)).plan);
     return provider ? Response.json(provider.info) : fail("not_configured", "No model is configured.");
 }
 
@@ -54,13 +61,13 @@ export async function agentStep(request: Request, env: Env): Promise<Response> {
     if (messages[0].role !== "user") return fail("bad_request", "The conversation must start with a user message.");
     if (messages[messages.length - 1].role === "assistant") return fail("bad_request", "The conversation must end with a user message or tool results.");
 
-    const provider = pickProvider(env);
+    const subject = await subjectFor(env, request);
+    const provider = pickProvider(env, subject.plan);
     if (!provider) return fail("not_configured", "No model is configured.");
 
     // Only a new message from the person counts as a prompt; the steps that
     // follow it carry tool results.
     const fresh = messages[messages.length - 1].role === "user";
-    const subject = await subjectFor(env, request);
     if (!(await spend(env, subject, fresh))) return fail("quota", quotaMessage(subject.plan));
 
     const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();

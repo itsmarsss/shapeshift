@@ -165,6 +165,7 @@ const FREE_FEATURES = [
 const PRO_FEATURES = [
     "Everything in Free",
     `${PLANS.pro.prompts} assistant prompts a month`,
+    "Our most capable assistant for harder builds",
     `${PLANS.pro.cloudScenes} scenes saved to the cloud`,
     "Helps keep ShapeShift free for everyone else",
 ];

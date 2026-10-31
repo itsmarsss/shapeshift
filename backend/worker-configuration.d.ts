@@ -8,6 +8,7 @@ interface __BaseEnv_Env {
 	AI: Ai;
 	ASSETS: Fetcher;
 	AGENT_MODEL: string;
+	AGENT_MODEL_PRO: string;
 	AGENT_EFFORT: string;
 	ROOMS: DurableObjectNamespace<import("./src/index").Room>;
 }
@@ -23,7 +24,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "AGENT_MODEL" | "AGENT_EFFORT">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "AGENT_MODEL" | "AGENT_MODEL_PRO" | "AGENT_EFFORT">> {}
 }
 declare module "*.txt" {
 	const value: string;
