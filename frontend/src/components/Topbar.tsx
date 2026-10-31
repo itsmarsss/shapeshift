@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import {
+    CaretDown,
     DotsThree,
     ArrowUUpLeft,
     ArrowUUpRight,
@@ -89,6 +90,30 @@ const Modes = styled(Segmented)`
     }
 `;
 
+// Hand control is what ShapeShift is about, so it gets a named button.
+const HandsButton = styled.button`
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    margin: 0 2px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: transparent;
+    color: var(--text);
+    font-weight: 500;
+
+    &:hover {
+        background: var(--surface-hover);
+    }
+    &[aria-pressed="true"] {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--accent-text);
+    }
+`;
+
 const Sep = styled.div`
     width: 1px;
     height: 18px;
@@ -141,7 +166,27 @@ const Menu = styled.div`
 
 type MenuItem = { label: string; icon: React.ReactNode; onClick: () => void; active?: boolean };
 
-function MoreMenu({ items }: { items: MenuItem[] }) {
+const MenuButton = styled.button`
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 30px;
+    padding: 0 8px 0 10px;
+    border: 0;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--text);
+    font-weight: 500;
+
+    &:hover,
+    &[aria-expanded="true"] {
+        background: var(--surface-hover);
+    }
+`;
+
+// Opens a list of actions. With a label it's a named menu like File; without
+// one it's the ⋯ button that holds everything on phones.
+function MoreMenu({ items, label }: { items: MenuItem[]; label?: string }) {
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
     useEffect(() => {
@@ -154,9 +199,16 @@ function MoreMenu({ items }: { items: MenuItem[] }) {
     }, [open]);
     return (
         <div ref={ref} style={{ position: "relative" }}>
-            <IconButton title="More" $active={open} onClick={() => setOpen((v) => !v)}>
-                <DotsThree size={20} weight="bold" />
-            </IconButton>
+            {label ? (
+                <MenuButton type="button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+                    {label}
+                    <CaretDown size={12} weight="bold" />
+                </MenuButton>
+            ) : (
+                <IconButton title="More" $active={open} onClick={() => setOpen((v) => !v)}>
+                    <DotsThree size={20} weight="bold" />
+                </IconButton>
+            )}
             {open && (
                 <Menu role="menu">
                     {items.map((item) => (
@@ -248,13 +300,7 @@ export function Topbar() {
     }
 
     const compact = useCompact();
-    const menuItems: MenuItem[] = [
-        ...(signedIn
-            ? [
-                  { label: "All scenes", icon: <SquaresFour size={18} />, onClick: () => location.assign("/") },
-                  { label: "My scenes", icon: <FolderOpen size={18} />, onClick: () => useAccount.getState().setShowScenes(true) },
-              ]
-            : [{ label: "Sign in", icon: <UserCircle size={18} />, onClick: () => useAccount.getState().setShowSignIn(true) }]),
+    const fileItems: MenuItem[] = [
         {
             label: "New scene",
             icon: <FilePlus size={18} />,
@@ -270,6 +316,15 @@ export function Topbar() {
         { label: "Save image", icon: <Camera size={18} />, onClick: saveImage },
         { label: "Export as GLB", icon: <Export size={18} />, onClick: () => exportGLB(useScene.getState().doc) },
         { label: "Export for 3D printing", icon: <Printer size={18} />, onClick: () => setPrinting(true) },
+    ];
+    const menuItems: MenuItem[] = [
+        ...(signedIn
+            ? [
+                  { label: "All scenes", icon: <SquaresFour size={18} />, onClick: () => location.assign("/") },
+                  { label: "My scenes", icon: <FolderOpen size={18} />, onClick: () => useAccount.getState().setShowScenes(true) },
+              ]
+            : [{ label: "Sign in", icon: <UserCircle size={18} />, onClick: () => useAccount.getState().setShowSignIn(true) }]),
+        ...fileItems,
         { label: "Redo", icon: <ArrowUUpRight size={18} />, onClick: redo },
         { label: "History", icon: <ClockCounterClockwise size={18} />, onClick: () => setShowHistory(!showHistory), active: showHistory },
         { label: "Animation timeline", icon: <FilmStrip size={18} />, onClick: () => setTimelineOpen(!timelineOpen), active: timelineOpen },
@@ -291,37 +346,7 @@ export function Topbar() {
                 </Brand>
                 {compact && <MoreMenu items={menuItems} />}
                 <Wide>
-                    <IconButton
-                        title="New scene"
-                        onClick={() => {
-                            const empty = useScene.getState().doc.objects.length === 0;
-                            if (empty || !useSettings.getState().confirmNew || confirm("Start a new scene? You can undo this.")) run({ type: "clear" });
-                        }}
-                    >
-                        <FilePlus size={18} />
-                    </IconButton>
-                    <IconButton title="Start from a template" onClick={() => setShowTemplates(true)}>
-                        <Shapes size={18} />
-                    </IconButton>
-                    <IconButton title="Open scene" onClick={() => openRef.current?.click()}>
-                        <FolderOpen size={18} />
-                    </IconButton>
-                    <IconButton title="Save scene" onClick={() => saveSceneFile(useScene.getState().doc)}>
-                        <FloppyDisk size={18} />
-                    </IconButton>
-                    <Sep />
-                    <IconButton title="Import model" onClick={() => importRef.current?.click()}>
-                        <TrayArrowDown size={18} />
-                    </IconButton>
-                    <IconButton title="Save an image of the view" onClick={saveImage}>
-                        <Camera size={18} />
-                    </IconButton>
-                    <IconButton title="Export as GLB" onClick={() => exportGLB(useScene.getState().doc)}>
-                        <Export size={18} />
-                    </IconButton>
-                    <IconButton title="Export for 3D printing" onClick={() => setPrinting(true)}>
-                        <Printer size={18} />
-                    </IconButton>
+                    <MoreMenu items={fileItems} label="File" />
                 </Wide>
                 <input ref={openRef} type="file" accept=".json" hidden onChange={onOpen} />
                 {printing && (
@@ -358,13 +383,15 @@ export function Topbar() {
                     <IconButton title="Animation timeline" $active={timelineOpen} onClick={() => setTimelineOpen(!timelineOpen)}>
                         <FilmStrip size={18} />
                     </IconButton>
-                    <IconButton
+                    <HandsButton
+                        type="button"
                         title={handStatus === "off" ? "Turn on hand control" : "Turn off hand control"}
-                        $active={handStatus !== "off"}
+                        aria-pressed={handStatus !== "off"}
                         onClick={() => setHands(handStatus === "off")}
                     >
-                        <Hand size={18} />
-                    </IconButton>
+                        <Hand size={16} weight={handStatus === "off" ? "regular" : "fill"} />
+                        Hands
+                    </HandsButton>
                 </Wide>
                 <IconButton title="Inspector" $active={showInspector} onClick={() => setShowInspector(!showInspector)}>
                     <SlidersHorizontal size={18} />
