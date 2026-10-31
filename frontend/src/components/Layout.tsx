@@ -15,6 +15,7 @@ import { ViewCube } from "./ViewCube";
 import { Viewport } from "../viewport/Viewport";
 import { useShortcuts } from "../hooks/useShortcuts";
 import { useUI } from "../ui/store";
+import { useInspectorVisible } from "../ui/inspector";
 import { useHands } from "../hands/tracker";
 import { useResolvedTheme } from "../settings/theme";
 
@@ -41,7 +42,7 @@ const Stage = styled.div`
 export function Layout() {
     useShortcuts();
     const showChat = useUI((s) => s.showChat);
-    const showInspector = useUI((s) => s.showInspector);
+    const showInspector = useInspectorVisible();
     const handsOn = useHands((s) => s.status !== "off");
     const showSettings = useUI((s) => s.showSettings);
     const showTemplates = useUI((s) => s.showTemplates);

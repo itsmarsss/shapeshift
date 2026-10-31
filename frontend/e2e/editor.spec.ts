@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { fromFileMenu, openEditor } from './helpers'
+import { fromFileMenu, openEditor, countNamed } from './helpers'
 
 test('adds a shape from the toolbar and undoes it', async ({ page }) => {
   await openEditor(page)
@@ -7,7 +7,7 @@ test('adds a shape from the toolbar and undoes it', async ({ page }) => {
   await expect(page.locator('input[value="Box"]')).toBeVisible()
   await page.getByTitle('Undo').click()
   await expect(page.locator('input[value="Box"]')).toHaveCount(0)
-  await expect(page.locator('select option', { hasText: 'Box' })).toHaveCount(0)
+  await expect.poll(countNamed(page, 'Box')).toBe(0)
 })
 
 test('shows the intro once to new visitors', async ({ page }) => {
@@ -32,9 +32,9 @@ test('jumps back through the history panel', async ({ page }) => {
   const history = page.getByRole('dialog', { name: 'History' })
   await expect(history.getByRole('button', { name: 'Added Sphere' })).toHaveAttribute('aria-current', 'step')
   await history.getByRole('button', { name: 'Start' }).click()
-  await expect(page.locator('select option', { hasText: 'Box' })).toHaveCount(0)
+  await expect.poll(countNamed(page, 'Box')).toBe(0)
   await history.getByRole('button', { name: 'Added Sphere' }).click()
-  await expect(page.locator('select option', { hasText: 'Sphere' }).first()).toBeAttached()
+  await expect.poll(countNamed(page, 'Sphere')).toBeGreaterThan(0)
 })
 
 test('keyframes the selection on the timeline', async ({ page }) => {
@@ -60,9 +60,9 @@ test('starts from a template and undoes it', async ({ page }) => {
   await openEditor(page)
   await fromFileMenu(page, 'Start from a template')
   await page.getByRole('dialog', { name: 'Start from a template' }).getByRole('button', { name: /Snowman/ }).click()
-  await expect(page.locator('select option', { hasText: 'Carrot nose' }).first()).toBeAttached()
+  await expect.poll(countNamed(page, 'Carrot nose')).toBeGreaterThan(0)
   await page.getByTitle('Undo').click()
-  await expect(page.locator('select option', { hasText: 'Carrot nose' })).toHaveCount(0)
+  await expect.poll(countNamed(page, 'Carrot nose')).toBe(0)
 })
 
 test('exports a shape for 3D printing', async ({ page }) => {
@@ -171,7 +171,12 @@ test('keeps the inspector simple, with exact numbers under More options', async 
   // Metal needs something to reflect, so the lighting switches to Studio too.
   await page.getByRole('button', { name: 'Gold', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Gold', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  // Lighting belongs to the scene, so it shows once nothing is selected.
+  await page.keyboard.press('Escape')
+  await page.getByTitle('Inspector').click()
   await expect(page.locator('select').filter({ hasText: 'Studio' }).last()).toHaveValue('studio')
+  // The scene panel can pick things by name, too.
+  await page.locator('select').first().selectOption({ label: 'Sphere' })
 
   await page.getByRole('button', { name: 'More options' }).click()
   await expect(page.getByText('Position (m)')).toBeVisible()
@@ -208,7 +213,11 @@ test('combines two selected shapes from the inspector', async ({ page }) => {
 test('keeps the get-started card clear of the side panels', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 })
   await openEditor(page)
-  const card = (await page.getByRole('region', { name: 'Get started' }).boundingBox())!
-  const inspector = (await page.getByText('Inspector', { exact: true }).locator('..').locator('..').boundingBox())!
-  expect(card.x).toBeGreaterThanOrEqual(inspector.x + inspector.width)
+  const card = page.getByRole('region', { name: 'Get started' })
+  // With nothing selected the inspector stays out of the way.
+  await expect(page.getByText('Inspector', { exact: true })).toHaveCount(0)
+  // Opened for scene settings, it sits beside the card, not under it.
+  await page.getByTitle('Inspector').click()
+  const scene = (await page.getByText('Scene', { exact: true }).locator('..').locator('..').boundingBox())!
+  expect((await card.boundingBox())!.x).toBeGreaterThanOrEqual(scene.x + scene.width)
 })

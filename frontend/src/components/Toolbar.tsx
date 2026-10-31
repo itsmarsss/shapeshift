@@ -3,6 +3,7 @@ import {
     ArrowsClockwise,
     ArrowsOut,
     ArrowsOutCardinal,
+    Magnet,
     Cube,
     Cylinder,
     Flashlight,
@@ -75,6 +76,7 @@ const TOOLS: { mode: TransformMode; label: string; Icon: typeof Cube }[] = [
 ];
 
 export function Toolbar() {
+    const snapOn = useScene((s) => s.snap.enabled);
     const run = useScene((s) => s.run);
     const mode = useScene((s) => s.mode);
     const transformMode = useScene((s) => s.transformMode);
@@ -111,6 +113,15 @@ export function Toolbar() {
                             <Icon size={20} />
                         </IconButton>
                     ))}
+                    <IconButton
+                        $size={36}
+                        $active={snapOn}
+                        aria-pressed={snapOn}
+                        title={snapOn ? "Snapping on: moves in steps. Click to turn off" : "Snap to steps while moving"}
+                        onClick={() => useScene.getState().setSnap({ enabled: !snapOn })}
+                    >
+                        <Magnet size={20} />
+                    </IconButton>
                 </Group>
             )}
         </Rail>

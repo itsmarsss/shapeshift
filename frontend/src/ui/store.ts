@@ -14,6 +14,8 @@ function needsOnboarding() {
 
 type UIState = {
     showInspector: boolean;
+    // The inspector was opened for scene settings while nothing was selected.
+    sceneOpen: boolean;
     showChat: boolean;
     showSettings: boolean;
     showTemplates: boolean;
@@ -29,9 +31,12 @@ type UIState = {
 
 // On small screens the inspector, the assistant and the history share the
 // bottom of the screen, so opening one closes the others, and all start closed.
+// The assistant also starts closed on laptop-sized screens, where it would
+// take a third of the view; the get-started card offers it instead.
 export const useUI = create<UIState>()((set) => ({
     showInspector: !isCompact(),
-    showChat: !isCompact(),
+    sceneOpen: false,
+    showChat: !isCompact() && typeof window !== "undefined" && window.innerWidth >= 1400,
     showSettings: false,
     showOnboarding: needsOnboarding(),
     showTemplates: false,

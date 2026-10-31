@@ -28,6 +28,7 @@ import { useScene, type EditorMode } from "../scene/store";
 import { download, exportGLB, importModel, parseSceneFile, saveSceneFile } from "../scene/io";
 import { takeSnapshot } from "../viewport/snapshot";
 import { useUI } from "../ui/store";
+import { toggleInspector, useInspectorVisible } from "../ui/inspector";
 import { useHands } from "../hands/tracker";
 import { useSettings } from "../settings/store";
 import { IconButton, Segment, Segmented } from "./ui";
@@ -259,9 +260,8 @@ export function Topbar() {
     const canRedo = useScene((s) => s.future.length > 0);
     const mode = useScene((s) => s.mode);
     const setMode = useScene((s) => s.setMode);
-    const showInspector = useUI((s) => s.showInspector);
+    const showInspector = useInspectorVisible();
     const showChat = useUI((s) => s.showChat);
-    const setShowInspector = useUI((s) => s.setShowInspector);
     const setShowChat = useUI((s) => s.setShowChat);
     const setShowSettings = useUI((s) => s.setShowSettings);
     const setShowTemplates = useUI((s) => s.setShowTemplates);
@@ -393,7 +393,7 @@ export function Topbar() {
                         Hands
                     </HandsButton>
                 </Wide>
-                <IconButton title="Inspector" $active={showInspector} onClick={() => setShowInspector(!showInspector)}>
+                <IconButton title="Inspector" $active={showInspector} onClick={toggleInspector}>
                     <SlidersHorizontal size={18} />
                 </IconButton>
                 <IconButton title="Assistant" $active={showChat} onClick={() => setShowChat(!showChat)}>
