@@ -8,10 +8,10 @@ import { transformCommand } from "../scene/autokey";
 import { selectSelected, selectSelectedLight, selectSelectedObjects, useScene } from "../scene/store";
 import { duplicateSelection, groupSelection, removeSelection, ungroupSelection } from "../scene/selection";
 import { ENVIRONMENTS, type Command, type Environment, type Light, type Material, type Vec3 } from "@shapeshift/shared/scene/schema";
-import { useUI } from "../ui/store";
+import { toggleInspector, useInspectorVisible } from "../ui/inspector";
 import { UNIT_SCALE, useSettings } from "../settings/store";
 import { ColorPicker } from "./ColorPicker";
-import { Button, Divider, FieldLabel, IconButton, Input, Panel, PanelHeader, PanelTitle, Select } from "./ui";
+import { Button, FieldLabel, IconButton, Input, Panel, PanelHeader, PanelTitle, Select } from "./ui";
 
 const Root = styled(Panel)`
     top: calc(var(--topbar) + var(--gap));
@@ -500,8 +500,7 @@ const ENVIRONMENT_LABELS: Record<Environment, string> = {
 };
 
 export function Inspector() {
-    const show = useUI((s) => s.showInspector);
-    const setShow = useUI((s) => s.setShowInspector);
+    const show = useInspectorVisible();
     const objects = useScene((s) => s.doc.objects);
     const selected = useScene(selectSelected);
     const pose = useTimeline((s) => (selected ? s.poses.get(selected.id) : undefined));
@@ -530,8 +529,8 @@ export function Inspector() {
     return (
         <Root>
             <PanelHeader>
-                <PanelTitle>Inspector</PanelTitle>
-                <IconButton title="Close" onClick={() => setShow(false)}>
+                <PanelTitle>{selected || selectedLight || multi ? "Inspector" : "Scene"}</PanelTitle>
+                <IconButton title="Close" onClick={toggleInspector}>
                     <X size={16} />
                 </IconButton>
             </PanelHeader>
@@ -723,10 +722,10 @@ export function Inspector() {
                     </>
                 )}
 
-                <Divider />
-
+                {!selected && !selectedLight && !multi && (
+                <>
                 <div>
-                    <FieldLabel>Environment</FieldLabel>
+                    <FieldLabel>Lighting</FieldLabel>
                     <Select
                         value={environment}
                         onChange={(e) => run({ type: "environment", preset: e.target.value as Environment })}
@@ -767,6 +766,8 @@ export function Inspector() {
                         </Grid>
                     )}
                 </div>
+                </>
+                )}
             </Body>
         </Root>
     );
