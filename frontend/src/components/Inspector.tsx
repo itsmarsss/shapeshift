@@ -315,7 +315,7 @@ function CombineSection() {
     if (!primary || !other) return null;
     return (
         <div>
-            <FieldLabel>Combine</FieldLabel>
+            <FieldLabel>Make one shape</FieldLabel>
             <Tiles>
                 {COMBINE.map(({ op, label, Icon, hint }) => (
                     <Tile
@@ -333,7 +333,9 @@ function CombineSection() {
                     </Tile>
                 ))}
             </Tiles>
-            <Muted style={{ marginTop: 6 }}>{error ?? `Cut out removes ${other.name} from ${primary.name}.`}</Muted>
+            <Muted style={{ marginTop: 6 }}>
+                {error ?? `Bakes ${primary.name} and ${other.name} into one shape for good. For a hole you can still move, set a shape to Hole and group them.`}
+            </Muted>
         </div>
     );
 }
@@ -354,6 +356,15 @@ function SelectionSection({ objects, groups }: { objects: SceneObject[]; groups:
                 {count} objects selected{shared ? ` · group “${shared}”` : ""}.{touchOnly() ? "" : " Shift-click to add or remove one."}
             </Muted>
             <div>
+                <FieldLabel>Color for all</FieldLabel>
+                <ColorPicker
+                    label="Color for all"
+                    value={color}
+                    onChange={(c) => run(ids.map((id): Command => ({ type: "material", target: id, color: c })), { coalesce: "color:selection" })}
+                    onCommit={endCoalesce}
+                />
+            </div>
+            <div>
                 <FieldLabel>Group</FieldLabel>
                 <Grid $cols={2}>
                     <Input placeholder={shared ?? "Group name"} value={name} onChange={(e) => setName(e.target.value)} />
@@ -369,18 +380,11 @@ function SelectionSection({ objects, groups }: { objects: SceneObject[]; groups:
                     </Button>
                 )}
             </div>
-            {count === 2 && <CombineSection />}
-            <div>
-                <FieldLabel>Color for all</FieldLabel>
-                <ColorPicker
-                    label="Color for all"
-                    value={color}
-                    onChange={(c) => run(ids.map((id): Command => ({ type: "material", target: id, color: c })), { coalesce: "color:selection" })}
-                    onCommit={endCoalesce}
-                />
-            </div>
             <HoleToggle objects={objects} />
-            <ArrangeSection canAlign={units > 1} />
+            {count === 2 && <CombineSection />}
+            <More>
+                <ArrangeSection canAlign={units > 1} />
+            </More>
             <Actions>
                 <Button onClick={duplicateSelection}>
                     <Copy size={16} />
@@ -556,7 +560,6 @@ export function Inspector() {
                                 onCommit={endCoalesce}
                             />
                         </div>
-                        <ArrangeSection canAlign={false} />
                         <div>
                             <FieldLabel>Material</FieldLabel>
                             <Tiles>
@@ -593,6 +596,7 @@ export function Inspector() {
                             </Button>
                         </Actions>
                         <More>
+                            <ArrangeSection canAlign={false} />
                             <div>
                                 <FieldLabel>Position ({units})</FieldLabel>
                                 <VectorField
