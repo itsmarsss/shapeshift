@@ -76,6 +76,8 @@ export const useHands = create<HandStore>()((set, get) => ({
     error: null,
     setEnabled: async (on) => {
         if (!on) {
+            // Turned off on purpose, so it stays off next time.
+            useSettings.getState().set({ handsAutoStart: false });
             teardown();
             set({ status: "off", error: null });
             return;
@@ -114,6 +116,7 @@ export const useHands = create<HandStore>()((set, get) => ({
             const msg = e.data;
             if (msg.type === "ready") {
                 set({ status: "running" });
+                useSettings.getState().set({ handsAutoStart: true });
                 track("hands_on");
             }
             else if (msg.type === "error") {
@@ -143,3 +146,16 @@ export const useHands = create<HandStore>()((set, get) => ({
         stopLoop = () => cancelAnimationFrame(raf);
     },
 }));
+
+// Turns hand control back on when the editor opens for someone who had it on
+// last time, but only if the browser still lets the camera start without asking.
+export async function resumeHands() {
+    if (!useSettings.getState().handsAutoStart || useHands.getState().status !== "off") return;
+    try {
+        const camera = await navigator.permissions.query({ name: "camera" as PermissionName });
+        if (camera.state !== "granted") return;
+    } catch {
+        return;
+    }
+    void useHands.getState().setEnabled(true);
+}

@@ -77,6 +77,11 @@ export function useSpeechInput({ onInterim, onFinal, onError }: { onInterim: (te
 
     useEffect(() => {
         window.addEventListener(VOICE_TOGGLE_EVENT, toggle);
+        // Asked to listen before this field had loaded.
+        if (useVoice.getState().waiting) {
+            useVoice.setState({ waiting: false });
+            toggle();
+        }
         return () => {
             window.removeEventListener(VOICE_TOGGLE_EVENT, toggle);
             recognitionRef.current?.abort();

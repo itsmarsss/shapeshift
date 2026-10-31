@@ -18,9 +18,13 @@ let pending: (() => void) | null = null;
 // Asks the canvas for a frame; it only draws when something changes.
 let redraw = () => {};
 
-export function attachControls(next: CameraControls | null, invalidate?: () => void) {
+// The 3D view's canvas, which sits below the top bar rather than filling the window.
+let canvas: HTMLCanvasElement | null = null;
+
+export function attachControls(next: CameraControls | null, invalidate?: () => void, element?: HTMLCanvasElement) {
     controls = next;
     if (invalidate) redraw = invalidate;
+    if (element) canvas = element;
     if (next && pending) {
         const run = pending;
         pending = null;
@@ -117,6 +121,14 @@ export function orbitBy(azimuth: number, polar: number) {
     if (!controls) return;
     void controls.rotate(azimuth, polar, false);
     redraw();
+}
+
+// A point given as a share of the window (as hand positions are) as a share
+// of the 3D view instead.
+export function windowToView(x: number, y: number): [number, number] {
+    const rect = canvas?.getBoundingClientRect();
+    if (!rect?.width || !rect.height) return [x, y];
+    return [(x * window.innerWidth - rect.left) / rect.width, (y * window.innerHeight - rect.top) / rect.height];
 }
 
 // Where a point on screen (0 to 1 across and down) meets the floor, if it does.

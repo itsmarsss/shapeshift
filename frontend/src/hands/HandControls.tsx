@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import type { CameraControls } from "@react-three/drei";
 import * as THREE from "three";
@@ -12,6 +12,8 @@ import { nearestVertex, objectMatrix, useEditSelection } from "../viewport/editS
 import { useSettings } from "../settings/store";
 import type { Vec3 } from "@shapeshift/shared/scene/schema";
 import { MAX_FACTOR, MIN_FACTOR, stretched } from "./stretch";
+import { clearControls, controlAt, hoverControl, pressControl } from "./pointer";
+import { windowToView } from "../viewport/frame";
 
 type Drag =
     | { kind: "object"; id: string; plane: THREE.Plane; offset: THREE.Vector3; reach: number }
@@ -40,7 +42,11 @@ export function HandControls() {
     const raycaster = useRef(new THREE.Raycaster());
     const lastHands = useRef(live.hands);
 
-    const aim = (x: number, y: number) => raycaster.current.setFromCamera(new THREE.Vector2(x * 2 - 1, -(y * 2 - 1)), camera);
+    // Hand positions are shares of the window; the view starts below the top bar.
+    const aim = (x: number, y: number) => {
+        const [vx, vy] = windowToView(x, y);
+        raycaster.current.setFromCamera(new THREE.Vector2(vx * 2 - 1, -(vy * 2 - 1)), camera);
+    };
 
     function pick(x: number, y: number) {
         aim(x, y);
@@ -52,13 +58,20 @@ export function HandControls() {
         const state = useScene.getState();
         const selected = state.doc.objects.find((o) => o.id === state.selectedId);
         if (state.mode !== "edit" || !selected) return null;
-        const ndc = new THREE.Vector2(x * 2 - 1, -(y * 2 - 1));
+        const [vx, vy] = windowToView(x, y);
+        const ndc = new THREE.Vector2(vx * 2 - 1, -(vy * 2 - 1));
         const hit = nearestVertex(selected, camera, ndc, size.width / size.height, VERTEX_RADIUS);
         return hit ? { object: selected, ...hit } : null;
     }
 
     function hover() {
-        const h = live.hands.find((hand) => hand.handedness === objectHand() && !hand.pinching);
+        // A hand that's over the interface points at a control instead of the scene.
+        for (const hand of ["Left", "Right"] as const) {
+            const h = live.hands.find((x) => x.handedness === hand);
+            if (!h) hoverControl(hand, null);
+            else if (!h.pinching) hoverControl(hand, controlAt(h.x, h.y));
+        }
+        const h = live.hands.find((hand) => hand.handedness === objectHand() && !hand.pinching && !controlAt(hand.x, hand.y));
         const idle = h && useScene.getState().mode !== "render" && !drag.current;
         const vertex = idle ? vertexAt(h.x, h.y) : null;
         const id = idle && !vertex ? pick(h.x, h.y)?.object.name ?? null : null;
@@ -68,6 +81,13 @@ export function HandControls() {
     }
 
     function start(handedness: Handedness, x: number, y: number) {
+        // Pinching over a button presses it, and the pinch does nothing else.
+        const control = controlAt(x, y);
+        if (control) {
+            drag.current = null;
+            pressControl(control);
+            return;
+        }
         drag.current = { kind: "orbit" };
         if (handedness !== objectHand()) return;
         const vertex = vertexAt(x, y);
@@ -171,6 +191,8 @@ export function HandControls() {
         drag.current = null;
     }
 
+    useEffect(() => clearControls, []);
+
     useFrame(() => {
         if (live.hands === lastHands.current) return;
         lastHands.current = live.hands;
@@ -179,6 +201,7 @@ export function HandControls() {
         // so the pinch that picks from the menu doesn't start a drag after.
         if (useHandMenu.getState().open) {
             if (drag.current) end();
+            clearControls();
             if (useHandHover.getState().hoveredId !== null) useHandHover.setState({ hoveredId: null });
             report();
             return;
