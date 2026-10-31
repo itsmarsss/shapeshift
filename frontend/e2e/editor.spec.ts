@@ -249,7 +249,7 @@ test('closes dialogs with Escape and keeps the selection', async ({ page }) => {
   await expect(page.locator('input[value="Box"]')).toBeVisible()
 })
 
-test('slides a dragged shape along the workplane', async ({ page }) => {
+test('keeps a dragged shape on the floor', async ({ page }) => {
   await openEditor(page)
   await page.getByTitle('Add box').click()
   const position = () =>
@@ -258,7 +258,7 @@ test('slides a dragged shape along the workplane', async ({ page }) => {
   const canvas = (await page.locator('canvas').first().boundingBox())!
   const x = canvas.x + canvas.width / 2 - 60
   const y = canvas.y + canvas.height / 2
-  // Without a workplane, a drag stays on the floor: height doesn't change.
+  // With no workplane set, a drag slides along the floor: its height stays put.
   await page.mouse.move(x, y)
   await page.mouse.down()
   await page.mouse.move(x + 120, y, { steps: 10 })
