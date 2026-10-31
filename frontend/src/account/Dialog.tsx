@@ -45,9 +45,15 @@ const Body = styled.div`
 
 export function Dialog({ title, width = 400, onClose, children }: { title: string; width?: number; onClose: () => void; children: ReactNode }) {
     useEffect(() => {
-        const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-        window.addEventListener("keydown", onKey);
-        return () => window.removeEventListener("keydown", onKey);
+        // Caught on the way in, so Escape closes the dialog without also
+        // running the editor's Escape (which clears the selection).
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key !== "Escape") return;
+            e.stopPropagation();
+            onClose();
+        };
+        window.addEventListener("keydown", onKey, true);
+        return () => window.removeEventListener("keydown", onKey, true);
     }, [onClose]);
     return (
         <Backdrop onPointerDown={(e) => e.target === e.currentTarget && onClose()}>

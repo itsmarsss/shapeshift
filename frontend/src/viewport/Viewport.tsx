@@ -1,15 +1,20 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type MutableRefObject } from "react";
 import { useTimeline } from "../scene/timeline";
 import { transformCommand } from "../scene/autokey";
 import type { Pose } from "../scene/animation";
 import type { Light, SceneObject, Vec3 } from "@shapeshift/shared/scene/schema";
 import { useShallow } from "zustand/react/shallow";
 import { useCollab } from "../collab/session";
-import { Canvas, useThree } from "@react-three/fiber";
-import { CameraControls, Grid, Line, TransformControls } from "@react-three/drei";
-import type * as THREE from "three";
+import { Canvas, useThree, type ThreeEvent } from "@react-three/fiber";
+import { CameraControls, Line, TransformControls } from "@react-three/drei";
+import * as THREE from "three";
 import { useScene } from "../scene/store";
-import { SceneMesh } from "./SceneMesh";
+import { SceneMesh, type MeshLook } from "./SceneMesh";
+import { cutGeometries } from "../scene/holes";
+import { ToolFloor, WorkplaneGrid } from "./Workplane";
+import { Ruler } from "./Ruler";
+import { SizeHandles } from "./SizeHandles";
+import { snapOnWorkplane, useTools, workplaneQuaternion } from "./tools";
 import { SceneLight } from "./SceneLight";
 import { MultiTransform } from "./MultiTransform";
 import { PeerCursors } from "./PeerCursors";
@@ -83,22 +88,30 @@ type ItemsProps = {
     hoveredId: string | null;
     peerColors: Map<string, string>;
     editing: boolean;
-    pick: (id: string, event: MouseEvent) => void;
+    pick: (id: string, event: ThreeEvent<MouseEvent>) => void;
     busy: MutableRefObject<boolean>;
     setSelectedMesh: (mesh: THREE.Mesh | null) => void;
+    cuts: Map<string, MeshProps["cut"]>;
+    looks: Map<string, MeshProps["look"]>;
 };
+
+type MeshProps = ComponentProps<typeof SceneMesh>;
 
 // The scene's objects and light markers. Lives inside the canvas so pressing
 // one can start a drag; see useObjectDrag.
-function SceneItems({ objects, lights, selectedIds, selectedId, hoveredId, peerColors, editing, pick, busy, setSelectedMesh }: ItemsProps) {
+function SceneItems({ objects, lights, selectedIds, selectedId, hoveredId, peerColors, editing, pick, busy, setSelectedMesh, cuts, looks }: ItemsProps) {
     const mode = useScene((s) => s.mode);
+    const select = useScene((s) => s.select);
     const drawn = useRef(new Map<string, Vec3>());
     drawn.current = new Map([...objects.map((o) => [o.id, o.position] as const), ...lights.map((l) => [l.id, l.position] as const)]);
     const positions = useCallback(() => drawn.current, []);
-    const { onPointerDown, onHover } = useObjectDrag({ positions, pick, busy });
+    // A tool like the workplane or ruler takes the press instead of a drag.
+    const canDrag = useCallback(() => useTools.getState().tool === "select", []);
+    const surface = useCallback(() => workplaneQuaternion(useTools.getState().workplane), []);
+    const { onPointerDown, onHover } = useObjectDrag({ positions, pick, busy, canDrag, surface });
     // In object mode a press selects (and may drag); clicks only select in the other modes.
     const click = mode === "object" ? noop : pick;
-    const clickLight = mode === "object" ? noop : (id: string) => pick(id, new MouseEvent("click"));
+    const clickLight = mode === "object" ? noop : (id: string) => select(id);
     return (
         <>
             {lights.map((l) => (
@@ -125,6 +138,8 @@ function SceneItems({ objects, lights, selectedIds, selectedId, hoveredId, peerC
                     onPress={onPointerDown}
                     onHover={onHover}
                     meshRef={o.id === selectedId ? setSelectedMesh : undefined}
+                    cut={cuts.get(o.id)}
+                    look={looks.get(o.id)}
                 />
             ))}
         </>
@@ -159,6 +174,21 @@ export function Viewport() {
     const [selectedMesh, setSelectedMesh] = useState<THREE.Mesh | null>(null);
     const gizmoBusy = useRef(false);
 
+    const tool = useTools((s) => s.tool);
+    const workplane = useTools((s) => s.workplane);
+    const cuts = useMemo(() => cutGeometries(objects), [objects]);
+    const looks = useMemo(() => {
+        const map = new Map<string, MeshLook>();
+        for (const o of objects) {
+            if (!o.hole) continue;
+            const cutting = o.group && objects.some((m) => m.group === o.group && !m.hole);
+            const members = cutting ? objects.filter((m) => m.group === o.group) : [];
+            const partly = selectedIds.includes(o.id) && !members.every((m) => selectedIds.includes(m.id));
+            map.set(o.id, cutting && !partly ? "hidden" : "hole");
+        }
+        return map;
+    }, [objects, selectedIds]);
+
     const settings = useSettings();
     const colors = SCENE_COLORS[useResolvedTheme()];
     const shadows = mode === "render" && settings.shadows;
@@ -169,7 +199,10 @@ export function Viewport() {
 
     // Shift-click adds or removes one object. Clicking a grouped object picks
     // its whole group; Alt-click picks just that part.
-    function pick(id: string, event: MouseEvent) {
+    function pick(id: string, e: ThreeEvent<MouseEvent>) {
+        if (useTools.getState().tool !== "select") return applyTool(e);
+        e.stopPropagation();
+        const event = e.nativeEvent;
         if (event.shiftKey) return select(id, { toggle: true });
         const group = objects.find((o) => o.id === id)?.group;
         if (group && !event.altKey) {
@@ -178,6 +211,25 @@ export function Viewport() {
         }
         select(id);
     }
+    function applyTool(e: ThreeEvent<MouseEvent>) {
+        if (e.object.userData.look === "hidden") return;
+        e.stopPropagation();
+        const tools = useTools.getState();
+        const point = e.point.toArray() as Vec3;
+        if (tools.tool === "ruler") return tools.addRulerPoint(point);
+        if (e.object.userData.look === "floor" || !e.face) tools.setWorkplane(null);
+        else {
+            const normal = e.face.normal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(e.object.matrixWorld)).normalize();
+            tools.setWorkplane({ origin: point, normal: normal.toArray() as Vec3 });
+        }
+        tools.setTool("select");
+    }
+
+    function snapMove(object: THREE.Object3D) {
+        if (!workplane || !snap.enabled || transformMode !== "translate") return;
+        object.position.copy(snapOnWorkplane(object.position, snap.translate, workplane));
+    }
+
     // The built-in key light only shows until the scene has lights of its own.
     const studio = lights.length === 0;
 
@@ -191,7 +243,7 @@ export function Viewport() {
             camera={{ position: [4, 3.5, 6], fov: settings.fov, near: 0.05, far: 500 }}
             raycaster={{ params: { Points: { threshold: 0.08 } } as THREE.RaycasterParameters }}
             onPointerMissed={() => {
-                if (!gizmoBusy.current) select(null);
+                if (!gizmoBusy.current && useTools.getState().tool === "select") select(null);
             }}
             style={{ position: "absolute", inset: 0 }}
         >
@@ -241,21 +293,13 @@ export function Viewport() {
                 pick={pick}
                 busy={gizmoBusy}
                 setSelectedMesh={setSelectedMesh}
+                cuts={cuts}
+                looks={looks}
             />
+            {editing && tool !== "select" && <ToolFloor onClick={applyTool} />}
+            {editing && <Ruler />}
 
-            {editing && settings.showGrid && (
-                <Grid
-                    userData={{ grid: true }}
-                    infiniteGrid
-                    fadeDistance={60}
-                    cellSize={settings.gridCell}
-                    sectionSize={settings.gridCell * 4}
-                    cellThickness={0.6}
-                    sectionThickness={1}
-                    cellColor={colors.cell}
-                    sectionColor={colors.section}
-                />
-            )}
+            {editing && settings.showGrid && <WorkplaneGrid />}
             {editing && settings.showAxes && <Axes />}
             {shadows && (
                 <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
@@ -268,12 +312,14 @@ export function Viewport() {
 
             {mode === "object" && selectedObjects.length > 1 && <MultiTransform objects={selectedObjects} gizmoBusy={gizmoBusy} />}
 
+            {mode === "object" && tool === "select" && selectedObjects.length > 0 && <SizeHandles objects={selectedObjects} gizmoBusy={gizmoBusy} />}
+
             {mode === "object" && selectedObjects.length <= 1 && selectedId && selectedMesh && (
                 <TransformControls
                     ref={gizmoColors}
                     object={selectedMesh}
                     mode={selectedLight ? "translate" : transformMode}
-                    translationSnap={snap.enabled ? snap.translate : null}
+                    translationSnap={snap.enabled && !workplane ? snap.translate : null}
                     rotationSnap={snap.enabled ? snap.rotate : null}
                     scaleSnap={snap.enabled ? snap.scale : null}
                     onMouseDown={() => {
@@ -287,6 +333,7 @@ export function Viewport() {
                     }}
                     onObjectChange={() => {
                         const m = selectedMesh;
+                        snapMove(m);
                         if (selectedLight) {
                             run(transformCommand(selectedId, { position: [m.position.x, m.position.y, m.position.z] }), { coalesce: `gizmo:${selectedId}` });
                             return;

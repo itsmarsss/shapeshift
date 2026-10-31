@@ -28,6 +28,61 @@ export function ConeIcon(props: IconProps) {
     );
 }
 
+export function WedgeIcon(props: IconProps) {
+    return (
+        <Svg {...props}>
+            <path d="M40 200 L40 64 L216 200 Z" />
+            <path d="M40 64 L96 32 L240 160 L216 200" />
+        </Svg>
+    );
+}
+
+export function RoofIcon(props: IconProps) {
+    return (
+        <Svg {...props}>
+            <path d="M24 192 L88 88 L152 192 Z" />
+            <path d="M88 88 L176 56 L232 156 L152 192" />
+        </Svg>
+    );
+}
+
+export function PyramidIcon(props: IconProps) {
+    return (
+        <Svg {...props}>
+            <path d="M128 28 L32 176 L128 224 L224 176 Z" />
+            <path d="M128 28 L128 224" />
+        </Svg>
+    );
+}
+
+export function HalfSphereIcon(props: IconProps) {
+    return (
+        <Svg {...props}>
+            <path d="M28 176 A100 100 0 0 1 228 176" />
+            <ellipse cx="128" cy="176" rx="100" ry="28" />
+        </Svg>
+    );
+}
+
+export function TubeIcon(props: IconProps) {
+    return (
+        <Svg {...props}>
+            <ellipse cx="128" cy="64" rx="88" ry="32" />
+            <ellipse cx="128" cy="64" rx="48" ry="16" />
+            <path d="M40 64 L40 192 A88 32 0 0 0 216 192 L216 64" />
+        </Svg>
+    );
+}
+
+export function ParaboloidIcon(props: IconProps) {
+    return (
+        <Svg {...props}>
+            <path d="M36 196 C 52 92, 96 32, 128 32 C 160 32, 204 92, 220 196" />
+            <ellipse cx="128" cy="196" rx="92" ry="28" />
+        </Svg>
+    );
+}
+
 export function TorusIcon(props: IconProps) {
     return (
         <Svg {...props}>

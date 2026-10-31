@@ -359,16 +359,6 @@ function Section({ id }: { id: SectionId }) {
                         <Row label="Grid">
                             <Toggle k="showGrid" />
                         </Row>
-                        <Row label="Grid cell size">
-                            <Choice
-                                k="gridCell"
-                                options={[
-                                    { value: 0.25, label: "25 cm" },
-                                    { value: 0.5, label: "50 cm" },
-                                    { value: 1, label: "1 m" },
-                                ]}
-                            />
-                        </Row>
                         <Row label="Axis lines">
                             <Toggle k="showAxes" />
                         </Row>
@@ -534,11 +524,14 @@ export function SettingsModal() {
 
     useEffect(() => {
         if (!open) return;
+        // Caught on the way in, so closing settings doesn't also clear the selection.
         const onKey = (e: KeyboardEvent) => {
-            if (e.key === "Escape") setOpen(false);
+            if (e.key !== "Escape") return;
+            e.stopPropagation();
+            setOpen(false);
         };
-        window.addEventListener("keydown", onKey);
-        return () => window.removeEventListener("keydown", onKey);
+        window.addEventListener("keydown", onKey, true);
+        return () => window.removeEventListener("keydown", onKey, true);
     }, [open, setOpen]);
 
     if (!open) return null;

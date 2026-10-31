@@ -3,7 +3,7 @@ import { openEditor, signIn, uniqueEmail, countNamed } from './helpers'
 
 test('signs in, saves to the cloud, shares a link and remixes it', async ({ page }) => {
   await openEditor(page)
-  await page.getByTitle('Add cone').click()
+  await page.keyboard.press('4')
   const email = uniqueEmail('cloud')
   await signIn(page, email)
 
@@ -64,7 +64,7 @@ test('shows a friendly message for links that no longer exist', async ({ page })
 
 test('shows signed-in people their scenes before the editor', async ({ page }) => {
   await openEditor(page)
-  await page.getByTitle('Add torus').click()
+  await page.keyboard.press('5')
   const email = uniqueEmail('home')
   await signIn(page, email)
   await page.getByTitle(email).click()

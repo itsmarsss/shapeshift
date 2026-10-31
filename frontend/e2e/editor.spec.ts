@@ -237,3 +237,32 @@ for (const width of [740, 960, 1280]) {
     expect(broken).toEqual([])
   })
 }
+
+test('closes dialogs with Escape and keeps the selection', async ({ page }) => {
+  await openEditor(page)
+  await page.getByTitle('Add box').click()
+  await fromFileMenu(page, 'Export for 3D printing')
+  const dialog = page.getByRole('dialog', { name: 'Export for 3D printing' })
+  await expect(dialog).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+  await expect(page.locator('input[value="Box"]')).toBeVisible()
+})
+
+test('keeps a dragged shape on the floor', async ({ page }) => {
+  await openEditor(page)
+  await page.getByTitle('Add box').click()
+  const position = () =>
+    page.evaluate(() => JSON.parse(localStorage.getItem('shapeshift-scene') ?? '{"objects":[]}').objects[0]?.position as number[] | undefined)
+  await expect.poll(position).toEqual([0, 0.5, 0])
+  const canvas = (await page.locator('canvas').first().boundingBox())!
+  const x = canvas.x + canvas.width / 2 - 60
+  const y = canvas.y + canvas.height / 2
+  // With no workplane set, a drag slides along the floor: its height stays put.
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  await page.mouse.move(x + 120, y, { steps: 10 })
+  await page.mouse.up()
+  await expect.poll(async () => (await position())?.[0] ?? 0).not.toBe(0)
+  expect((await position())?.[1]).toBeCloseTo(0.5)
+})

@@ -6,6 +6,7 @@ import { groupPivot } from "../scene/commands";
 import type { Command, SceneObject, Vec3 } from "@shapeshift/shared/scene/schema";
 import { useScene } from "../scene/store";
 import { transformCommand } from "../scene/autokey";
+import { snapOnWorkplane, useTools } from "./tools";
 
 type Start = { pivot: THREE.Matrix4; members: { id: string; matrix: THREE.Matrix4 }[] };
 
@@ -23,6 +24,7 @@ export function MultiTransform({ objects, gizmoBusy }: { objects: SceneObject[];
     const gizmoColors = useGizmoColors();
     const transformMode = useScene((s) => s.transformMode);
     const snap = useScene((s) => s.snap);
+    const workplane = useTools((s) => s.workplane);
     const [pivot, setPivot] = useState<THREE.Group | null>(null);
     // Remounting the pivot after each drag resets its rotation and scale.
     const [generation, setGeneration] = useState(0);
@@ -37,7 +39,7 @@ export function MultiTransform({ objects, gizmoBusy }: { objects: SceneObject[];
                     ref={gizmoColors}
                     object={pivot}
                     mode={transformMode}
-                    translationSnap={snap.enabled ? snap.translate : null}
+                    translationSnap={snap.enabled && !workplane ? snap.translate : null}
                     rotationSnap={snap.enabled ? snap.rotate : null}
                     scaleSnap={snap.enabled ? snap.scale : null}
                     onMouseDown={() => {
@@ -59,6 +61,7 @@ export function MultiTransform({ objects, gizmoBusy }: { objects: SceneObject[];
                     onObjectChange={() => {
                         const s = start.current;
                         if (!s) return;
+                        if (workplane && snap.enabled && transformMode === "translate") pivot.position.copy(snapOnWorkplane(pivot.position, snap.translate, workplane));
                         pivot.updateMatrixWorld();
                         const delta = pivot.matrixWorld.clone().multiply(s.pivot);
                         const position = new THREE.Vector3();

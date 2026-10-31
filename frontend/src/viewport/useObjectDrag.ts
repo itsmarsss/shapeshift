@@ -14,7 +14,12 @@ type Options = {
     // Where each object or light is drawn right now, animation included.
     positions: () => Map<string, Vec3>;
     // Selects what was pressed, the same way a click does.
-    pick: (id: string, event: PointerEvent) => void;
+    pick: (id: string, event: ThreeEvent<PointerEvent>) => void;
+    // False while a tool (like the ruler) takes presses instead of drags.
+    canDrag?: () => boolean;
+    // The surface to slide along, as a turn from the floor: the workplane
+    // when one is set. Its "up" is the direction Shift-drags move in.
+    surface?: () => THREE.Quaternion;
     // Set while a gizmo or a drag owns the pointer, so a click on empty space
     // at the end of it doesn't clear the selection.
     busy: MutableRefObject<boolean>;
@@ -23,7 +28,10 @@ type Options = {
 // Pressing an object and dragging slides it, and everything selected with it,
 // across the floor under the pointer. Holding Shift raises or lowers it
 // instead. The camera only orbits when the drag starts on empty space.
-export function useObjectDrag({ positions, pick, busy }: Options) {
+const always = () => true;
+const floor = () => new THREE.Quaternion();
+
+export function useObjectDrag({ positions, pick, busy, canDrag = always, surface = floor }: Options) {
     const camera = useThree((s) => s.camera);
     const gl = useThree((s) => s.gl);
     const controls = useThree((s) => s.controls) as unknown as CameraControls | null;
@@ -38,11 +46,12 @@ export function useObjectDrag({ positions, pick, busy }: Options) {
             // Right and middle buttons keep panning the camera.
             if (e.button !== 0 || useScene.getState().mode !== "object") return;
             e.stopPropagation();
+            const draggable = canDrag();
             // Shift-pressing something already selected could be a Shift-click
             // to deselect it or a Shift-drag to lift it; wait to see which.
-            const deferred = e.nativeEvent.shiftKey && useScene.getState().selectedIds.includes(id);
-            if (!deferred) pick(id, e.nativeEvent);
-            const native = e.nativeEvent;
+            const deferred = draggable && e.nativeEvent.shiftKey && useScene.getState().selectedIds.includes(id);
+            if (!deferred) pick(id, e);
+            if (!draggable) return;
             const selected = useScene.getState().selectedIds;
             // A Shift-click that just deselected it has nothing to drag.
             if (!selected.includes(id)) return;
@@ -61,13 +70,17 @@ export function useObjectDrag({ positions, pick, busy }: Options) {
             let base = new Map(ids.map((s) => [s, drawn.get(s)!] as const));
             let origin = e.point.clone();
             let applied = base;
+            const turn = surface();
+            const back = turn.clone().invert();
+            const normal = new THREE.Vector3(0, 1, 0).applyQuaternion(turn);
 
             if (controls) controls.enabled = false;
 
             function planeFor(point: THREE.Vector3) {
-                if (!vertical) return new THREE.Plane(new THREE.Vector3(0, 1, 0), -point.y);
-                // A wall through the point, facing the camera.
-                const facing = camera.getWorldDirection(new THREE.Vector3()).setY(0);
+                if (!vertical) return new THREE.Plane().setFromNormalAndCoplanarPoint(normal, point);
+                // A wall through the point that stands on the surface and faces the camera.
+                const facing = camera.getWorldDirection(new THREE.Vector3());
+                facing.addScaledVector(normal, -facing.dot(normal));
                 if (facing.lengthSq() < 1e-6) facing.set(0, 0, 1);
                 return new THREE.Plane().setFromNormalAndCoplanarPoint(facing.normalize().negate(), point);
             }
@@ -98,11 +111,14 @@ export function useObjectDrag({ positions, pick, busy }: Options) {
                 }
                 const at = pointer(ev);
                 if (!at) return;
-                const delta = at.sub(origin);
+                // Measured along the surface's own axes, so sliding stays on it
+                // and snapping steps line up with its grid.
+                const delta = at.sub(origin).applyQuaternion(back);
                 if (vertical) delta.setX(0).setZ(0);
                 else delta.setY(0);
                 const { snap, run } = useScene.getState();
                 if (snap.enabled) delta.divideScalar(snap.translate).round().multiplyScalar(snap.translate);
+                delta.applyQuaternion(turn);
                 applied = new Map([...base].map(([s, p]) => [s, [p[0] + delta.x, p[1] + delta.y, p[2] + delta.z] as Vec3]));
                 run(
                     [...applied].map(([s, position]) => transformCommand(s, { position })),
@@ -117,7 +133,7 @@ export function useObjectDrag({ positions, pick, busy }: Options) {
                 window.removeEventListener("pointercancel", up);
                 cleanup.current = null;
                 if (controls) controls.enabled = true;
-                if (!dragging && deferred) pick(id, native);
+                if (!dragging && deferred) pick(id, e);
                 if (dragging) {
                     useScene.getState().endCoalesce();
                     setCursor("grab");
@@ -134,7 +150,7 @@ export function useObjectDrag({ positions, pick, busy }: Options) {
             window.addEventListener("pointerup", up);
             window.addEventListener("pointercancel", up);
         },
-        [camera, gl, controls, invalidate, pick, positions, busy, setCursor]
+        [camera, gl, controls, invalidate, pick, positions, busy, setCursor, canDrag, surface]
     );
 
     // A grab hand over things that can be dragged.
