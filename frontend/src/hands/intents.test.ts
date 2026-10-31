@@ -58,11 +58,11 @@ describe("intents", () => {
     it("reports how much closer the hand is, ignoring small wobbles", () => {
         const t = new IntentTracker();
         t.update([hand("Right", true, 0.5, 0.5, 1, [0.5, 0.5], [0.6, 0.6])]);
-        const [wobble] = t.update([hand("Right", true, 0.5, 0.5, 1, [0.5, 0.5], [0.6, 0.59])]);
+        const [wobble] = t.update([hand("Right", true, 0.5, 0.5, 1, [0.5, 0.5], [0.6, 0.58])]);
         expect(wobble).toMatchObject({ type: "move", depth: 0 });
         const [pulled] = t.update([hand("Right", true, 0.5, 0.5, 1, [0.5, 0.5], [0.6, 0.45])]);
-        expect(pulled).toMatchObject({ type: "move", depth: expect.closeTo(0.135) });
+        expect(pulled).toMatchObject({ type: "move", depth: expect.closeTo(0.12) });
         const [pushed] = t.update([hand("Right", true, 0.5, 0.5, 1, [0.5, 0.5], [0.6, 0.7])]);
-        expect(pushed).toMatchObject({ type: "move", depth: expect.closeTo(-0.085) });
+        expect(pushed).toMatchObject({ type: "move", depth: expect.closeTo(-0.07) });
     });
 });

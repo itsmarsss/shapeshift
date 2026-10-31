@@ -14,7 +14,8 @@ export type Intent =
     | { type: "pair"; zoom: number; panX: number; panY: number; scale: number; twist: number };
 
 // Ignore small changes so a steady hand doesn't drift objects.
-const DEPTH_DEAD_ZONE = 0.015;
+// A webcam's sense of distance wobbles by a couple of centimetres.
+const DEPTH_DEAD_ZONE = 0.03;
 
 function closer(h: HandState): number {
     if (h.depth === null || h.startDepth === null) return 0;

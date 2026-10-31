@@ -20,7 +20,8 @@ export const TOUCH = 0.22;
 export const RELEASE = 0.36;
 // The index has to stay clear of the thumb so a pinch never counts.
 const INDEX_CLEAR = 0.45;
-const HOLD_FRAMES = 4;
+// About a third of a second, so a sloppy pinch that brushes another finger doesn't count.
+const HOLD_FRAMES = 9;
 const RELEASE_FRAMES = 3;
 const COOLDOWN_MS = 900;
 
