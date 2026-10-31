@@ -64,7 +64,7 @@ It's one pnpm workspace. Run `pnpm dev`, `pnpm test`, `pnpm lint`, `pnpm typeche
 
 ## How to deploy
 
-From `backend`, run `pnpm exec wrangler secret put ANTHROPIC_API_KEY` once, then `pnpm deploy` from the root. This builds the app and deploys the Worker to `tryshapeshift.com`. `AGENT_MODEL` and `AGENT_EFFORT` in `wrangler.jsonc` pick the Claude model and effort.
+From `backend`, run `pnpm exec wrangler secret put ANTHROPIC_API_KEY` once, then `pnpm deploy` from the root. This builds the app and deploys the Worker to `tryshapeshift.com`. In `wrangler.jsonc`, `AGENT_MODEL` is the Claude model for visitors and free accounts (Sonnet), `AGENT_MODEL_PRO` the one for Pro (Opus), and `AGENT_EFFORT` the effort.
 
 `www.tryshapeshift.com` is a separate tiny Worker that redirects to the bare domain. It rarely changes; deploy it from `backend` with `pnpm exec wrangler deploy -c redirect/wrangler.jsonc`.
 
