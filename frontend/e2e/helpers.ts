@@ -22,3 +22,9 @@ export async function signIn(page: Page, email: string) {
   await page.getByPlaceholder('000000').fill(code)
   await expect(page.getByRole('button', { name: /sign in/i })).toHaveCount(0)
 }
+
+// Picks an item from the top bar's File menu.
+export async function fromFileMenu(page: Page, item: string) {
+  await page.getByRole('button', { name: 'File' }).click()
+  await page.getByRole('menuitem', { name: item }).click()
+}
