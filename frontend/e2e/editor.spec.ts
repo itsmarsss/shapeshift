@@ -123,6 +123,8 @@ test('picks colors from the palette or by hex, as one undo step', async ({ page 
   await openEditor(page)
   await page.getByTitle('Add sphere').click()
   const color = () => page.evaluate(() => JSON.parse(localStorage.getItem('shapeshift-scene') ?? '{"objects":[]}').objects[0]?.material.color)
+  // The scene saves a moment after each change; wait for the new sphere.
+  await expect.poll(color).toBeTruthy()
   const before = await color()
 
   await page.getByRole('button', { name: /^Color: #/ }).click()
