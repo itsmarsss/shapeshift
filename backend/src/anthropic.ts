@@ -118,8 +118,7 @@ function mapError(err: unknown): ProviderError {
     return new ProviderError("upstream", "The model request failed.");
 }
 
-export function anthropicProvider(env: Env & { ANTHROPIC_API_KEY: string }): Provider {
-    const model = env.AGENT_MODEL || "claude-opus-5-5";
+export function anthropicProvider(env: Env & { ANTHROPIC_API_KEY: string }, model = env.AGENT_MODEL || "claude-sonnet-5-5"): Provider {
     const effort: Effort = (EFFORTS as readonly string[]).includes(env.AGENT_EFFORT) ? (env.AGENT_EFFORT as Effort) : "medium";
     const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 2 });
 

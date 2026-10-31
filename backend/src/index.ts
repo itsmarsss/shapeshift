@@ -14,7 +14,7 @@ export default {
         const { pathname } = new URL(request.url);
         if (pathname === "/api/agent") {
             if (request.method === "POST") return agentStep(request, env);
-            if (request.method === "GET") return agentInfo(env);
+            if (request.method === "GET") return agentInfo(request, env);
             return Response.json({ error: "Method not allowed", code: "bad_request" }, { status: 405, headers: { allow: "GET, POST" } });
         }
         const accounts = await handleAccounts(request, env);

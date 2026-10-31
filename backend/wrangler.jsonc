@@ -30,7 +30,8 @@
   "r2_buckets": [{ "binding": "SCENES", "bucket_name": "shapeshift-scenes" }],
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
   "vars": {
-    "AGENT_MODEL": "claude-opus-5-5",
+    "AGENT_MODEL": "claude-sonnet-5-5",
+    "AGENT_MODEL_PRO": "claude-opus-5-5",
     "AGENT_EFFORT": "medium"
   },
   "observability": { "enabled": true },
