@@ -181,3 +181,11 @@ test('keeps the inspector simple, with exact numbers under More options', async 
   await page.getByRole('button', { name: 'Fewer options' }).click()
   await expect(page.getByText('Position (m)')).toHaveCount(0)
 })
+
+test('keeps the get-started card clear of the side panels', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await openEditor(page)
+  const card = (await page.getByRole('region', { name: 'Get started' }).boundingBox())!
+  const inspector = (await page.getByText('Inspector', { exact: true }).locator('..').locator('..').boundingBox())!
+  expect(card.x).toBeGreaterThanOrEqual(inspector.x + inspector.width)
+})

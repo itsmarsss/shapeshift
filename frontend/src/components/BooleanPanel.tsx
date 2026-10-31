@@ -8,8 +8,8 @@ import { IconButton, Select } from "./ui";
 const Bar = styled.div`
     position: absolute;
     bottom: calc(var(--gap) + var(--bottom-offset, 0px));
-    left: 50%;
-    transform: translateX(calc(-50% - var(--chat-width) / 2));
+    left: calc((100% + var(--left-inset, 0px) - var(--right-inset, 0px)) / 2);
+    transform: translateX(-50%);
     display: flex;
     gap: 6px;
     align-items: center;
