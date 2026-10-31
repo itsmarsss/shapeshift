@@ -22,21 +22,29 @@ describe("intents", () => {
 
     it("does nothing with the leftover hand after a two-hand gesture", () => {
         const t = new IntentTracker();
-        t.update([hand("Left", true, 0.3, 0.5, 1), hand("Right", true, 0.7, 0.5, 1)]);
+        expect(t.update([hand("Left", true, 0.3, 0.5, 1), hand("Right", true, 0.7, 0.5, 1)])).toEqual([{ type: "pairStart", holding: null }]);
         const pan = t.update([hand("Left", true, 0.2, 0.4, 1, [0.3, 0.5]), hand("Right", true, 0.8, 0.4, 1, [0.7, 0.5])]);
-        expect(pan).toEqual([{ type: "pair", zoom: expect.closeTo(0.2), panX: expect.closeTo(0), panY: expect.closeTo(-0.1) }]);
+        expect(pan).toEqual([{ type: "pair", zoom: expect.closeTo(0.2), panX: expect.closeTo(0), panY: expect.closeTo(-0.1), scale: expect.closeTo(1.5), twist: expect.closeTo(0) }]);
         const leftover = [
-            t.update([hand("Left", false, 0.2, 0.4, 1), hand("Right", true, 0.8, 0.4, 1, [0.7, 0.5])]),
             t.update([hand("Left", false, 0.2, 0.4, 1), hand("Right", true, 0.85, 0.45, 1, [0.7, 0.5])]),
             t.update([hand("Right", false, 0.85, 0.45, 1)]),
         ];
-        expect(leftover.flat()).toEqual([]);
+        // The pair ends once; the hand still pinching does nothing until it pinches again.
+        expect(leftover.flat()).toEqual([{ type: "end" }]);
     });
 
-    it("ends a one-hand drag when the second hand joins", () => {
+    it("hands a one-hand drag to both hands when the second joins, naming the holder", () => {
         const t = new IntentTracker();
         t.update([hand("Right", true, 0.5, 0.5, 1)]);
-        expect(t.update([hand("Right", true, 0.5, 0.5, 1), hand("Left", true, 0.3, 0.5, 1)])).toEqual([{ type: "end" }]);
+        expect(t.update([hand("Right", true, 0.5, 0.5, 1), hand("Left", true, 0.3, 0.5, 1)])).toEqual([{ type: "pairStart", holding: "Right" }]);
+    });
+
+    it("measures a twist of the hands, clockwise on screen", () => {
+        const t = new IntentTracker();
+        t.update([hand("Left", true, 0.3, 0.5, 1), hand("Right", true, 0.7, 0.5, 1)]);
+        // The right hand goes down and the left up: a quarter turn clockwise.
+        const [turn] = t.update([hand("Left", true, 0.5, 0.3, 1), hand("Right", true, 0.5, 0.7, 1)]);
+        expect(turn).toMatchObject({ type: "pair", twist: expect.closeTo(Math.PI / 2), scale: expect.closeTo(1) });
     });
 
     it("lets the leftover hand act again after it re-pinches", () => {
