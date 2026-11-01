@@ -145,11 +145,13 @@ export function HandControls() {
         }
         if (d?.kind !== "object") return;
         aim(x, y);
-        // Bringing the hand closer to the camera pulls the object closer, and
-        // pushing it away sends the object back, scaled to how far away the
-        // object is. The object stays under the pinch either way.
-        const pull = Math.min(depth * DEPTH_GAIN * d.reach, d.reach * 0.9);
-        const plane = d.plane.clone().translate(camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(-pull));
+        // The camera sits at the screen, so reaching toward it reaches into the
+        // scene and pushes the object away; pulling the hand back brings it
+        // closer. Scaled to how far away the object is, and the object stays
+        // under the pinch either way.
+        // Never pulled past the camera, nor pushed off into the distance.
+        const push = Math.min(Math.max(depth * DEPTH_GAIN * d.reach, -d.reach * 0.9), d.reach * 4);
+        const plane = d.plane.clone().translate(camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(push));
         const p = raycaster.current.ray.intersectPlane(plane, new THREE.Vector3());
         if (!p) return;
         p.add(d.offset);
