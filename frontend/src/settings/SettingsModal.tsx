@@ -253,6 +253,16 @@ function Choice<K extends keyof Settings>({ k, options }: { k: K; options: { val
     );
 }
 
+function TutorialButton() {
+    const done = useSettings((s) => s.handsTutorialDone);
+    const set = useSettings((s) => s.set);
+    return (
+        <Button disabled={!done} onClick={() => set({ handsTutorialDone: false })}>
+            {done ? "Show it again" : "Comes up next time"}
+        </Button>
+    );
+}
+
 function CameraPicker() {
     const cameraId = useSettings((s) => s.cameraId);
     const set = useSettings((s) => s.set);
@@ -437,6 +447,9 @@ function Section({ id }: { id: SectionId }) {
                         </Row>
                         <Row label="Turn on when the editor opens" hint="Starts the camera right away if you had hand control on last time">
                             <Toggle k="handsAutoStart" />
+                        </Row>
+                        <Row label="Gesture tutorial" hint="Walks through each gesture the next time hand control is on">
+                            <TutorialButton />
                         </Row>
                     </Group>
                     <Group>

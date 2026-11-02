@@ -31,6 +31,8 @@ export type Settings = {
     showSkeleton: boolean;
     // Hand control comes back on by itself when the editor opens.
     handsAutoStart: boolean;
+    // The gesture walkthrough has been finished or skipped.
+    handsTutorialDone: boolean;
     // Anonymous usage numbers and crash reports; see telemetry.ts.
     shareUsage: boolean;
 };
@@ -58,6 +60,7 @@ export const DEFAULT_SETTINGS: Settings = {
     showHandPreview: true,
     showSkeleton: true,
     handsAutoStart: false,
+    handsTutorialDone: false,
     shareUsage: true,
 };
 
