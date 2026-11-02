@@ -14,4 +14,7 @@ interface Env {
     STRIPE_WEBHOOK_SECRET?: string;
     STRIPE_PRICE_MONTHLY?: string;
     STRIPE_PRICE_YEARLY?: string;
+    // Comma-separated emails with full admin access, set with
+    // `wrangler secret put SUPERUSER_EMAILS` (kept out of the public repo).
+    SUPERUSER_EMAILS?: string;
 }

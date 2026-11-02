@@ -11,7 +11,7 @@ import { drop } from "../ui/motion";
 
 const SignInDialog = lazy(() => import("../account/SignInDialog"));
 
-export type SitePage = "landing" | "home" | "explore" | "pricing";
+export type SitePage = "landing" | "home" | "explore" | "pricing" | "admin";
 
 const Page = styled.div`
     // The editor turns off page scrolling, so pages scroll inside themselves.
