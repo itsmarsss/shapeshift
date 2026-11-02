@@ -4,6 +4,7 @@ export type StepResult = { message: WireAssistantMessage; stop: StopReason; mode
 
 export type StepHandlers = {
     onText?: (text: string) => void;
+    onThinking?: (text: string) => void;
     onToolStart?: (name: string) => void;
 };
 
@@ -73,6 +74,9 @@ async function readStep(response: Response, handlers: StepHandlers, signal: Abor
                 break;
             case "tool_start":
                 handlers.onToolStart?.(event.name);
+                break;
+            case "thinking":
+                handlers.onThinking?.(event.text);
                 break;
             case "message":
                 result = { message: event.message, stop: event.stop, model: event.model };

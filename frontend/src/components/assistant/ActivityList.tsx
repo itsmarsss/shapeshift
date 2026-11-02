@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import styled from "styled-components";
 import { CaretDown, Check, WarningCircle } from "@phosphor-icons/react";
 import type { Activity } from "../../assistant/executor";
@@ -24,6 +24,20 @@ const Row = styled.li<{ $ok: boolean }>`
     color: ${(p) => (p.$ok ? "var(--text-muted)" : "var(--text)")};
     font-size: 12px;
     line-height: 18px;
+
+    // New lines come in one after another, in step with the shapes in the scene.
+    @media (prefers-reduced-motion: no-preference) {
+        &[data-new] {
+            animation: row-in 0.25s ease-out backwards;
+            animation-delay: calc(var(--n) * 70ms);
+        }
+    }
+    @keyframes row-in {
+        from {
+            opacity: 0;
+            transform: translateX(-4px);
+        }
+    }
 
     svg {
         margin-top: 2px;
@@ -122,11 +136,17 @@ export function ActivityList({ activities }: { activities: Activity[] }) {
     const objectIds = useScene((s) => s.doc.objects.map((o) => o.id).join(" "));
     const select = useScene((s) => s.select);
     const exists = (id?: string) => !!id && objectIds.split(" ").includes(id);
+    // Lines already shown don't animate again.
+    const seen = useRef(new Set<string>());
+    const fresh = shown.filter((a) => !seen.current.has(a.id)).map((a) => a.id);
+    useEffect(() => {
+        for (const a of activities) seen.current.add(a.id);
+    }, [activities]);
 
     return (
         <List>
             {shown.map((a) => (
-                <Row key={a.id} $ok={a.ok}>
+                <Row key={a.id} $ok={a.ok} data-new={fresh.includes(a.id) || undefined} style={{ "--n": Math.max(0, fresh.indexOf(a.id)) } as CSSProperties}>
                     {a.ok ? <Check size={12} weight="bold" /> : <WarningCircle size={13} weight="fill" />}
                     {exists(a.target) ? (
                         <LinkLabel type="button" title={`Select · ${a.label}`} onClick={() => select(a.target!)}>

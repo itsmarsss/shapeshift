@@ -16,7 +16,7 @@ type HistoryEntry = SceneState["past"][number];
 
 export type Attachment = { data: string; thumbnail: string };
 
-export type TurnItem = { kind: "text"; text: string } | { kind: "activity"; activities: Activity[] };
+export type TurnItem = { kind: "text"; text: string } | { kind: "thinking"; text: string } | { kind: "activity"; activities: Activity[] };
 
 export type TurnStatus = "running" | "done" | "error" | "stopped";
 
@@ -104,6 +104,15 @@ export const useAssistant = create<AssistantState>()((set, get) => {
                                 last?.kind === "text"
                                     ? [...t.items.slice(0, -1), { kind: "text" as const, text: last.text + text }]
                                     : [...t.items, { kind: "text" as const, text }];
+                            return { items };
+                        }),
+                    onThinking: (text) =>
+                        patchTurn(turnId, (t) => {
+                            const last = t.items[t.items.length - 1];
+                            const items =
+                                last?.kind === "thinking"
+                                    ? [...t.items.slice(0, -1), { kind: "thinking" as const, text: last.text + text }]
+                                    : [...t.items, { kind: "thinking" as const, text }];
                             return { items };
                         }),
                     onToolStart: (name) => patchTurn(turnId, () => ({ writing: TOOL_LABELS[name] ?? "Working" })),
@@ -243,10 +252,11 @@ function toShared(t: Turn): SharedTurn | null {
         id: t.id,
         author: t.author,
         prompt: t.prompt,
-        items: t.items.map((item) =>
-            item.kind === "text"
-                ? item
-                : { kind: "activity", activities: item.activities.map((a) => ({ id: a.id, label: a.label, ok: a.ok, error: a.error, color: a.color, changed: a.changed, target: a.target })) }
+        // Thinking stays with whoever asked; the room sees the reply and the changes.
+        items: t.items.flatMap((item): SharedTurn["items"] =>
+            item.kind === "thinking" ? [] : item.kind === "text"
+                ? [item]
+                : [{ kind: "activity" as const, activities: item.activities.map((a) => ({ id: a.id, label: a.label, ok: a.ok, error: a.error, color: a.color, changed: a.changed, target: a.target })) }]
         ),
         status: t.status,
         note: t.note,
