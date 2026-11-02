@@ -63,6 +63,9 @@ test('shows a friendly message for links that no longer exist', async ({ page })
 })
 
 test('shows signed-in people their scenes before the editor', async ({ page }) => {
+  // Signs in, saves, visits home twice and ends on the 3D landing page, which
+  // is slow on CI's software graphics.
+  test.slow()
   await openEditor(page)
   await page.keyboard.press('5')
   const email = uniqueEmail('home')
