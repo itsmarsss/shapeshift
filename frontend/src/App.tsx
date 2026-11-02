@@ -13,6 +13,8 @@ const LandingPage = lazy(() => import('./landing/LandingPage'))
 function App() {
   const path = location.pathname.replace(/\/$/, '')
   const share = path.match(/^\/s\/([A-Za-z0-9]{10})$/)
+  // One of the sample projects on Explore, opened like a shared scene.
+  const sample = path.match(/^\/explore\/([a-z-]+)$/)
   // The front door: signed-in people land on their scenes, everyone else on
   // the landing page. Links with anything extra, such as a room to join,
   // open the editor, as they did before it moved to /edit.
@@ -24,6 +26,10 @@ function App() {
       {share ? (
         <Suspense fallback={null}>
           <ViewerPage slug={share[1]} />
+        </Suspense>
+      ) : sample ? (
+        <Suspense fallback={null}>
+          <ViewerPage sample={sample[1]} />
         </Suspense>
       ) : home ? (
         <Suspense fallback={null}>

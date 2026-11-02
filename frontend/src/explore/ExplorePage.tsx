@@ -1,9 +1,12 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import styled from "styled-components";
 import { Cube, ShareNetwork } from "@phosphor-icons/react";
 import { api, type ExploreScene } from "../account/api";
 import { SiteShell } from "../site/SiteShell";
-import { Container, Empty, PageHead, TileArt, TileCaption, Tiles, tile } from "../site/parts";
+import { Container, Empty, PageHead, SectionHead, TileArt, TileCaption, Tiles, tile } from "../site/parts";
+import { buildTemplate } from "../scene/templates";
+import { useThumbnails } from "../scene/useThumbnails";
+import { SAMPLES } from "./samples";
 
 const Card = styled.a`
     ${tile}
@@ -84,15 +87,38 @@ export default function ExplorePage() {
         setNext(page.next);
     }
 
+    const sampleDocs = useMemo(() => SAMPLES.map(buildTemplate), []);
+    const samplePictures = useThumbnails(sampleDocs);
+
     return (
         <SiteShell page="explore">
             <Container>
                 <PageHead>
                     <div>
                         <h1>Explore</h1>
-                        <p>Scenes people made and shared. Open one to look around, then remix it into your own.</p>
+                        <p>Open a scene to look around it, then remix it into your own. Start with a few of ours.</p>
                     </div>
                 </PageHead>
+                <SectionHead style={{ marginTop: 0 }}>
+                    <h2>Made by ShapeShift</h2>
+                    <span>{SAMPLES.length}</span>
+                </SectionHead>
+                <Tiles>
+                    {SAMPLES.map((sample, i) => (
+                        <Card key={sample.id} href={`/explore/${sample.id}`} style={{ "--i": i } as CSSProperties}>
+                            <TileArt>{samplePictures[i] ? <img src={samplePictures[i]!} alt="" /> : null}</TileArt>
+                            <TileCaption>
+                                <b>{sample.name}</b>
+                                <small>{sample.blurb}</small>
+                            </TileCaption>
+                        </Card>
+                    ))}
+                </Tiles>
+
+                <SectionHead>
+                    <h2>From the community</h2>
+                    {scenes.length > 0 && <span>{scenes.length}</span>}
+                </SectionHead>
                 {state === "loading" && (
                     <Tiles aria-label="Loading scenes">
                         {Array.from({ length: 8 }, (_, i) => (

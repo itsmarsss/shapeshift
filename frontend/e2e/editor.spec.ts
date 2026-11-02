@@ -392,3 +392,16 @@ test('greets visitors without an account with the landing page', async ({ page }
   await expect(page).toHaveURL(/\/edit$/)
   await expect(page.getByTitle('Add box')).toBeVisible()
 })
+
+test('opens a sample project from Explore and remixes it into the editor', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('shapeshift-onboarded', '1'))
+  await page.goto('/explore')
+  await expect(page.getByRole('heading', { name: 'Made by ShapeShift' })).toBeVisible()
+  await page.getByRole('link', { name: /Windmill farm/ }).click()
+  await expect(page).toHaveURL(/\/explore\/windmill$/)
+  await expect(page.getByText('by ShapeShift')).toBeVisible()
+  await expect(page.getByTitle('Show this scene on your own site')).toHaveCount(0)
+  await page.getByRole('button', { name: /Remix in ShapeShift/ }).click()
+  await expect(page).toHaveURL(/\/edit$/)
+  await expect.poll(countNamed(page, 'Sails 1')).toBe(1)
+})

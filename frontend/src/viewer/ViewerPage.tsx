@@ -15,6 +15,8 @@ import { SceneLight } from "../viewport/SceneLight";
 import { SceneEnvironment } from "../viewport/SceneEnvironment";
 import { REMIX_KEY } from "./remix";
 import { embedCode } from "./embed";
+import { SAMPLES } from "../explore/samples";
+import { buildTemplate } from "../scene/templates";
 
 
 const Page = styled.div`
@@ -67,6 +69,7 @@ const Action = styled.a<{ $primary?: boolean }>`
     border: 1px solid ${(p) => (p.$primary ? "var(--accent)" : "var(--border-strong)")};
     background: ${(p) => (p.$primary ? "var(--accent)" : "transparent")};
     color: ${(p) => (p.$primary ? "var(--accent-text)" : "var(--text)")};
+    font: inherit;
     font-weight: 500;
     text-decoration: none;
     white-space: nowrap;
@@ -231,7 +234,8 @@ function remixDoc(doc: SceneDoc) {
     location.href = "/edit";
 }
 
-export default function ViewerPage({ slug }: { slug: string }) {
+// A shared scene by its link, or one of the sample projects from Explore.
+export default function ViewerPage({ slug, sample }: { slug?: string; sample?: string }) {
     const [shared, setShared] = useState<Shared | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [showEmbed, setShowEmbed] = useState(false);
@@ -240,6 +244,13 @@ export default function ViewerPage({ slug }: { slug: string }) {
     const embedded = new URLSearchParams(location.search).has("embed");
 
     useEffect(() => {
+        if (sample !== undefined) {
+            const found = SAMPLES.find((s) => s.id === sample);
+            if (!found) return setError("There's no sample with that name.");
+            setShared({ title: found.name, author: "ShapeShift", doc: buildTemplate(found) });
+            document.title = `${found.name} · ShapeShift`;
+            return;
+        }
         fetch(`/api/public/${slug}`)
             .then(async (res) => {
                 const data = (await res.json()) as { title?: string; author?: string | null; doc?: unknown; error?: string };
@@ -253,9 +264,9 @@ export default function ViewerPage({ slug }: { slug: string }) {
                 document.title = `${data.title} · ShapeShift`;
             })
             .catch((err) => setError(err instanceof Error ? err.message : "This scene couldn't be opened."));
-    }, [slug]);
+    }, [slug, sample]);
 
-    const code = shared ? embedCode(location.origin, slug, shared.title) : "";
+    const code = shared && slug ? embedCode(location.origin, slug, shared.title) : "";
     async function copyEmbed() {
         await navigator.clipboard?.writeText(code).catch(() => {});
         setCopied(true);
@@ -273,13 +284,13 @@ export default function ViewerPage({ slug }: { slug: string }) {
                         <small>{shared ? (shared.author ? `by ${shared.author}` : "Shared scene") : error ? "" : "Loading…"}</small>
                     </div>
                     {shared && (
-                        <Action $primary onClick={() => remixDoc(shared.doc)} title="Copy this scene into your own editor">
+                        <Action as="button" type="button" $primary onClick={() => remixDoc(shared.doc)} title="Copy this scene into your own editor">
                             <Copy size={16} />
                             <span>Remix in ShapeShift</span>
                         </Action>
                     )}
-                    {shared && (
-                        <Action onClick={() => setShowEmbed((v) => !v)} title="Show this scene on your own site">
+                    {shared && slug && (
+                        <Action as="button" type="button" onClick={() => setShowEmbed((v) => !v)} title="Show this scene on your own site">
                             <Code size={16} />
                             <span>Embed</span>
                         </Action>
@@ -309,7 +320,7 @@ export default function ViewerPage({ slug }: { slug: string }) {
                     <Canvas shadows dpr={[1, 2]} camera={{ position: [4, 3.5, 6], fov: 45, near: 0.05, far: 500 }} style={{ position: "absolute", inset: 0 }}>
                         <Scene doc={shared.doc} />
                     </Canvas>
-                    {embedded ? (
+                    {embedded && slug ? (
                         <Badge href={`/s/${slug}?remix=1`} target="_blank" rel="noopener" title="Open a copy of this scene in ShapeShift">
                             <img src="/icon.svg" alt="" />
                             Made with ShapeShift · <span>Remix</span>
