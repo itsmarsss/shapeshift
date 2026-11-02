@@ -32,8 +32,10 @@ const Pinned = styled.div`
 const Stage = styled.div`
     position: absolute;
     inset: 0 0 0 38%;
-    // Fades in from the captions' side instead of starting at a hard edge.
-    mask-image: linear-gradient(to right, transparent, #000 22%);
+    // Fades in from the captions' side and from the top, instead of hard edges.
+    mask-image: linear-gradient(to right, transparent, #000 22%), linear-gradient(to bottom, transparent, #000 16%);
+    mask-composite: intersect;
+    -webkit-mask-composite: source-in;
 
     @media (max-width: 820px) {
         inset: 0 0 36% 0;
@@ -124,6 +126,8 @@ export function Story() {
     const track = useRef<HTMLElement>(null);
     const bar = useRef<HTMLElement>(null);
     const progress = useRef(0);
+    // How far the story has come up into view before it starts, 0 to 1.
+    const approach = useRef(0);
     const [step, setStep] = useState(0);
 
     useEffect(() => {
@@ -142,7 +146,17 @@ export function Story() {
                 setStep(Math.min(STEPS.length - 1, Math.floor(self.progress * STEPS.length)));
             },
         });
-        return () => trigger.kill();
+        const coming = ScrollTrigger.create({
+            trigger: el,
+            scroller,
+            start: "top bottom",
+            end: "top top",
+            onUpdate: (self) => void (approach.current = self.progress),
+        });
+        return () => {
+            trigger.kill();
+            coming.kill();
+        };
     }, []);
 
     return (
@@ -150,7 +164,7 @@ export function Story() {
             <Pinned>
                 <Stage>
                     <Suspense fallback={null}>
-                        <StoryScene progress={progress} />
+                        <StoryScene progress={progress} approach={approach} />
                     </Suspense>
                 </Stage>
                 <Captions>

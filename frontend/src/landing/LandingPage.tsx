@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import styled, { keyframes } from "styled-components";
-import { ArrowRight, HandGrabbing, Microphone } from "@phosphor-icons/react";
+import { ArrowRight, CaretDown, HandGrabbing, Microphone } from "@phosphor-icons/react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Story } from "./Story";
@@ -51,6 +51,9 @@ const Hero = styled.section`
 `;
 
 const HeroInner = styled.div`
+    // The first screen, less a strip at the bottom where the story peeks in,
+    // but no taller than the content needs on a tall screen.
+    min-height: min(calc(100svh - 60px - 140px), 660px);
     width: min(1120px, 100%);
     margin: 0 auto;
     padding: 64px 24px 72px;
@@ -60,9 +63,45 @@ const HeroInner = styled.div`
     gap: 48px;
 
     @media (max-width: 900px) {
+        min-height: 0;
         grid-template-columns: 1fr;
         gap: 36px;
         padding: 36px 16px 48px;
+    }
+`;
+
+const nudge = keyframes`
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(5px); }
+`;
+
+// Points down to the story.
+const More = styled.button`
+    position: absolute;
+    left: 50%;
+    bottom: 18px;
+    translate: -50% 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 13px;
+
+    &:hover {
+        color: var(--text);
+    }
+    svg {
+        @media (prefers-reduced-motion: no-preference) {
+            animation: ${nudge} 1.6s ease-in-out infinite;
+        }
+    }
+    @media (max-width: 900px) {
+        display: none;
     }
 `;
 
@@ -405,6 +444,14 @@ export default function LandingPage() {
                             </Chip>
                         </Window>
                     </HeroInner>
+                    <More
+                        onClick={() =>
+                            document.querySelector('[aria-label="How it works"]')?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" })
+                        }
+                    >
+                        See how it works
+                        <CaretDown size={16} weight="bold" />
+                    </More>
                 </Hero>
 
                 <Story />

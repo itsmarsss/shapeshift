@@ -77,7 +77,7 @@ function filament() {
 
 const CABIN = buildTemplate(TEMPLATES.find((t) => t.id === "cabin")!);
 
-function Story({ progress }: { progress: MutableRefObject<number> }) {
+function Story({ progress, approach: coming }: { progress: MutableRefObject<number>; approach: MutableRefObject<number> }) {
     // Lowest pieces first, so the island lands before what stands on it.
     const parts = useMemo(
         () =>
@@ -110,8 +110,12 @@ function Story({ progress }: { progress: MutableRefObject<number> }) {
         shown.current += (progress.current - shown.current) * Math.min(1, dt * 5);
         const p = shown.current;
         const build = phase(p, 0.02, 0.3);
-        // Nothing shows until the story starts, so the pieces don't litter the page above.
-        const appear = phase(p, 0, 0.035);
+        // Before the story starts, its top edge peeks in under the hero: the
+        // pieces float high up there, then sink toward their places as it
+        // scrolls up, a hint of what's coming.
+        const near = p > 0 ? 1 : coming.current;
+        const appear = phase(near, 0, 0.2);
+        const rise = (1 - near) * 2.6;
         const grab = clamp01((p - 0.3) / 0.22);
         const paint = phase(p, 0.52, 0.66);
         const print = phase(p, 0.72, 0.98);
@@ -125,7 +129,7 @@ function Story({ progress }: { progress: MutableRefObject<number> }) {
             const bob = (1 - t) * Math.sin(now / 700 + i * 1.7) * 0.15;
             mesh.position.set(
                 THREE.MathUtils.lerp(from.x, o.position[0], t),
-                THREE.MathUtils.lerp(from.y, o.position[1], t) + bob,
+                THREE.MathUtils.lerp(from.y, o.position[1], t) + bob + rise,
                 THREE.MathUtils.lerp(from.z, o.position[2], t),
             );
             mesh.rotation.set(o.rotation[0] + spin.x * (1 - t), o.rotation[1] + spin.y * (1 - t), o.rotation[2] + spin.z * (1 - t));
@@ -202,7 +206,7 @@ function Story({ progress }: { progress: MutableRefObject<number> }) {
     );
 }
 
-export default function StoryScene({ progress }: { progress: MutableRefObject<number> }) {
+export default function StoryScene({ progress, approach }: { progress: MutableRefObject<number>; approach: MutableRefObject<number> }) {
     return (
         <Canvas
             shadows
@@ -213,7 +217,7 @@ export default function StoryScene({ progress }: { progress: MutableRefObject<nu
             onCreated={({ gl }) => void (gl.localClippingEnabled = true)}
         >
             <Studio />
-            <Story progress={progress} />
+            <Story progress={progress} approach={approach} />
         </Canvas>
     );
 }
