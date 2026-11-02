@@ -68,7 +68,7 @@ const STEPS: Step[] = [
     },
     {
         title: "Use both hands",
-        text: "Pinch with both hands and spread them apart to zoom. Do it while holding a shape to resize and turn it.",
+        text: "Pinch with both hands: spread them to zoom, move them together to pan, twist them like a wheel to turn the view. Do it while holding a shape to resize and turn it.",
         Icon: ArrowsOut,
         motion: "spread",
         done: () => activity() === "camera" || activity() === "stretch",
@@ -82,7 +82,7 @@ const STEPS: Step[] = [
     },
     {
         title: "Press buttons",
-        text: "Point at any button until it's outlined, then pinch to press it. Try it on Finish.",
+        text: "Point at a button until it's outlined, then pinch and let go to press it. Pinch and move to scroll a panel or drag a slider. Try it on Finish.",
         Icon: CursorClick,
         motion: "tap",
     },

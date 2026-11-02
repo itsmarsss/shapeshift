@@ -8,8 +8,9 @@ const PRESSABLE = [
     "a[href]",
     "summary",
     "label",
-    // Sliders and dropdowns don't respond to a click, so they're left out.
-    'input:not([type="range"]):not([type="color"])',
+    // Sliders are dragged rather than pressed (see slideTo); colour wells and
+    // dropdowns don't respond to a click, so they're left out.
+    'input:not([type="color"])',
     "textarea",
     '[role="menuitem"]',
     '[role="tab"]',
@@ -18,6 +19,43 @@ const PRESSABLE = [
     '[role="checkbox"]',
     '[role="button"]',
 ].join(", ");
+
+// Anything on the interface (a panel, a list, a dialog) rather than the 3D view.
+export function interfaceAt(x: number, y: number): HTMLElement | null {
+    const el = document.elementFromPoint(x * window.innerWidth, y * window.innerHeight);
+    return el instanceof HTMLElement && !el.closest("canvas") ? el : null;
+}
+
+// The nearest part of the page around el that can scroll, if any.
+export function scrollerFor(el: HTMLElement): HTMLElement | null {
+    for (let n: HTMLElement | null = el; n && n !== document.body; n = n.parentElement) {
+        const style = getComputedStyle(n);
+        const tall = /(auto|scroll)/.test(style.overflowY) && n.scrollHeight > n.clientHeight + 1;
+        const wide = /(auto|scroll)/.test(style.overflowX) && n.scrollWidth > n.clientWidth + 1;
+        if (tall || wide) return n;
+    }
+    return null;
+}
+
+export const isSlider = (el: HTMLElement): el is HTMLInputElement => el instanceof HTMLInputElement && el.type === "range";
+
+const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
+
+// Moves a slider to where the hand is across it. The value is set the way
+// typing would, so React's onChange sees it.
+export function slideTo(el: HTMLInputElement, x: number) {
+    const rect = el.getBoundingClientRect();
+    const t = Math.min(1, Math.max(0, (x * window.innerWidth - rect.left) / rect.width));
+    const min = Number(el.min || 0);
+    const max = Number(el.max || 100);
+    const step = Number(el.step);
+    let value = min + t * (max - min);
+    if (step > 0) value = Math.round((value - min) / step) * step + min;
+    if (String(value) === el.value) return;
+    setValue.call(el, String(value));
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+}
 
 const TYPING = 'textarea, input:not([type]), input[type="text"], input[type="number"], input[type="search"], input[type="email"]';
 

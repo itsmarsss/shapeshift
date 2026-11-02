@@ -12,7 +12,7 @@ import { nearestVertex, objectMatrix, useEditSelection } from "../viewport/editS
 import { useSettings } from "../settings/store";
 import type { Vec3 } from "@shapeshift/shared/scene/schema";
 import { MAX_FACTOR, MIN_FACTOR, stretched } from "./stretch";
-import { clearControls, controlAt, hoverControl, pressControl } from "./pointer";
+import { clearControls, controlAt, hoverControl, interfaceAt, isSlider, pressControl, scrollerFor, slideTo } from "./pointer";
 import { windowToView } from "../viewport/frame";
 
 type Drag =
@@ -21,7 +21,11 @@ type Drag =
     // One hand held an object and the other joined: spreading the hands
     // scales it and twisting them turns it about its upright axis.
     | { kind: "stretch"; id: string; scale: Vec3; rotation: Vec3; factor: number; twist: number }
-    | { kind: "orbit" };
+    | { kind: "orbit" }
+    // A pinch on the interface: dragging a slider, or scrolling a panel. A
+    // pinch that doesn't move presses what it started on when it lets go.
+    | { kind: "slider"; el: HTMLInputElement }
+    | { kind: "ui"; control: HTMLElement | null; scroller: HTMLElement | null; x: number; y: number; moved: boolean };
 
 // How far an object moves, as a share of its distance, per meter the hand moves toward or away from the camera.
 const DEPTH_GAIN = 2.5;
@@ -30,6 +34,8 @@ const ZOOM_SPEED = 12;
 const PAN_SPEED = 6;
 const objectHand = (): Handedness => useSettings.getState().handObject;
 const VERTEX_RADIUS = 0.06;
+// How far, in pixels, a pinch on a button can drift and still press it.
+const PRESS_SLOP = 28;
 
 
 export function HandControls() {
@@ -81,11 +87,14 @@ export function HandControls() {
     }
 
     function start(handedness: Handedness, x: number, y: number) {
-        // Pinching over a button presses it, and the pinch does nothing else.
-        const control = controlAt(x, y);
-        if (control) {
-            drag.current = null;
-            pressControl(control);
+        // A pinch over the interface works it like a finger on a touch screen.
+        const ui = interfaceAt(x, y);
+        if (ui) {
+            const control = controlAt(x, y);
+            if (control && isSlider(control)) {
+                drag.current = { kind: "slider", el: control };
+                slideTo(control, x);
+            } else drag.current = { kind: "ui", control, scroller: scrollerFor(ui), x, y, moved: false };
             return;
         }
         drag.current = { kind: "orbit" };
@@ -124,6 +133,16 @@ export function HandControls() {
 
     function move(x: number, y: number, dx: number, dy: number, depth = 0) {
         const d = drag.current;
+        if (d?.kind === "slider") return slideTo(d.el, x);
+        if (d?.kind === "ui") {
+            // Past a small wobble it's a scroll, and no longer a press.
+            if (!d.moved && Math.hypot((x - d.x) * window.innerWidth, (y - d.y) * window.innerHeight) > PRESS_SLOP) d.moved = true;
+            if (d.moved && d.scroller) {
+                d.scroller.scrollTop -= dy * window.innerHeight;
+                d.scroller.scrollLeft -= dx * window.innerWidth;
+            }
+            return;
+        }
         if (d?.kind === "orbit") {
             const speed = ORBIT_SPEED * useSettings.getState().handOrbitSpeed;
             controls?.rotate(-dx * speed, -dy * speed, false);
@@ -164,7 +183,8 @@ export function HandControls() {
     // A two-hand pinch without a held object moves the camera.
     const pairing = useRef(false);
     function report() {
-        const kind = drag.current?.kind;
+        const d = drag.current;
+        const kind = d?.kind === "ui" ? (d.moved ? (d.scroller ? "scroll" : null) : d.control ? "press" : null) : d?.kind;
         const activity: HandActivity = kind ?? (pairing.current ? "camera" : null);
         if (useHandActivity.getState().activity !== activity) useHandActivity.setState({ activity });
     }
@@ -188,7 +208,9 @@ export function HandControls() {
 
     function end() {
         pairing.current = false;
-        const kind = drag.current?.kind;
+        const d = drag.current;
+        if (d?.kind === "ui" && !d.moved && d.control) pressControl(d.control);
+        const kind = d?.kind;
         if (kind === "object" || kind === "vertex" || kind === "stretch") useScene.getState().endCoalesce();
         drag.current = null;
     }
@@ -222,6 +244,8 @@ export function HandControls() {
             else if (controls) {
                 controls.dolly(intent.zoom * ZOOM_SPEED * useSettings.getState().handZoomSpeed, false);
                 controls.truck(-intent.panX * PAN_SPEED, -intent.panY * PAN_SPEED, false);
+                // Twisting the hands, like turning a wheel, turns the view.
+                controls.rotate(intent.twist * useSettings.getState().handOrbitSpeed, 0, false);
             }
         }
         hover();

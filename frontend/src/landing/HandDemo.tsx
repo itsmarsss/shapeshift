@@ -12,14 +12,14 @@ const LABEL: Record<DemoStatus["state"], string> = {
     near: "Pinch to grab it",
     holding: "Move it, reach in or pull back · open your fingers to drop",
     orbit: "Turning the view",
-    zoom: "Zooming",
+    zoom: "Spread to zoom · twist to turn",
 };
 
 const GESTURES = [
     ["Pinch a shape", "grab it"],
     ["Reach toward the screen", "push it away"],
     ["Pinch empty space", "turn the view"],
-    ["Pinch with both hands", "zoom"],
+    ["Pinch with both hands", "spread to zoom, twist to turn"],
 ];
 
 // MediaPipe's hand: which landmarks the lines in the camera preview join.
