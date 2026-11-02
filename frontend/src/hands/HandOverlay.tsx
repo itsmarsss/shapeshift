@@ -21,6 +21,8 @@ const Cursor = styled.div`
     left: 0;
     top: 0;
     display: none;
+    // A short glide, so a snap onto a button or shape shows as a movement.
+    transition: translate 70ms ease-out;
 
     i {
         position: absolute;

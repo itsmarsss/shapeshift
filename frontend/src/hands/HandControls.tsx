@@ -12,7 +12,7 @@ import { nearestVertex, objectMatrix, useEditSelection } from "../viewport/editS
 import { useSettings } from "../settings/store";
 import type { Vec3 } from "@shapeshift/shared/scene/schema";
 import { MAX_FACTOR, MIN_FACTOR, stretched } from "./stretch";
-import { clearControls, hoverControl, hoveredControl, interfaceAt, isSlider, magnetAt, pressControl, scrollerFor, slideTo } from "./pointer";
+import { clearControls, hoverControl, hoveredControl, interfaceAt, isSlider, magnetAt, pressControl, pullToShape, scrollerFor, slideTo } from "./pointer";
 import { windowToView } from "../viewport/frame";
 
 type Drag =
@@ -48,6 +48,7 @@ export function HandControls() {
     const camera = useThree((s) => s.camera);
     const size = useThree((s) => s.size);
     const scene = useThree((s) => s.scene);
+    const gl = useThree((s) => s.gl);
     const controls = useThree((s) => s.controls) as CameraControls | null;
     const intents = useRef(new IntentTracker());
     const drag = useRef<Drag | null>(null);
@@ -69,7 +70,8 @@ export function HandControls() {
     // The shape under the hand, or failing that the one it's close to on
     // screen, so a hand needn't be exactly on it. A shape already pointed at
     // holds on a little further out.
-    function shapeAt(x: number, y: number, current: string | null): string | null {
+    function shapeAt(x: number, y: number, current: string | null, pull?: Handedness): string | null {
+        if (pull) pullToShape(pull, null);
         const hit = pick(x, y)?.object.name;
         if (hit) return hit;
         const [vx, vy] = windowToView(x, y);
@@ -78,6 +80,7 @@ export function HandControls() {
         const fov = ((camera as THREE.PerspectiveCamera).fov ?? 45) * (Math.PI / 180);
         let best: string | null = null;
         let bestGap = Infinity;
+        let bestAt: [number, number] | null = null;
         for (const o of useScene.getState().doc.objects) {
             const mesh = scene.getObjectByName(o.id) as THREE.Mesh | undefined;
             if (!mesh?.geometry) continue;
@@ -93,7 +96,13 @@ export function HandControls() {
             if (g <= reach && g < bestGap) {
                 best = o.id;
                 bestGap = g;
+                bestAt = [((p.x + 1) / 2) * size.width, ((1 - p.y) / 2) * size.height];
             }
+        }
+        // Draw the cursor most of the way to its edge, so the snap shows.
+        if (pull && bestAt) {
+            const rect = gl.domElement.getBoundingClientRect();
+            pullToShape(pull, [rect.left + px + (bestAt[0] - px) * 0.55, rect.top + py + (bestAt[1] - py) * 0.55]);
         }
         return best;
     }
@@ -118,7 +127,8 @@ export function HandControls() {
         const h = live.hands.find((hand) => hand.handedness === objectHand() && !hand.pinching && !hoveredControl(hand.handedness));
         const idle = h && useScene.getState().mode !== "render" && !drag.current;
         const vertex = idle ? vertexAt(h.x, h.y) : null;
-        const id = idle && !vertex ? shapeAt(h.x, h.y, useHandHover.getState().hoveredId) : null;
+        const id = idle && !vertex ? shapeAt(h.x, h.y, useHandHover.getState().hoveredId, h.handedness) : null;
+        if (!id) for (const side of ["Left", "Right"] as const) pullToShape(side, null);
         if (useHandHover.getState().hoveredId !== id) useHandHover.setState({ hoveredId: id });
         const index = vertex?.index ?? null;
         if (useEditSelection.getState().hoverVertex !== index) useEditSelection.setState({ hoverVertex: index });
