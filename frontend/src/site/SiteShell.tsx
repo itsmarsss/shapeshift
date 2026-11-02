@@ -11,7 +11,7 @@ import { drop } from "../ui/motion";
 
 const SignInDialog = lazy(() => import("../account/SignInDialog"));
 
-export type SitePage = "home" | "explore" | "pricing";
+export type SitePage = "landing" | "home" | "explore" | "pricing";
 
 const Page = styled.div`
     // The editor turns off page scrolling, so pages scroll inside themselves.
@@ -286,7 +286,7 @@ function AccountMenu() {
                             <Sparkle size={16} />
                             {pro ? "Your plan" : "Upgrade to Pro"}
                         </a>
-                        <button role="menuitem" onClick={() => void useAccount.getState().signOut().then(() => location.replace("/edit"))}>
+                        <button role="menuitem" onClick={() => void useAccount.getState().signOut().then(() => location.replace("/"))}>
                             <SignOut size={16} />
                             Sign out
                         </button>
@@ -320,7 +320,7 @@ export function SiteShell({ page, children }: { page: SitePage; children: ReactN
             <GlobalStyle />
             <Nav>
                 <NavInner>
-                    <Brand href={signedIn ? "/" : "/edit"} aria-label="ShapeShift">
+                    <Brand href="/" aria-label="ShapeShift">
                         <img src="/icon.svg" alt="" />
                         <span>ShapeShift</span>
                     </Brand>
@@ -340,7 +340,7 @@ export function SiteShell({ page, children }: { page: SitePage; children: ReactN
                     {user ? <AccountMenu /> : loaded && <SignIn onClick={() => useAccount.getState().setShowSignIn(true)}>Sign in</SignIn>}
                     <Editor href="/edit" title="Open the editor">
                         <PencilSimple size={16} weight="bold" />
-                        <span>Open editor</span>
+                        <span>{signedIn ? "Open editor" : "Start creating"}</span>
                     </Editor>
                 </NavInner>
             </Nav>

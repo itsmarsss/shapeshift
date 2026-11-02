@@ -8,13 +8,17 @@ const ViewerPage = lazy(() => import('./viewer/ViewerPage'))
 const HomePage = lazy(() => import('./home/HomePage'))
 const PricingPage = lazy(() => import('./pricing/PricingPage'))
 const ExplorePage = lazy(() => import('./explore/ExplorePage'))
+const LandingPage = lazy(() => import('./landing/LandingPage'))
 
 function App() {
   const path = location.pathname.replace(/\/$/, '')
   const share = path.match(/^\/s\/([A-Za-z0-9]{10})$/)
-  // Signed-in people land on their scenes; everyone else goes straight to the
-  // editor. Links with anything extra, such as a room to join, always open it.
-  const home = path === '' && !location.search && seemsSignedIn()
+  // The front door: signed-in people land on their scenes, everyone else on
+  // the landing page. Links with anything extra, such as a room to join,
+  // open the editor, as they did before it moved to /edit.
+  const front = path === '' && !location.search
+  const home = front && seemsSignedIn()
+  const landing = front && !home
   return (
     <ErrorBoundary>
       {share ? (
@@ -24,6 +28,10 @@ function App() {
       ) : home ? (
         <Suspense fallback={null}>
           <HomePage />
+        </Suspense>
+      ) : landing ? (
+        <Suspense fallback={null}>
+          <LandingPage />
         </Suspense>
       ) : path === '/explore' ? (
         <Suspense fallback={null}>
