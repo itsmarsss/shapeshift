@@ -88,7 +88,8 @@ export function HandControls() {
             const distance = camera.position.distanceTo(sphere.center);
             const radius = (sphere.radius / distance) * (size.height / 2 / Math.tan(fov / 2));
             const g = Math.max(0, Math.hypot((p.x + 1) / 2 * size.width - px, (1 - p.y) / 2 * size.height - py) - radius);
-            const reach = o.id === current ? SHAPE_MAGNET * 1.6 : SHAPE_MAGNET;
+            const strength = SHAPE_MAGNET * useSettings.getState().handMagnet;
+            const reach = o.id === current ? strength * 1.6 : strength;
             if (g <= reach && g < bestGap) {
                 best = o.id;
                 bestGap = g;

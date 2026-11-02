@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import styled from "styled-components";
 import * as m from "motion/react-m";
 import { fade, pop } from "../ui/motion";
-import { Cube, Database, Hand, Keyboard, Monitor, PencilSimple, X } from "@phosphor-icons/react";
+import { Cube, Database, Hand, HandPointing, Keyboard, Monitor, PencilSimple, X } from "@phosphor-icons/react";
 import { useUI } from "../ui/store";
 import { useHands } from "../hands/tracker";
 import { useSettings, type Settings } from "./store";
@@ -179,6 +179,63 @@ const Narrow = styled(Select)`
     width: 190px;
 `;
 
+// What a gesture does, in the gesture guide.
+const Does = styled.span`
+    color: var(--text-muted);
+    text-align: right;
+    max-width: 260px;
+`;
+
+// Every hand gesture and spoken shortcut, so they're all in one place.
+const GESTURES: [string, [string, string][]][] = [
+    [
+        "One hand",
+        [
+            ["Point", "Moves the cursor; buttons and shapes near it light up"],
+            ["Pinch a shape", "Picks it up to move it"],
+            ["Reach toward the screen while holding", "Pushes it away; pull back to bring it closer"],
+            ["Pinch empty space", "Turns the view"],
+            ["Pinch a button, let go", "Presses it"],
+            ["Pinch a panel and move", "Scrolls it"],
+            ["Pinch a slider and move", "Sets it"],
+            ["Open palm, held still", "Hand menu: shapes, undo, redo, fit view, talk"],
+        ],
+    ],
+    [
+        "Both hands",
+        [
+            ["Pinch both, spread apart", "Zooms in and out"],
+            ["Pinch both, move together", "Pans the view"],
+            ["Pinch both, twist like a wheel", "Turns the view"],
+            ["Hold a shape, pinch with the other and spread or twist", "Resizes and turns it"],
+        ],
+    ],
+    [
+        "While one hand holds a shape",
+        [
+            ["Tap the other hand on empty space", "Leaves a copy behind"],
+            ["Tap the other hand on another shape", "Selects that too (tap again to deselect)"],
+            ["Open the other palm", "Menu for the shape: colour, duplicate, hole, delete"],
+        ],
+    ],
+    [
+        "Thumb to a fingertip",
+        [
+            ["Thumb to middle finger", "Talk to the assistant"],
+            ["Thumb to ring finger", "Next mode"],
+            ["Thumb to pinky", "Undo"],
+        ],
+    ],
+    [
+        "Saying it",
+        [
+            ["“Undo”, “redo”, “delete it”, “duplicate”", "Done straight away"],
+            ["“Add a sphere”, “fit view”, “select all”, “preview mode”", "Done straight away"],
+            ["Anything else", "Goes to the assistant"],
+        ],
+    ],
+];
+
 const Keys = styled.span`
     display: inline-flex;
     gap: 4px;
@@ -328,6 +385,7 @@ const SECTIONS = [
     { id: "viewport", label: "Viewport", Icon: Cube },
     { id: "editing", label: "Editing", Icon: PencilSimple },
     { id: "hands", label: "Hand control", Icon: Hand },
+    { id: "gestures", label: "Gesture guide", Icon: HandPointing },
     { id: "shortcuts", label: "Shortcuts", Icon: Keyboard },
     { id: "data", label: "Data", Icon: Database },
 ] as const;
@@ -475,7 +533,25 @@ function Section({ id }: { id: SectionId }) {
                         <Row label="Zoom speed">
                             <Slider k="handZoomSpeed" min={0.25} max={3} step={0.05} />
                         </Row>
+                        <Row label="Magnetic targeting" hint="How strongly nearby buttons and shapes pull the hand cursor onto them">
+                            <Slider k="handMagnet" min={0} max={2} step={0.1} format={(v) => (v === 0 ? "Off" : `${Math.round(v * 100)}%`)} />
+                        </Row>
                     </Group>
+                </>
+            );
+        case "gestures":
+            return (
+                <>
+                    {GESTURES.map(([title, rows]) => (
+                        <Group key={title}>
+                            <GroupTitle>{title}</GroupTitle>
+                            {rows.map(([gesture, does]) => (
+                                <Row key={gesture} label={gesture}>
+                                    <Does>{does}</Does>
+                                </Row>
+                            ))}
+                        </Group>
+                    ))}
                 </>
             );
         case "shortcuts":

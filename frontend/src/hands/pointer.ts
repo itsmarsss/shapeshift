@@ -1,4 +1,5 @@
 import type { Handedness } from "./gestures";
+import { useSettings } from "../settings/store";
 
 // Lets a hand use the interface the way a mouse does: point at a button and
 // pinch to press it. Points are 0 to 1 across and down the window.
@@ -74,6 +75,8 @@ const hovered: Record<Handedness, HTMLElement | null> = { Left: null, Right: nul
 // can't be as exact as a mouse: within MAGNET pixels counts as on it, and a
 // button it's already on holds it until it's STICK times as far away.
 const MAGNET = 44;
+// Settings → Hand control scales it; 0 is off.
+const magnet = () => MAGNET * useSettings.getState().handMagnet;
 const STICK = 1.6;
 // Where each hand's cursor is drawn, pulled toward what it's on.
 const drawn: Record<Handedness, [number, number] | null> = { Left: null, Right: null };
@@ -94,7 +97,7 @@ export function magnetAt(handedness: Handedness, x: number, y: number): HTMLElem
             const rect = el.getBoundingClientRect();
             if (!rect.width || !rect.height || el.matches(':disabled, [aria-disabled="true"]')) continue;
             const g = gap(rect, px, py);
-            const reach = el === hovered[handedness] ? MAGNET * STICK : MAGNET;
+            const reach = el === hovered[handedness] ? magnet() * STICK : magnet();
             if (g > reach || g >= bestGap) continue;
             // Only if it's really there, not hidden under a dialog.
             const cx = Math.min(Math.max(px, rect.left + 1), rect.right - 1);
