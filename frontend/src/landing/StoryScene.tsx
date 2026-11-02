@@ -1,6 +1,6 @@
 import { useMemo, useRef, type MutableRefObject } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { ContactShadows, RoundedBox } from "@react-three/drei";
+import { ContactShadows } from "@react-three/drei";
 import * as THREE from "three";
 import { TEMPLATES, buildTemplate } from "../scene/templates";
 import { clayGeometry, clayMaterial } from "./clay";
@@ -33,81 +33,46 @@ function scatter(i: number): { from: THREE.Vector3; spin: THREE.Euler } {
     };
 }
 
-// A simple hand, palm down: a rounded palm and fingers made of segments.
-// Finger tips move between open and pinched; at full pinch the thumb and
-// index tips meet at the hand's origin, which is what gets placed on things.
-type Finger = { base: [number, number, number]; open: [number, number, number]; shut: [number, number, number]; radius: number };
-const FINGERS: Finger[] = [
-    { base: [-0.24, 0.5, 0.42], open: [-0.46, 0.22, 0.1], shut: [0.015, -0.005, 0.02], radius: 0.06 }, // thumb
-    { base: [-0.15, 0.46, 0.18], open: [-0.2, 0.16, -0.2], shut: [-0.015, 0.01, -0.005], radius: 0.05 }, // index
-    { base: [-0.02, 0.46, 0.15], open: [-0.04, 0.14, -0.26], shut: [-0.03, 0.12, -0.09], radius: 0.05 }, // middle
-    { base: [0.1, 0.47, 0.17], open: [0.12, 0.16, -0.2], shut: [0.09, 0.17, -0.03], radius: 0.048 }, // ring
-    { base: [0.21, 0.49, 0.23], open: [0.27, 0.22, -0.1], shut: [0.2, 0.23, 0.05], radius: 0.042 }, // pinky
-];
-const UP = new THREE.Vector3(0, 1, 0);
-
-function Hand({ pinch, group }: { pinch: MutableRefObject<number>; group: MutableRefObject<THREE.Group | null> }) {
-    const material = useMemo(() => new THREE.MeshStandardMaterial({ color: "#f2f3f7", roughness: 0.42, metalness: 0 }), []);
-    const glow = useMemo(() => new THREE.MeshStandardMaterial({ color: "#5b84ff", emissive: "#5b84ff", emissiveIntensity: 1.4, transparent: true }), []);
-    const bones = useRef<(THREE.Mesh | null)[]>([]);
-    const joints = useRef<(THREE.Mesh | null)[]>([]);
-    const spark = useRef<THREE.Mesh>(null);
-
-    useFrame(() => {
+// The hand cursor, as the editor draws it: a soft ring that tightens round a
+// dot when the fingers pinch.
+function Cursor({ pinch, group }: { pinch: MutableRefObject<number>; group: MutableRefObject<THREE.Group | null> }) {
+    const ring = useRef<THREE.Mesh>(null);
+    const dot = useRef<THREE.Mesh>(null);
+    const material = useMemo(() => new THREE.MeshStandardMaterial({ color: "#ffffff", emissive: "#6b8dff", emissiveIntensity: 1.1, roughness: 0.3 }), []);
+    useFrame(({ camera }) => {
+        group.current?.lookAt(camera.position);
         const p = pinch.current;
-        FINGERS.forEach((f, i) => {
-            const base = new THREE.Vector3(...f.base);
-            const tip = new THREE.Vector3(...f.open).lerp(new THREE.Vector3(...f.shut), p);
-            // The middle joint arches up and forward, like a knuckle.
-            const knuckle = base.clone().lerp(tip, 0.5).add(new THREE.Vector3(0, 0.06 + p * 0.05, -0.03));
-            [
-                [base, knuckle],
-                [knuckle, tip],
-            ].forEach(([a, b], s) => {
-                const bone = bones.current[i * 2 + s];
-                if (!bone) return;
-                const d = b.clone().sub(a);
-                bone.position.copy(a).addScaledVector(d, 0.5);
-                bone.quaternion.setFromUnitVectors(UP, d.clone().normalize());
-                bone.scale.set(f.radius, d.length(), f.radius);
-            });
-            [knuckle, tip].forEach((at, s) => {
-                const joint = joints.current[i * 2 + s];
-                if (!joint) return;
-                joint.position.copy(at);
-                joint.scale.setScalar(f.radius);
-            });
-        });
-        // A glint where the fingers meet once they're closed.
-        if (spark.current) {
-            const on = phase(p, 0.8, 1);
-            spark.current.scale.setScalar(0.02 + on * 0.07);
-            glow.opacity = on;
-        }
+        ring.current?.scale.setScalar(1 - p * 0.38);
+        dot.current?.scale.setScalar(0.05 + p * 0.04);
+        material.emissiveIntensity = 1.1 + p * 1.4;
     });
-
     return (
         <group ref={group} visible={false}>
-            <RoundedBox args={[0.5, 0.13, 0.42]} radius={0.06} smoothness={4} position={[-0.01, 0.53, 0.37]} rotation={[-0.3, 0, 0]} material={material} castShadow />
-            {FINGERS.flatMap((_, i) =>
-                [0, 1].map((s) => (
-                    <mesh key={`b${i}${s}`} ref={(m) => void (bones.current[i * 2 + s] = m)} material={material} castShadow>
-                        <cylinderGeometry args={[1, 1, 1, 14]} />
-                    </mesh>
-                )),
-            )}
-            {FINGERS.flatMap((_, i) =>
-                [0, 1].map((s) => (
-                    <mesh key={`j${i}${s}`} ref={(m) => void (joints.current[i * 2 + s] = m)} material={material} castShadow>
-                        <sphereGeometry args={[1, 16, 12]} />
-                    </mesh>
-                )),
-            )}
-            <mesh ref={spark} material={glow}>
-                <sphereGeometry args={[1, 16, 12]} />
+            <mesh ref={ring} material={material}>
+                <torusGeometry args={[0.3, 0.035, 16, 64]} />
+            </mesh>
+            <mesh ref={dot} material={material}>
+                <sphereGeometry args={[1, 20, 14]} />
             </mesh>
         </group>
     );
+}
+
+// What the printer lays down: one filament colour, with fine layer lines.
+function filament() {
+    const material = new THREE.MeshStandardMaterial({ color: "#ff8a3d", roughness: 0.5 });
+    material.onBeforeCompile = (shader) => {
+        shader.vertexShader = shader.vertexShader
+            .replace("#include <common>", "#include <common>\nvarying float vHeight;")
+            .replace("#include <project_vertex>", "#include <project_vertex>\nvHeight = (modelMatrix * vec4(transformed, 1.0)).y;");
+        shader.fragmentShader = shader.fragmentShader
+            .replace("#include <common>", "#include <common>\nvarying float vHeight;")
+            .replace(
+                "#include <color_fragment>",
+                "#include <color_fragment>\nfloat line = smoothstep(0.3, 0.5, abs(fract(vHeight * 22.0) - 0.5));\ndiffuseColor.rgb *= 1.0 - 0.16 * line;",
+            );
+    };
+    return material;
 }
 
 const CABIN = buildTemplate(TEMPLATES.find((t) => t.id === "cabin")!);
@@ -125,9 +90,19 @@ function Story({ progress }: { progress: MutableRefObject<number> }) {
     const meshes = useRef<(THREE.Mesh | null)[]>([]);
     const roofIndex = parts.findIndex((p) => p.o.name === "Roof");
     const roofColor = useMemo(() => new THREE.Color(parts[roofIndex].o.material.color), [parts, roofIndex]);
-    const hand = useRef<THREE.Group | null>(null);
+    const cursor = useRef<THREE.Group | null>(null);
     const pinch = useRef(0);
-    const layer = useRef<THREE.Mesh>(null);
+    const layer = useRef<THREE.Group>(null);
+    const printed = useRef<(THREE.Mesh | null)[]>([]);
+    // The scan height: the painted model shows above it, the print below.
+    const above = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0.5), []);
+    const below = useMemo(() => new THREE.Plane(new THREE.Vector3(0, -1, 0), -0.5), []);
+    const plastic = useMemo(() => {
+        const m = filament();
+        m.clippingPlanes = [below];
+        return m;
+    }, [below]);
+    useMemo(() => parts.forEach((part) => (part.material.clippingPlanes = [above])), [parts, above]);
     const shown = useRef(0);
 
     useFrame(({ camera }, dt) => {
@@ -158,7 +133,7 @@ function Story({ progress }: { progress: MutableRefObject<number> }) {
             mesh.visible = appear > 0;
         });
 
-        // The hand comes in, pinches the roof's front ridge, lifts it with a
+        // The cursor comes in, pinches the roof's front ridge, lifts it with a
         // little turn, sets it back and lets go.
         const roof = meshes.current[roofIndex];
         const approach = phase(grab, 0, 0.24);
@@ -169,21 +144,30 @@ function Story({ progress }: { progress: MutableRefObject<number> }) {
             roof.position.y += lift * 1.1;
             roof.rotation.y += Math.sin(phase(grab, 0.32, 0.84) * Math.PI) * 0.5;
         }
-        const h = hand.current;
-        if (h && roof) {
-            h.visible = grab > 0 && grab < 1;
+        const c = cursor.current;
+        if (c && roof) {
+            c.visible = grab > 0 && grab < 1;
             const ridge = roof.localToWorld(new THREE.Vector3(0, 0.5, 1.1));
-            h.position.copy(ridge).add(new THREE.Vector3(1.8, 1.2, 1.4).multiplyScalar(1 - approach + leave));
-            // Reaching in from the side, turned toward the camera so the pinch reads.
-            h.rotation.set(0.55, Math.atan2(camera.position.x, camera.position.z) + 0.9, -0.3);
-            h.scale.setScalar(1.45);
+            c.position.copy(ridge).add(new THREE.Vector3(1.8, 1.2, 1.4).multiplyScalar(1 - approach + leave));
         }
         (parts[roofIndex].material as THREE.MeshStandardMaterial).color.copy(roofColor).lerp(RED, paint);
 
+        // The scan rises from below the island to above the chimney.
+        const height = -0.45 + print * 3.8;
+        above.constant = -height;
+        below.constant = height;
+        printed.current.forEach((m, i) => {
+            const source = meshes.current[i];
+            if (!m || !source) return;
+            m.visible = print > 0;
+            m.position.copy(source.position);
+            m.quaternion.copy(source.quaternion);
+            m.scale.copy(source.scale);
+        });
         const l = layer.current;
         if (l) {
             l.visible = print > 0 && print < 1;
-            l.position.y = -0.4 + print * 3.6;
+            l.position.y = height;
         }
 
         // The camera drifts round the cabin the whole way down.
@@ -198,12 +182,21 @@ function Story({ progress }: { progress: MutableRefObject<number> }) {
             {parts.map(({ o, geometry, material }, i) => (
                 <mesh key={o.id} ref={(m) => void (meshes.current[i] = m)} geometry={geometry} material={material} castShadow receiveShadow />
             ))}
-            <Hand pinch={pinch} group={hand} />
-            {/* The layer a 3D printer is laying down. */}
-            <mesh ref={layer} visible={false} rotation={[-Math.PI / 2, 0, 0]}>
-                <circleGeometry args={[4.2, 64]} />
-                <meshBasicMaterial color="#4f7bff" transparent opacity={0.2} side={THREE.DoubleSide} depthWrite={false} />
-            </mesh>
+            {parts.map(({ o, geometry }, i) => (
+                <mesh key={`print-${o.id}`} ref={(m) => void (printed.current[i] = m)} geometry={geometry} material={plastic} visible={false} receiveShadow />
+            ))}
+            <Cursor pinch={pinch} group={cursor} />
+            {/* The scanner: a glowing hoop with a faint sheet of light inside. */}
+            <group ref={layer} visible={false}>
+                <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                    <circleGeometry args={[4.25, 96]} />
+                    <meshBasicMaterial color="#6b8dff" transparent opacity={0.09} side={THREE.DoubleSide} depthWrite={false} />
+                </mesh>
+                <mesh rotation={[Math.PI / 2, 0, 0]}>
+                    <torusGeometry args={[4.25, 0.03, 12, 160]} />
+                    <meshBasicMaterial color="#8ea8ff" />
+                </mesh>
+            </group>
             <ContactShadows position={[0, -0.41, 0]} opacity={0.3} scale={14} blur={2.8} far={5} />
         </>
     );
@@ -211,7 +204,14 @@ function Story({ progress }: { progress: MutableRefObject<number> }) {
 
 export default function StoryScene({ progress }: { progress: MutableRefObject<number> }) {
     return (
-        <Canvas shadows dpr={[1, 2]} camera={{ position: [8, 5, 10], fov: 32 }} gl={{ alpha: true, antialias: true }}>
+        <Canvas
+            shadows
+            dpr={[1, 2]}
+            camera={{ position: [8, 5, 10], fov: 32 }}
+            gl={{ alpha: true, antialias: true }}
+            // The print scan cuts each piece at its height.
+            onCreated={({ gl }) => void (gl.localClippingEnabled = true)}
+        >
             <Studio />
             <Story progress={progress} />
         </Canvas>

@@ -23,6 +23,7 @@ const SHOWCASE = [
     libraryPreview(LIBRARY.find((i) => i.id === "car")!),
 ];
 const SHOWCASE_MS = 7000;
+const FADE_MS = 350;
 
 const WAYS = ["your hands.", "your voice.", "a sentence.", "a mouse."];
 const WAY_MS = 2400;
@@ -170,6 +171,12 @@ const Window = styled.div`
     }
 `;
 
+const Scene = styled.div`
+    position: absolute;
+    inset: 0;
+    transition: opacity ${FADE_MS}ms ease;
+`;
+
 const Chrome = styled.div`
     position: absolute;
     top: 14px;
@@ -300,7 +307,23 @@ const at = (i: number) => ({ "--i": i }) as CSSProperties;
 export default function LandingPage() {
     const user = useAccount((s) => s.user);
     const way = useCycle(WAYS.length, WAY_MS);
-    const shown = useCycle(SHOWCASE.length, SHOWCASE_MS);
+    // The hero fades out, swaps scene and fades back in.
+    const [shown, setShown] = useState(0);
+    const [fading, setFading] = useState(false);
+    useEffect(() => {
+        let swap = 0;
+        const timer = setInterval(() => {
+            setFading(true);
+            swap = window.setTimeout(() => {
+                setShown((i) => (i + 1) % SHOWCASE.length);
+                setFading(false);
+            }, FADE_MS);
+        }, SHOWCASE_MS);
+        return () => {
+            clearInterval(timer);
+            clearTimeout(swap);
+        };
+    }, []);
     const templateDocs = useMemo(() => TEMPLATES.map(buildTemplate), []);
     const pictures = useThumbnails(templateDocs);
 
@@ -367,9 +390,11 @@ export default function LandingPage() {
                                 <i />
                                 <i />
                             </Chrome>
-                            <Suspense fallback={null}>
-                                <HeroScene doc={SHOWCASE[shown]} />
-                            </Suspense>
+                            <Scene style={{ opacity: fading ? 0 : 1 }}>
+                                <Suspense fallback={null}>
+                                    <HeroScene doc={SHOWCASE[shown]} />
+                                </Suspense>
+                            </Scene>
                             <Chip style={{ top: "14%", left: "-4%" }} aria-hidden>
                                 <HandGrabbing size={18} weight="fill" />
                                 Pinch to grab

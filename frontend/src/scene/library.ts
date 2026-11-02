@@ -19,6 +19,7 @@ const PINE = "#2f7d3a";
 const BARK = "#7a5230";
 const STEEL = "#4b4f58";
 const RED = "#e5484d";
+const GLASS = "#a9dcf5";
 
 const legs = (x: number, z: number, height: number, radius: number, color: string): Part[] =>
     [
@@ -75,36 +76,48 @@ export const LIBRARY: LibraryItem[] = [
         id: "car",
         name: "Car",
         parts: [
-            { primitive: "box", name: "Body", geometry: { width: 1.6, height: 0.4, depth: 0.8 }, at: [0, 0.38, 0], color: RED },
-            { primitive: "box", name: "Cabin", geometry: { width: 0.9, height: 0.35, depth: 0.7 }, at: [-0.1, 0.75, 0], color: "#a0e7e5" },
+            { primitive: "box", name: "Body", geometry: { width: 1.9, height: 0.34, depth: 0.9 }, at: [0, 0.4, 0], color: RED },
+            { primitive: "box", name: "Cabin", geometry: { width: 1.0, height: 0.36, depth: 0.8 }, at: [-0.15, 0.74, 0], color: RED },
+            // A band of glass round the cabin, a touch wider so it shows on every side.
+            { primitive: "box", name: "Windows", geometry: { width: 0.86, height: 0.22, depth: 0.82 }, at: [-0.15, 0.76, 0], color: GLASS },
+            { primitive: "box", name: "Windshield", geometry: { width: 0.05, height: 0.3, depth: 0.72 }, at: [0.37, 0.71, 0], rotation: [0, 0, -0.55], color: GLASS },
+            { primitive: "box", name: "Stripe", geometry: { width: 1.92, height: 0.06, depth: 0.92 }, at: [0, 0.45, 0], color: "#ffffff" },
             ...[
-                [0.5, 0.42],
-                [-0.5, 0.42],
-                [0.5, -0.42],
-                [-0.5, -0.42],
-            ].map(([x, z], i): Part => ({
-                primitive: "cylinder",
-                name: `Wheel ${i + 1}`,
-                geometry: { radiusTop: 0.18, radiusBottom: 0.18, height: 0.12 },
-                at: [x, 0.18, z],
-                rotation: [Math.PI / 2, 0, 0],
-                color: "#1d1d1f",
-            })),
+                [0.6, 0.45],
+                [-0.6, 0.45],
+                [0.6, -0.45],
+                [-0.6, -0.45],
+            ].flatMap(([x, z], i): Part[] => [
+                { primitive: "cylinder", name: `Wheel ${i + 1}`, geometry: { radiusTop: 0.22, radiusBottom: 0.22, height: 0.16 }, at: [x, 0.22, z], rotation: [Math.PI / 2, 0, 0], color: "#1d1d1f" },
+                { primitive: "cylinder", name: `Hubcap ${i + 1}`, geometry: { radiusTop: 0.11, radiusBottom: 0.11, height: 0.17 }, at: [x, 0.22, z], rotation: [Math.PI / 2, 0, 0], color: "#c9ccd3" },
+            ]),
+            ...[0.28, -0.28].flatMap((z, i): Part[] => [
+                { primitive: "sphere", name: `Headlight ${i + 1}`, geometry: { radius: 0.08 }, at: [0.95, 0.44, z], scale: [0.5, 1, 1], color: "#fff4c2" },
+                { primitive: "box", name: `Tail light ${i + 1}`, geometry: { width: 0.04, height: 0.08, depth: 0.18 }, at: [-0.96, 0.46, z], color: "#ff6b5e" },
+            ]),
+            { primitive: "box", name: "Front bumper", geometry: { width: 0.1, height: 0.1, depth: 0.94 }, at: [0.97, 0.26, 0], color: STEEL },
+            { primitive: "box", name: "Back bumper", geometry: { width: 0.1, height: 0.1, depth: 0.94 }, at: [-0.97, 0.26, 0], color: STEEL },
         ],
     },
     {
         id: "rocket",
         name: "Rocket",
         parts: [
-            { primitive: "cylinder", name: "Body", geometry: { radiusTop: 0.25, radiusBottom: 0.25, height: 1.4 }, at: [0, 0.75, 0], color: "#ffffff" },
-            { primitive: "cone", name: "Nose", geometry: { radius: 0.25, height: 0.5 }, at: [0, 1.7, 0], color: RED },
-            { primitive: "sphere", name: "Window", geometry: { radius: 0.1 }, at: [0, 1.05, 0.22], color: "#3e8ed0" },
+            { primitive: "polygon", name: "Launch pad", geometry: { radius: 0.95, sides: 8, height: 0.12 }, at: [0, 0.06, 0], color: "#9aa0ab" },
+            { primitive: "cylinder", name: "Nozzle", geometry: { radiusTop: 0.22, radiusBottom: 0.3, height: 0.22 }, at: [0, 0.23, 0], color: STEEL },
+            { primitive: "cylinder", name: "Body", geometry: { radiusTop: 0.3, radiusBottom: 0.36, height: 1.6 }, at: [0, 1.14, 0], color: "#f4f5f7" },
+            { primitive: "cone", name: "Nose", geometry: { radius: 0.3, height: 0.7 }, at: [0, 2.29, 0], color: RED },
+            { primitive: "torus", name: "Top stripe", geometry: { radius: 0.31, tube: 0.035 }, at: [0, 1.8, 0], rotation: [Math.PI / 2, 0, 0], color: RED },
+            { primitive: "torus", name: "Bottom stripe", geometry: { radius: 0.355, tube: 0.035 }, at: [0, 0.55, 0], rotation: [Math.PI / 2, 0, 0], color: RED },
+            { primitive: "torus", name: "Window frame", geometry: { radius: 0.13, tube: 0.035 }, at: [0, 1.42, 0.32], rotation: [-0.06, 0, 0], color: STEEL },
+            { primitive: "sphere", name: "Window", geometry: { radius: 0.12 }, at: [0, 1.42, 0.3], scale: [1, 1, 0.45], color: "#6cc4ff" },
             ...[0, (2 * Math.PI) / 3, (-2 * Math.PI) / 3].map(
                 (a, i): Part => ({
-                    primitive: "box",
+                    // Wedges with the tall edge against the body, sweeping out and down.
+                    primitive: "wedge",
                     name: `Fin ${i + 1}`,
-                    geometry: { width: 0.05, height: 0.4, depth: 0.35 },
-                    at: [Math.cos(a) * 0.3, 0.2, -Math.sin(a) * 0.3],
+                    geometry: { width: 0.45, height: 0.62, depth: 0.06 },
+                    at: [Math.cos(a) * 0.58, 0.63, -Math.sin(a) * 0.58],
                     rotation: [0, a, 0],
                     color: RED,
                 })
