@@ -1,16 +1,10 @@
-import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import styled, { keyframes } from "styled-components";
-import {
-    ArrowRight,
-    Cursor,
-    FilmStrip,
-    HandGrabbing,
-    Microphone,
-    Printer,
-    ShareNetwork,
-    Sparkle,
-    UsersThree,
-} from "@phosphor-icons/react";
+import { ArrowRight, HandGrabbing, Microphone } from "@phosphor-icons/react";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { Story } from "./Story";
+import { HandDemo } from "./HandDemo";
 import { useAccount } from "../account/store";
 import { TEMPLATES, buildTemplate } from "../scene/templates";
 import { LIBRARY, libraryPreview } from "../scene/library";
@@ -33,8 +27,9 @@ const SHOWCASE_MS = 7000;
 const WAYS = ["your hands.", "your voice.", "a sentence.", "a mouse."];
 const WAY_MS = 2400;
 
+// clip rather than hidden, which would stop the story's sticky scene from sticking.
 const Wrap = styled.div`
-    overflow-x: hidden;
+    overflow-x: clip;
 `;
 
 const Hero = styled.section`
@@ -244,77 +239,6 @@ const Section = styled.section`
     }
 `;
 
-const Ways = styled.div`
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 16px;
-
-    @media (max-width: 820px) {
-        grid-template-columns: 1fr;
-    }
-`;
-
-const WayCard = styled.div<{ $tint: string }>`
-    padding: 26px;
-    border-radius: 20px;
-    border: 1px solid var(--border);
-    background: linear-gradient(160deg, color-mix(in srgb, ${(p) => p.$tint} 10%, var(--surface)), var(--surface) 55%);
-    ${entering}
-
-    .icon {
-        width: 52px;
-        height: 52px;
-        border-radius: 14px;
-        display: grid;
-        place-items: center;
-        margin-bottom: 18px;
-        background: color-mix(in srgb, ${(p) => p.$tint} 16%, transparent);
-        color: ${(p) => p.$tint};
-    }
-    h3 {
-        margin: 0 0 8px;
-        font-size: 18px;
-        letter-spacing: -0.01em;
-    }
-    p {
-        margin: 0;
-        color: var(--text-muted);
-        line-height: 1.55;
-    }
-`;
-
-const Features = styled.div`
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
-
-    @media (max-width: 900px) {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-`;
-
-const Feature = styled.div`
-    padding: 20px;
-    border-radius: 16px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    ${entering}
-
-    svg {
-        color: var(--accent);
-    }
-    b {
-        display: block;
-        margin: 12px 0 4px;
-        font-size: 15px;
-    }
-    span {
-        color: var(--text-muted);
-        font-size: 13px;
-        line-height: 1.5;
-    }
-`;
-
 const Template = styled.a`
     ${tile}
 `;
@@ -388,9 +312,31 @@ export default function LandingPage() {
         document.title = "ShapeShift · Build in 3D with your hands";
     }, []);
 
+    // Sections rise into place as they scroll into view.
+    const wrap = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        const el = wrap.current;
+        if (!el || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+        gsap.registerPlugin(ScrollTrigger);
+        const scroller = el.closest<HTMLElement>("[data-scroller]") ?? undefined;
+        const ctx = gsap.context(() => {
+            for (const target of gsap.utils.toArray<HTMLElement>("[data-reveal]")) {
+                gsap.from(target.children, {
+                    y: 48,
+                    opacity: 0,
+                    duration: 0.9,
+                    ease: "power3.out",
+                    stagger: 0.08,
+                    scrollTrigger: { trigger: target, scroller, start: "top 82%", once: true },
+                });
+            }
+        }, el);
+        return () => ctx.revert();
+    }, []);
+
     return (
         <SiteShell page="landing">
-            <Wrap>
+            <Wrap ref={wrap}>
                 <Hero>
                     <HeroInner>
                         <Copy>
@@ -436,62 +382,10 @@ export default function LandingPage() {
                     </HeroInner>
                 </Hero>
 
-                <Section>
-                    <h2>Three ways to build. Mix them freely.</h2>
-                    <p>Use whatever feels natural. Every change, however you made it, is one undo away.</p>
-                    <Ways>
-                        <WayCard $tint="#3b82f6" style={at(1)}>
-                            <div className="icon">
-                                <HandGrabbing size={28} weight="duotone" />
-                            </div>
-                            <h3>With your hands</h3>
-                            <p>Your webcam becomes the controller. Pinch to grab, reach toward the screen to push, open your palm for a menu.</p>
-                        </WayCard>
-                        <WayCard $tint="#a855f7" style={at(2)}>
-                            <div className="icon">
-                                <Sparkle size={28} weight="duotone" />
-                            </div>
-                            <h3>With words</h3>
-                            <p>Describe it, by typing or out loud, and the assistant builds it. Ask for changes the same way.</p>
-                        </WayCard>
-                        <WayCard $tint="#ec4899" style={at(3)}>
-                            <div className="icon">
-                                <Cursor size={28} weight="duotone" />
-                            </div>
-                            <h3>With a mouse or touch</h3>
-                            <p>Drag shapes across the floor, stack them, snap them and reshape them, on a laptop, tablet or phone.</p>
-                        </WayCard>
-                    </Ways>
-                </Section>
+                <Story />
+                <HandDemo />
 
-                <Section>
-                    <h2>Then make it real</h2>
-                    <p>What you build doesn't have to stay on screen.</p>
-                    <Features>
-                        <Feature style={at(1)}>
-                            <Printer size={26} weight="duotone" />
-                            <b>3D print it</b>
-                            <span>Export a print-ready file at the size you want.</span>
-                        </Feature>
-                        <Feature style={at(2)}>
-                            <FilmStrip size={26} weight="duotone" />
-                            <b>Animate it</b>
-                            <span>Add keyframes and record a video to share.</span>
-                        </Feature>
-                        <Feature style={at(3)}>
-                            <UsersThree size={26} weight="duotone" />
-                            <b>Build together</b>
-                            <span>Send a link and edit the same scene live.</span>
-                        </Feature>
-                        <Feature style={at(4)}>
-                            <ShareNetwork size={26} weight="duotone" />
-                            <b>Share it anywhere</b>
-                            <span>A link anyone can open, or embed it on your site.</span>
-                        </Feature>
-                    </Features>
-                </Section>
-
-                <Section>
+                <Section data-reveal>
                     <h2>Start from something</h2>
                     <p>Open a template and make it yours.</p>
                     <Tiles $min={190}>
@@ -507,7 +401,7 @@ export default function LandingPage() {
                     </Tiles>
                 </Section>
 
-                <Band>
+                <Band data-reveal>
                     <h2>Your first scene takes a minute</h2>
                     <p>Free, in your browser, no account needed.</p>
                     <a href="/edit">

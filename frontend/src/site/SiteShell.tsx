@@ -316,7 +316,7 @@ export function SiteShell({ page, children }: { page: SitePage; children: ReactN
 
     const current = (p: SitePage) => (p === page ? ("page" as const) : undefined);
     return (
-        <Page>
+        <Page data-scroller>
             <GlobalStyle />
             <Nav>
                 <NavInner>
