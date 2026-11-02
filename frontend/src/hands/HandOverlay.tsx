@@ -7,11 +7,11 @@ import type { HandState } from "./gestures";
 import { isOverControl } from "./pointer";
 
 const Layer = styled.div`
-    position: absolute;
+    position: fixed;
     inset: 0;
     pointer-events: none;
-    // Above the panels and the hand menu, since the hands may be steering any of them.
-    z-index: 90;
+    // Above everything, dialogs and menus included: a hand can press any of them.
+    z-index: 10000;
 `;
 
 // One cursor per hand. Its look and label say what a pinch will do, or what
