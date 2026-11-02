@@ -10,7 +10,8 @@ import { buildGeometry } from "../scene/geometry";
 export function clayGeometry(o: SceneObject): THREE.BufferGeometry {
     const g = o.geometry;
     if (g.type === "box") {
-        const radius = Math.min(g.width, g.height, g.depth) * 0.12;
+        // Just enough to catch the light; big boxes shouldn't look puffy.
+        const radius = Math.min(0.05, Math.min(g.width, g.height, g.depth) * 0.12);
         return new RoundedBoxGeometry(g.width, g.height, g.depth, 3, radius);
     }
     return buildGeometry(g);

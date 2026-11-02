@@ -20,18 +20,39 @@ function orbit(radius: number, height: number, seconds: number, offset = 0): Key
     });
 }
 
+// A pine tree from a trunk and two cones, grouped.
+function pine(name: string, x: number, z: number, size = 1): Command[] {
+    return [
+        { type: "add", primitive: "cylinder", name: `${name} trunk`, geometry: { type: "cylinder", radiusTop: 0.08 * size, radiusBottom: 0.11 * size, height: 0.5 * size }, position: [x, 0.25 * size, z], color: "#6b4a30" },
+        { type: "add", primitive: "cone", name: `${name} lower`, geometry: { type: "cone", radius: 0.62 * size, height: 1.0 * size }, position: [x, 0.85 * size, z], color: "#2f7d4a" },
+        { type: "add", primitive: "cone", name: `${name} upper`, geometry: { type: "cone", radius: 0.45 * size, height: 0.8 * size }, position: [x, 1.4 * size, z], color: "#3b9a5a" },
+        { type: "group", name, targets: [`${name} trunk`, `${name} lower`, `${name} upper`] },
+    ];
+}
+
 const snowman: Command[] = [
-    { type: "add", primitive: "plane", name: "Snow", geometry: { type: "plane", width: 8, height: 8 }, position: [0, 0, 0], color: "#f4f7fb" },
+    { type: "add", primitive: "cylinder", name: "Snow", geometry: { type: "cylinder", radiusTop: 2.4, radiusBottom: 2.6, height: 0.3 }, position: [0, -0.15, 0], color: "#eef3fa" },
+    { type: "add", primitive: "halfSphere", name: "Drift 1", geometry: { type: "halfSphere", radius: 0.55 }, position: [-1.4, 0, 0.6], scale: [1, 0.45, 0.8], color: "#f4f7fb" },
+    { type: "add", primitive: "halfSphere", name: "Drift 2", geometry: { type: "halfSphere", radius: 0.45 }, position: [1.3, 0, -0.9], scale: [1, 0.5, 1], color: "#f4f7fb" },
     { type: "add", primitive: "sphere", name: "Bottom", geometry: { type: "sphere", radius: 0.8 }, position: [0, 0.75, 0], color: "#ffffff" },
     { type: "add", primitive: "sphere", name: "Middle", geometry: { type: "sphere", radius: 0.58 }, position: [0, 1.9, 0], color: "#ffffff" },
     { type: "add", primitive: "sphere", name: "Head", geometry: { type: "sphere", radius: 0.42 }, position: [0, 2.75, 0], color: "#ffffff" },
     { type: "add", primitive: "cone", name: "Carrot nose", geometry: { type: "cone", radius: 0.07, height: 0.4 }, position: [0, 2.75, 0.55], rotation: [Math.PI / 2, 0, 0], color: "#f28c28" },
     { type: "add", primitive: "sphere", name: "Left eye", geometry: { type: "sphere", radius: 0.05 }, position: [-0.15, 2.88, 0.37], color: "#1d1d1f" },
     { type: "add", primitive: "sphere", name: "Right eye", geometry: { type: "sphere", radius: 0.05 }, position: [0.15, 2.88, 0.37], color: "#1d1d1f" },
+    // A smile of coal, curving up at the ends.
+    ...[-2, -1, 0, 1, 2].map((i): Command => ({ type: "add", primitive: "sphere", name: `Smile ${i + 3}`, geometry: { type: "sphere", radius: 0.032 }, position: [i * 0.075, 2.6 + Math.abs(i) * 0.025, 0.39 - Math.abs(i) * 0.012], color: "#1d1d1f" })),
+    ...[0, 1, 2].map((i): Command => ({ type: "add", primitive: "sphere", name: `Button ${i + 1}`, geometry: { type: "sphere", radius: 0.06 }, position: [0, 2.12 - i * 0.2, 0.55 - Math.abs(i - 1) * 0.03], color: "#1d1d1f" })),
     { type: "add", primitive: "cylinder", name: "Hat brim", geometry: { type: "cylinder", radiusTop: 0.5, radiusBottom: 0.5, height: 0.05 }, position: [0, 3.12, 0], color: "#26262b" },
     { type: "add", primitive: "cylinder", name: "Hat", geometry: { type: "cylinder", radiusTop: 0.3, radiusBottom: 0.3, height: 0.45 }, position: [0, 3.36, 0], color: "#26262b" },
+    { type: "add", primitive: "cylinder", name: "Hat band", geometry: { type: "cylinder", radiusTop: 0.305, radiusBottom: 0.305, height: 0.09 }, position: [0, 3.2, 0], color: "#d64545" },
     { type: "add", primitive: "torus", name: "Scarf", geometry: { type: "torus", radius: 0.4, tube: 0.08 }, position: [0, 2.38, 0], rotation: [Math.PI / 2, 0, 0], color: "#d64545" },
-    { type: "group", name: "Snowman", targets: ["Bottom", "Middle", "Head", "Carrot nose", "Left eye", "Right eye", "Hat brim", "Hat", "Scarf"] },
+    { type: "add", primitive: "box", name: "Scarf tail", geometry: { type: "box", width: 0.16, height: 0.5, depth: 0.06 }, position: [0.24, 2.13, 0.4], rotation: [0.2, 0, 0.18], color: "#d64545" },
+    { type: "add", primitive: "cylinder", name: "Left arm", geometry: { type: "cylinder", radiusTop: 0.025, radiusBottom: 0.035, height: 0.9 }, position: [-0.85, 2.1, 0], rotation: [0, 0, 1.05], color: "#6b4a30" },
+    { type: "add", primitive: "cylinder", name: "Right arm", geometry: { type: "cylinder", radiusTop: 0.025, radiusBottom: 0.035, height: 0.9 }, position: [0.85, 2.15, 0], rotation: [0, 0, -1.2], color: "#6b4a30" },
+    { type: "group", name: "Snowman", targets: ["Bottom", "Middle", "Head", "Carrot nose", "Left eye", "Right eye", "Smile 1", "Smile 2", "Smile 3", "Smile 4", "Smile 5", "Button 1", "Button 2", "Button 3", "Hat brim", "Hat", "Hat band", "Scarf", "Scarf tail", "Left arm", "Right arm"] },
+    ...pine("Pine", -1.6, -1.1, 0.9),
+    { type: "environment", preset: "studio" },
 ];
 
 const solarSystem: Command[] = [
@@ -94,15 +115,6 @@ const productShot: Command[] = [
 
 
 // A cabin by a lake, all from basic shapes: the landing page shows it off.
-function pine(name: string, x: number, z: number, size = 1): Command[] {
-    return [
-        { type: "add", primitive: "cylinder", name: `${name} trunk`, geometry: { type: "cylinder", radiusTop: 0.08 * size, radiusBottom: 0.11 * size, height: 0.5 * size }, position: [x, 0.25 * size, z], color: "#6b4a30" },
-        { type: "add", primitive: "cone", name: `${name} lower`, geometry: { type: "cone", radius: 0.62 * size, height: 1.0 * size }, position: [x, 0.85 * size, z], color: "#2f7d4a" },
-        { type: "add", primitive: "cone", name: `${name} upper`, geometry: { type: "cone", radius: 0.45 * size, height: 0.8 * size }, position: [x, 1.4 * size, z], color: "#3b9a5a" },
-        { type: "group", name, targets: [`${name} trunk`, `${name} lower`, `${name} upper`] },
-    ];
-}
-
 const cabin: Command[] = [
     { type: "add", primitive: "cylinder", name: "Island", geometry: { type: "cylinder", radiusTop: 4, radiusBottom: 3.7, height: 0.4 }, position: [0, -0.2, 0], color: "#7cb36a" },
     { type: "add", primitive: "cylinder", name: "Lake", geometry: { type: "cylinder", radiusTop: 1.3, radiusBottom: 1.3, height: 0.06 }, position: [2.2, 0.02, 1.2], color: "#5aa6d6" },
@@ -116,7 +128,15 @@ const cabin: Command[] = [
     { type: "material", target: "Right window", emissive: "#ffb648", emissiveIntensity: 0.8 },
     { type: "add", primitive: "box", name: "Chimney", geometry: { type: "box", width: 0.3, height: 0.9, depth: 0.3 }, position: [0.2, 2.25, -1.0], color: "#8d8f96" },
     { type: "add", primitive: "box", name: "Step", geometry: { type: "box", width: 0.9, height: 0.12, depth: 0.4 }, position: [-0.5, 0.06, 0.65], color: "#a0714b" },
-    { type: "group", name: "Cabin", targets: ["Walls", "Roof", "Door", "Left window", "Right window", "Chimney", "Step"] },
+    ...[
+        [-1.6, 0.4],
+        [0.6, 0.4],
+        [-1.6, -1.4],
+        [0.6, -1.4],
+    ].map(([x, z], i): Command => ({ type: "add", primitive: "box", name: `Post ${i + 1}`, geometry: { type: "box", width: 0.16, height: 1.46, depth: 0.16 }, position: [x, 0.73, z], color: "#7a4f32" })),
+    { type: "add", primitive: "box", name: "Left sill", geometry: { type: "box", width: 0.52, height: 0.07, depth: 0.12 }, position: [-1.15, 0.62, 0.45], color: "#7a4f32" },
+    { type: "add", primitive: "box", name: "Right sill", geometry: { type: "box", width: 0.52, height: 0.07, depth: 0.12 }, position: [0.15, 0.62, 0.45], color: "#7a4f32" },
+    { type: "group", name: "Cabin", targets: ["Walls", "Roof", "Door", "Left window", "Right window", "Chimney", "Step", "Post 1", "Post 2", "Post 3", "Post 4", "Left sill", "Right sill"] },
     { type: "add", primitive: "box", name: "Dock", geometry: { type: "box", width: 1.1, height: 0.06, depth: 0.36 }, position: [1.3, 0.08, 1.0], color: "#a0714b" },
     { type: "add", primitive: "cylinder", name: "Stone 1", geometry: { type: "cylinder", radiusTop: 0.2, radiusBottom: 0.22, height: 0.05 }, position: [-0.35, 0.02, 1.1], color: "#c9c5bd" },
     { type: "add", primitive: "cylinder", name: "Stone 2", geometry: { type: "cylinder", radiusTop: 0.18, radiusBottom: 0.2, height: 0.05 }, position: [-0.1, 0.02, 1.65], color: "#c9c5bd" },
