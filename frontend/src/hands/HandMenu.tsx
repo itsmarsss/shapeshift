@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ComponentType } from "react";
 import styled, { keyframes } from "styled-components";
-import { ArrowUUpLeft, ArrowUUpRight, Copy, CornersOut, Cube, Cylinder, Globe, Microphone, Trash, type Icon } from "@phosphor-icons/react";
+import { ArrowUUpLeft, ArrowUUpRight, Copy, CornersOut, Cube, Cylinder, Globe, Microphone, Selection, Trash, type Icon } from "@phosphor-icons/react";
 import type { Primitive } from "@shapeshift/shared/scene/schema";
 import { ConeIcon, TorusIcon } from "../components/icons";
 import { useScene } from "../scene/store";
@@ -12,7 +12,7 @@ import { PalmTracker } from "./palm";
 import { useHandMenu } from "./menu";
 import { live, useHands } from "./tracker";
 
-type Item = { label: string; Icon: Icon | typeof ConeIcon; act: (at: { x: number; y: number }) => void; needsSelection?: boolean };
+type Item = { label: string; Icon: Icon | typeof ConeIcon | ComponentType<{ size?: number }>; act: (at: { x: number; y: number }) => void; needsSelection?: boolean };
 
 function addShape(primitive: Primitive) {
     return ({ x, y }: { x: number; y: number }) => {
@@ -33,6 +33,39 @@ const ITEMS: Item[] = [
     { label: "Redo", Icon: ArrowUUpRight, act: () => useScene.getState().redo() },
     { label: "Fit view", Icon: CornersOut, act: frameSelection },
     { label: "Talk", Icon: Microphone, act: toggleVoice },
+];
+
+// A dot of colour, for the colour choices.
+const swatch = (color: string) =>
+    function Swatch({ size = 22 }: { size?: number }) {
+        return <span style={{ width: size, height: size, borderRadius: "50%", background: color, border: "2px solid rgba(255, 255, 255, 0.8)", display: "block" }} />;
+    };
+
+const paint = (color: string) => () => {
+    const s = useScene.getState();
+    s.run(s.selectedIds.map((target) => ({ type: "material" as const, target, color })));
+};
+
+function toggleHole() {
+    const s = useScene.getState();
+    const hole = !s.doc.objects.find((o) => o.id === s.selectedId)?.hole;
+    s.run(s.selectedIds.map((target) => ({ type: "hole" as const, target, hole })));
+}
+
+// The palm menu when the other hand is holding a shape: things to do to it.
+const SHAPE_ITEMS: Item[] = [
+    ...(
+        [
+            ["Red", "#e5484d"],
+            ["Blue", "#4f7bff"],
+            ["Green", "#22c55e"],
+            ["Yellow", "#f5c542"],
+            ["White", "#f4f5f7"],
+        ] as const
+    ).map(([label, color]): Item => ({ label, Icon: swatch(color), act: paint(color), needsSelection: true })),
+    { label: "Duplicate", Icon: Copy, act: duplicateSelection, needsSelection: true },
+    { label: "Hole", Icon: Selection, act: toggleHole, needsSelection: true },
+    { label: "Delete", Icon: Trash, act: removeSelection, needsSelection: true },
 ];
 
 // Wide enough that the choices around the ring don't touch.
@@ -126,7 +159,9 @@ export function HandMenu() {
                 if (hand) {
                     openedAt = now;
                     lostSince = null;
-                    useHandMenu.setState({ open: { handedness: hand.handedness, x: hand.x, y: hand.y, pinchId: hand.pinchId }, hover: null });
+                    // The other hand holding a shape makes it that shape's menu.
+                    const forShape = live.hands.some((h) => h.handedness !== hand.handedness && h.pinching) && useScene.getState().selectedIds.length > 0;
+                    useHandMenu.setState({ open: { handedness: hand.handedness, x: hand.x, y: hand.y, pinchId: hand.pinchId, forShape }, hover: null });
                 }
                 return;
             }
@@ -142,16 +177,17 @@ export function HandMenu() {
             const dy = (hand.y - menu.open.y) * rect.height;
             if (Math.hypot(dx, dy) > LEAVE || now - openedAt > IDLE_MS) return close();
 
+            const items = menu.open.forShape ? SHAPE_ITEMS : ITEMS;
             let near: number | null = null;
-            ITEMS.forEach((_, i) => {
-                const a = (i / ITEMS.length) * Math.PI * 2 - Math.PI / 2;
+            items.forEach((_, i) => {
+                const a = (i / items.length) * Math.PI * 2 - Math.PI / 2;
                 if (Math.hypot(dx - Math.cos(a) * RADIUS, dy - Math.sin(a) * RADIUS) < HIT) near = i;
             });
             if (near !== menu.hover) useHandMenu.setState({ hover: near });
 
             // A new pinch picks what the hand is over, or closes the menu.
             if (hand.pinching && hand.pinchId !== menu.open.pinchId) {
-                const item = near === null ? null : ITEMS[near];
+                const item = near === null ? null : items[near];
                 const at = { x: menu.open.x, y: menu.open.y };
                 close();
                 useHandMenu.setState({ spent: { handedness: hand.handedness, pinchId: hand.pinchId } });
@@ -169,9 +205,9 @@ export function HandMenu() {
         <div ref={layer} style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
             {open && (
                 <Ring role="menu" aria-label="Hand menu" style={{ left: `${open.x * 100}%`, top: `${open.y * 100}%` }}>
-                    <Hint>Pinch to choose</Hint>
-                    {ITEMS.map((item, i) => {
-                        const a = (i / ITEMS.length) * Math.PI * 2 - Math.PI / 2;
+                    <Hint>{open.forShape ? "Pinch to change it" : "Pinch to choose"}</Hint>
+                    {(open.forShape ? SHAPE_ITEMS : ITEMS).map((item, i, items) => {
+                        const a = (i / items.length) * Math.PI * 2 - Math.PI / 2;
                         const off = Boolean(item.needsSelection && !hasSelection);
                         return (
                             <Option

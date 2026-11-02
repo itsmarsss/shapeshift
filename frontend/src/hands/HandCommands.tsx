@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
-import { ArrowUUpLeft, Cube, Microphone, MicrophoneSlash } from "@phosphor-icons/react";
+import { ArrowUUpLeft, Cube, HandGrabbing, Microphone, MicrophoneSlash } from "@phosphor-icons/react";
 import { useScene, type EditorMode } from "../scene/store";
 import { toggleVoice, useVoice } from "../ui/voice";
 import { PoseTracker, type Pose } from "./poses";
 import { live, useHands } from "./tracker";
+import { useHandToast } from "./menu";
 
 const NEXT_MODE: Record<EditorMode, EditorMode> = { object: "edit", edit: "render", render: "object" };
 const MODE_LABEL: Record<EditorMode, string> = { object: "Arrange", edit: "Reshape", render: "Preview" };
@@ -33,7 +34,7 @@ const Toast = styled.div`
     animation: ${pop} 0.14s ease-out;
 `;
 
-type Notice = { id: number; pose: Pose; text: string };
+type Notice = { id: number; pose: Pose | null; text: string };
 
 function perform(pose: Pose): string {
     const scene = useScene.getState();
@@ -87,8 +88,31 @@ export function HandCommands() {
         };
     }, [status]);
 
+    // Notes from two-hand gestures.
+    useEffect(() => {
+        let hide: ReturnType<typeof setTimeout> | undefined;
+        const stop = useHandToast.subscribe(({ text }) => {
+            setNotice({ id: ++counter.current, pose: null, text });
+            clearTimeout(hide);
+            hide = setTimeout(() => setNotice(null), 1400);
+        });
+        return () => {
+            stop();
+            clearTimeout(hide);
+        };
+    }, []);
+
     if (!notice || status !== "running") return null;
-    const Icon = notice.pose === "voice" ? (notice.text === "Listening…" ? Microphone : MicrophoneSlash) : notice.pose === "mode" ? Cube : ArrowUUpLeft;
+    const Icon =
+        notice.pose === null
+            ? HandGrabbing
+            : notice.pose === "voice"
+              ? notice.text === "Listening…"
+                  ? Microphone
+                  : MicrophoneSlash
+              : notice.pose === "mode"
+                ? Cube
+                : ArrowUUpLeft;
     return (
         <Toast key={notice.id} role="status">
             <Icon size={16} weight="bold" />

@@ -70,6 +70,57 @@ export function controlAt(x: number, y: number): HTMLElement | null {
 
 const hovered: Record<Handedness, HTMLElement | null> = { Left: null, Right: null };
 
+// Buttons pull a nearby hand cursor onto themselves, since a hand in the air
+// can't be as exact as a mouse: within MAGNET pixels counts as on it, and a
+// button it's already on holds it until it's STICK times as far away.
+const MAGNET = 44;
+const STICK = 1.6;
+// Where each hand's cursor is drawn, pulled toward what it's on.
+const drawn: Record<Handedness, [number, number] | null> = { Left: null, Right: null };
+
+function gap(rect: DOMRect, x: number, y: number) {
+    return Math.hypot(Math.max(rect.left - x, 0, x - rect.right), Math.max(rect.top - y, 0, y - rect.bottom));
+}
+
+// The control a hand is on or near, with the stickiness above. Points are
+// 0 to 1 across and down the window.
+export function magnetAt(handedness: Handedness, x: number, y: number): HTMLElement | null {
+    const px = x * window.innerWidth;
+    const py = y * window.innerHeight;
+    let best: HTMLElement | null = controlAt(x, y);
+    let bestGap = best ? 0 : Infinity;
+    if (!best) {
+        for (const el of document.querySelectorAll<HTMLElement>(PRESSABLE)) {
+            const rect = el.getBoundingClientRect();
+            if (!rect.width || !rect.height || el.matches(':disabled, [aria-disabled="true"]')) continue;
+            const g = gap(rect, px, py);
+            const reach = el === hovered[handedness] ? MAGNET * STICK : MAGNET;
+            if (g > reach || g >= bestGap) continue;
+            // Only if it's really there, not hidden under a dialog.
+            const cx = Math.min(Math.max(px, rect.left + 1), rect.right - 1);
+            const cy = Math.min(Math.max(py, rect.top + 1), rect.bottom - 1);
+            if (document.elementFromPoint(cx, cy)?.closest(PRESSABLE) !== el) continue;
+            best = el;
+            bestGap = g;
+        }
+    }
+    if (best) {
+        const rect = best.getBoundingClientRect();
+        // Drawn part of the way to the middle of it, so the pull shows.
+        drawn[handedness] = [px + (rect.left + rect.width / 2 - px) * 0.45, py + (rect.top + rect.height / 2 - py) * 0.45];
+    } else drawn[handedness] = null;
+    return best;
+}
+
+// Where to draw a hand's cursor in pixels, when a control has pulled it.
+export function cursorPull(handedness: Handedness): [number, number] | null {
+    return drawn[handedness];
+}
+
+export function hoveredControl(handedness: Handedness): HTMLElement | null {
+    return hovered[handedness];
+}
+
 function mark(el: HTMLElement | null, on: boolean) {
     // Another hand may still be over it.
     if (!el || (!on && (hovered.Left === el || hovered.Right === el))) return;
@@ -79,6 +130,7 @@ function mark(el: HTMLElement | null, on: boolean) {
 
 // Highlights the control a hand is over, or clears it with null.
 export function hoverControl(handedness: Handedness, el: HTMLElement | null) {
+    if (!el) drawn[handedness] = null;
     const before = hovered[handedness];
     if (before === el) return;
     hovered[handedness] = el;
@@ -101,4 +153,5 @@ export function pressControl(el: HTMLElement) {
 export function clearControls() {
     hoverControl("Left", null);
     hoverControl("Right", null);
+    drawn.Left = drawn.Right = null;
 }

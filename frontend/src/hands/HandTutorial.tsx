@@ -74,6 +74,12 @@ const STEPS: Step[] = [
         done: () => activity() === "camera" || activity() === "stretch",
     },
     {
+        title: "Two-hand tricks",
+        text: "While one hand holds a shape, tap with the other: on empty space it leaves a copy, on another shape it selects that too. Open the other palm for a menu for the shape you're holding.",
+        Icon: HandGrabbing,
+        motion: "pinch",
+    },
+    {
         title: "Open your palm",
         text: "Show the camera an open hand and hold it still. A menu appears around it: add shapes, undo, talk to the assistant.",
         Icon: HandPalm,

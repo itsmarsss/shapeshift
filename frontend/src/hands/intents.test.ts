@@ -20,6 +20,19 @@ describe("intents", () => {
         expect(t.update([hand("Right", false, 0.6, 0.5, 1)])).toEqual([{ type: "end" }]);
     });
 
+    it("lets the hand that was holding carry on once the other lets go", () => {
+        const t = new IntentTracker();
+        t.update([hand("Right", true, 0.5, 0.5, 1)]);
+        expect(t.update([hand("Right", true, 0.5, 0.5, 1), hand("Left", true, 0.3, 0.5, 1)])).toEqual([{ type: "pairStart", holding: "Right" }]);
+        t.update([hand("Right", true, 0.52, 0.5, 1), hand("Left", true, 0.3, 0.5, 1)]);
+        // The left hand lets go: the right picks up where it is now.
+        expect(t.update([hand("Right", true, 0.55, 0.5, 1), hand("Left", false, 0.3, 0.5, 1)])).toEqual([
+            { type: "end" },
+            { type: "start", handedness: "Right", x: 0.55, y: 0.5, depth: null },
+        ]);
+        expect(t.update([hand("Right", true, 0.6, 0.5, 1)])).toEqual([{ type: "move", x: 0.6, y: 0.5, dx: expect.closeTo(0.05), dy: 0, depth: 0 }]);
+    });
+
     it("does nothing with the leftover hand after a two-hand gesture", () => {
         const t = new IntentTracker();
         expect(t.update([hand("Left", true, 0.3, 0.5, 1), hand("Right", true, 0.7, 0.5, 1)])).toEqual([{ type: "pairStart", holding: null }]);
