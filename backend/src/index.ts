@@ -8,6 +8,7 @@ import { handleUsage } from "./usage";
 import { handleTelemetry } from "./telemetry";
 import { handleFeedback } from "./feedback";
 import { handleBilling } from "./billing";
+import { handleAdmin } from "./admin";
 
 export { Room } from "./room";
 
@@ -27,6 +28,8 @@ export default {
         if (explore) return explore;
         const publicScene = await handlePublic(request, env);
         if (publicScene) return publicScene;
+        const admin = await handleAdmin(request, env);
+        if (admin) return admin;
         const billing = await handleBilling(request, env);
         if (billing) return billing;
         const feedback = await handleFeedback(request, env);
