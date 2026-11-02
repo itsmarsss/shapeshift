@@ -4,7 +4,7 @@ import { useSettings } from "../settings/store";
 import { useHandActivity, useHandMenu, type HandActivity } from "./menu";
 import { live, useHandHover } from "./tracker";
 import type { HandState } from "./gestures";
-import { isOverControl } from "./pointer";
+import { cursorPull, isOverControl } from "./pointer";
 
 const Layer = styled.div`
     position: fixed;
@@ -116,7 +116,9 @@ export function HandOverlay() {
                 const h = live.hands[i];
                 c.style.display = h ? "block" : "none";
                 if (!h) return;
-                c.style.translate = `${h.x * width}px ${h.y * height}px`;
+                // Pulled toward a button the hand is near (see magnetAt).
+                const pulled = cursorPull(h.handedness);
+                c.style.translate = pulled ? `${pulled[0]}px ${pulled[1]}px` : `${h.x * width}px ${h.y * height}px`;
                 const { state, label } = menuOpen ? { state: "idle", label: "" } : cursorFor(h, activity, hovered, objectHand, pair);
                 c.dataset.state = state;
                 const tag = c.querySelector("span");

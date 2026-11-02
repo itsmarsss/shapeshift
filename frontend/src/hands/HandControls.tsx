@@ -6,13 +6,13 @@ import { useScene } from "../scene/store";
 import type { Handedness } from "./gestures";
 import { IntentTracker } from "./intents";
 import { live, useHandHover } from "./tracker";
-import { useHandActivity, useHandMenu, type HandActivity } from "./menu";
+import { handToast, useHandActivity, useHandMenu, type HandActivity } from "./menu";
 import { editableMesh } from "../scene/geometry";
 import { nearestVertex, objectMatrix, useEditSelection } from "../viewport/editSelection";
 import { useSettings } from "../settings/store";
 import type { Vec3 } from "@shapeshift/shared/scene/schema";
 import { MAX_FACTOR, MIN_FACTOR, stretched } from "./stretch";
-import { clearControls, controlAt, hoverControl, interfaceAt, isSlider, pressControl, scrollerFor, slideTo } from "./pointer";
+import { clearControls, hoverControl, hoveredControl, interfaceAt, isSlider, magnetAt, pressControl, scrollerFor, slideTo } from "./pointer";
 import { windowToView } from "../viewport/frame";
 
 type Drag =
@@ -20,7 +20,9 @@ type Drag =
     | { kind: "vertex"; id: string; index: number; plane: THREE.Plane; inverse: THREE.Matrix4; positions: number[]; indices: number[] }
     // One hand held an object and the other joined: spreading the hands
     // scales it and twisting them turns it about its upright axis.
-    | { kind: "stretch"; id: string; scale: Vec3; rotation: Vec3; factor: number; twist: number }
+    // `tap` is where and when the second hand's pinch began: let go again
+    // quickly, without stretching, it's a tap rather than a stretch.
+    | { kind: "stretch"; id: string; scale: Vec3; rotation: Vec3; factor: number; twist: number; tap: { at: number; x: number; y: number } | null }
     | { kind: "orbit" }
     // A pinch on the interface: dragging a slider, or scrolling a panel. A
     // pinch that doesn't move presses what it started on when it lets go.
@@ -34,6 +36,10 @@ const ZOOM_SPEED = 12;
 const PAN_SPEED = 6;
 const objectHand = (): Handedness => useSettings.getState().handObject;
 const VERTEX_RADIUS = 0.06;
+// A second-hand pinch shorter than this, while the other holds a shape, is a tap.
+const TAP_MS = 400;
+// How close, in pixels, the hand must come to a shape for it to count as pointed at.
+const SHAPE_MAGNET = 36;
 // How far, in pixels, a pinch on a button can drift and still press it.
 const PRESS_SLOP = 28;
 
@@ -60,6 +66,37 @@ export function HandControls() {
         return raycaster.current.intersectObjects(scene.children, false).find((i) => ids.has(i.object.name));
     }
 
+    // The shape under the hand, or failing that the one it's close to on
+    // screen, so a hand needn't be exactly on it. A shape already pointed at
+    // holds on a little further out.
+    function shapeAt(x: number, y: number, current: string | null): string | null {
+        const hit = pick(x, y)?.object.name;
+        if (hit) return hit;
+        const [vx, vy] = windowToView(x, y);
+        const px = vx * size.width;
+        const py = vy * size.height;
+        const fov = ((camera as THREE.PerspectiveCamera).fov ?? 45) * (Math.PI / 180);
+        let best: string | null = null;
+        let bestGap = Infinity;
+        for (const o of useScene.getState().doc.objects) {
+            const mesh = scene.getObjectByName(o.id) as THREE.Mesh | undefined;
+            if (!mesh?.geometry) continue;
+            if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
+            const sphere = mesh.geometry.boundingSphere!.clone().applyMatrix4(mesh.matrixWorld);
+            const p = sphere.center.clone().project(camera);
+            if (p.z > 1) continue;
+            const distance = camera.position.distanceTo(sphere.center);
+            const radius = (sphere.radius / distance) * (size.height / 2 / Math.tan(fov / 2));
+            const g = Math.max(0, Math.hypot((p.x + 1) / 2 * size.width - px, (1 - p.y) / 2 * size.height - py) - radius);
+            const reach = o.id === current ? SHAPE_MAGNET * 1.6 : SHAPE_MAGNET;
+            if (g <= reach && g < bestGap) {
+                best = o.id;
+                bestGap = g;
+            }
+        }
+        return best;
+    }
+
     function vertexAt(x: number, y: number) {
         const state = useScene.getState();
         const selected = state.doc.objects.find((o) => o.id === state.selectedId);
@@ -75,12 +112,12 @@ export function HandControls() {
         for (const hand of ["Left", "Right"] as const) {
             const h = live.hands.find((x) => x.handedness === hand);
             if (!h) hoverControl(hand, null);
-            else if (!h.pinching) hoverControl(hand, controlAt(h.x, h.y));
+            else if (!h.pinching) hoverControl(hand, magnetAt(hand, h.x, h.y));
         }
-        const h = live.hands.find((hand) => hand.handedness === objectHand() && !hand.pinching && !controlAt(hand.x, hand.y));
+        const h = live.hands.find((hand) => hand.handedness === objectHand() && !hand.pinching && !hoveredControl(hand.handedness));
         const idle = h && useScene.getState().mode !== "render" && !drag.current;
         const vertex = idle ? vertexAt(h.x, h.y) : null;
-        const id = idle && !vertex ? pick(h.x, h.y)?.object.name ?? null : null;
+        const id = idle && !vertex ? shapeAt(h.x, h.y, useHandHover.getState().hoveredId) : null;
         if (useHandHover.getState().hoveredId !== id) useHandHover.setState({ hoveredId: id });
         const index = vertex?.index ?? null;
         if (useEditSelection.getState().hoverVertex !== index) useEditSelection.setState({ hoverVertex: index });
@@ -88,9 +125,11 @@ export function HandControls() {
 
     function start(handedness: Handedness, x: number, y: number) {
         // A pinch over the interface works it like a finger on a touch screen.
-        const ui = interfaceAt(x, y);
+        // The control the hand was on just before pinching counts, since
+        // closing the fingers nudges the point.
+        const control = hoveredControl(handedness);
+        const ui = control ?? interfaceAt(x, y);
         if (ui) {
-            const control = controlAt(x, y);
             if (control && isSlider(control)) {
                 drag.current = { kind: "slider", el: control };
                 slideTo(control, x);
@@ -115,19 +154,23 @@ export function HandControls() {
             return;
         }
         const state = useScene.getState();
-        const hit = pick(x, y);
-        if (!hit || state.mode === "render") return;
-        state.select(hit.object.name);
+        // Likewise the shape it was pointing at.
+        const id = useHandHover.getState().hoveredId ?? shapeAt(x, y, null);
+        const target = id ? scene.getObjectByName(id) : undefined;
+        if (!target || state.mode === "render") return;
+        // Picking a held shape back up keeps whatever else is selected with it.
+        if (!state.selectedIds.includes(target.name)) state.select(target.name);
         if (state.mode !== "object") return;
-        const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()), hit.object.position);
+        aim(x, y);
+        const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()), target.position);
         const onPlane = raycaster.current.ray.intersectPlane(plane, new THREE.Vector3());
         if (onPlane)
             drag.current = {
                 kind: "object",
-                id: hit.object.name,
+                id: target.name,
                 plane,
-                offset: hit.object.position.clone().sub(onPlane),
-                reach: camera.position.distanceTo(hit.object.position),
+                offset: target.position.clone().sub(onPlane),
+                reach: camera.position.distanceTo(target.position),
             };
     }
 
@@ -193,7 +236,18 @@ export function HandControls() {
         pairing.current = true;
         const d = drag.current;
         const object = d?.kind === "object" && holding ? useScene.getState().doc.objects.find((o) => o.id === d.id) : undefined;
-        drag.current = object ? { kind: "stretch", id: object.id, scale: object.scale, rotation: object.rotation, factor: 1, twist: 0 } : null;
+        const other = live.hands.find((h) => h.handedness !== holding && h.pinching);
+        drag.current = object
+            ? {
+                  kind: "stretch",
+                  id: object.id,
+                  scale: object.scale,
+                  rotation: object.rotation,
+                  factor: 1,
+                  twist: 0,
+                  tap: other ? { at: performance.now(), x: other.startX, y: other.startY } : null,
+              }
+            : null;
     }
 
     function stretch(scale: number, twist: number) {
@@ -206,10 +260,36 @@ export function HandControls() {
         state.run({ type: "transform", target: d.id, ...next }, { coalesce: `hand:${d.id}` });
     }
 
+    // The free hand tapped while the other held a shape: on another shape it
+    // adds that to the selection, on empty space it leaves a copy behind.
+    function tapWhileHolding(d: Extract<Drag, { kind: "stretch" }>) {
+        const state = useScene.getState();
+        // Undo whatever small stretch the tap made.
+        state.run({ type: "transform", target: d.id, scale: d.scale, rotation: d.rotation }, { coalesce: `hand:${d.id}` });
+        state.endCoalesce();
+        const other = d.tap && shapeAt(d.tap.x, d.tap.y, null);
+        if (other && other !== d.id) {
+            const adding = !state.selectedIds.includes(other);
+            state.select(other, { toggle: true });
+            // The held shape stays selected too.
+            const now = useScene.getState();
+            if (!now.selectedIds.includes(d.id)) now.select(d.id, { toggle: true });
+            handToast(adding ? "Added to the selection" : "Taken out of the selection");
+        } else {
+            state.run({ type: "duplicate", target: d.id, offset: [0, 0, 0] }, { select: false });
+            handToast("Copy placed");
+        }
+    }
+
     function end() {
         pairing.current = false;
         const d = drag.current;
         if (d?.kind === "ui" && !d.moved && d.control) pressControl(d.control);
+        if (d?.kind === "stretch" && d.tap && performance.now() - d.tap.at < TAP_MS && Math.abs(d.factor - 1) < 0.06 && Math.abs(d.twist) < 0.1) {
+            tapWhileHolding(d);
+            drag.current = null;
+            return;
+        }
         const kind = d?.kind;
         if (kind === "object" || kind === "vertex" || kind === "stretch") useScene.getState().endCoalesce();
         drag.current = null;

@@ -32,8 +32,12 @@ type Pair = { dist: number; x: number; y: number; angle: number };
 
 export class IntentTracker {
     private used = new Map<Handedness, number>();
-    private active: { handedness: Handedness; pinchId: number; x: number; y: number } | null = null;
+    // `depth0` is how much closer the hand already was when this drag began,
+    // for a drag picked back up partway through a pinch.
+    private active: { handedness: Handedness; pinchId: number; x: number; y: number; depth0: number } | null = null;
     private pair: Pair | null = null;
+    // The hand that was holding something when the other one joined it.
+    private holder: { handedness: Handedness; pinchId: number } | null = null;
 
     update(hands: HandState[]): Intent[] {
         const intents: Intent[] = [];
@@ -46,6 +50,7 @@ export class IntentTracker {
             const now: Pair = { dist: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, angle: Math.atan2(b.y - a.y, b.x - a.x) };
             if (!this.pair) {
                 intents.push({ type: "pairStart", holding: this.active?.handedness ?? null });
+                this.holder = this.active ? { handedness: this.active.handedness, pinchId: this.active.pinchId } : null;
                 this.active = null;
             } else {
                 intents.push({
@@ -63,13 +68,23 @@ export class IntentTracker {
         if (this.pair) {
             this.pair = null;
             intents.push({ type: "end" });
+            // The other hand let go but the one that was holding still pinches:
+            // it picks up where it is, so carrying carries on.
+            const holder = this.holder;
+            this.holder = null;
+            const h = holder && pinching.find((p) => p.handedness === holder.handedness && p.pinchId === holder.pinchId);
+            if (h) {
+                this.active = { handedness: h.handedness, pinchId: h.pinchId, x: h.x, y: h.y, depth0: closer(h) };
+                intents.push({ type: "start", handedness: h.handedness, x: h.x, y: h.y, depth: h.depth });
+                return intents;
+            }
         }
 
         if (this.active) {
             const { handedness, pinchId } = this.active;
             const h = pinching.find((p) => p.handedness === handedness && p.pinchId === pinchId);
             if (h) {
-                intents.push({ type: "move", x: h.x, y: h.y, dx: h.x - this.active.x, dy: h.y - this.active.y, depth: closer(h) });
+                intents.push({ type: "move", x: h.x, y: h.y, dx: h.x - this.active.x, dy: h.y - this.active.y, depth: closer(h) - this.active.depth0 });
                 this.active.x = h.x;
                 this.active.y = h.y;
                 return intents;
@@ -81,7 +96,7 @@ export class IntentTracker {
         const fresh = pinching.find((h) => this.used.get(h.handedness) !== h.pinchId);
         if (fresh) {
             this.used.set(fresh.handedness, fresh.pinchId);
-            this.active = { handedness: fresh.handedness, pinchId: fresh.pinchId, x: fresh.x, y: fresh.y };
+            this.active = { handedness: fresh.handedness, pinchId: fresh.pinchId, x: fresh.x, y: fresh.y, depth0: 0 };
             intents.push({ type: "start", handedness: fresh.handedness, x: fresh.startX, y: fresh.startY, depth: fresh.startDepth });
             intents.push({ type: "move", x: fresh.x, y: fresh.y, dx: fresh.x - fresh.startX, dy: fresh.y - fresh.startY, depth: closer(fresh) });
         }
