@@ -11,7 +11,7 @@ test('adds a shape from the toolbar and undoes it', async ({ page }) => {
 })
 
 test('shows the intro once to new visitors', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/edit')
   const intro = page.getByRole('dialog', { name: 'Welcome to ShapeShift' })
   await expect(intro).toContainText('1 of 4')
   await intro.getByRole('button', { name: 'Next' }).click()
@@ -382,4 +382,13 @@ test('sends feedback with a picture of the scene', async ({ page }) => {
   await expect(dialog.getByText('Thanks! We read every message.')).toBeVisible()
   expect(sent?.message).toBe('Rotating is hard to find')
   expect(sent?.picture).toMatch(/^data:image\/jpeg;base64,/)
+})
+
+test('greets visitors without an account with the landing page', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('shapeshift-onboarded', '1'))
+  await page.goto('/')
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Build in 3D')
+  await page.getByRole('link', { name: /Start creating, free/ }).click()
+  await expect(page).toHaveURL(/\/edit$/)
+  await expect(page.getByTitle('Add box')).toBeVisible()
 })

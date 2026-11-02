@@ -136,7 +136,7 @@ export default function WaitlistPage() {
                     </Form>
                 )}
                 {error && <ErrorText role="alert">{error}</ErrorText>}
-                <Editor href="/">
+                <Editor href="/edit">
                     Or start building now <ArrowRight size={14} />
                 </Editor>
             </Card>

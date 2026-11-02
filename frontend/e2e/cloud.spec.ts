@@ -88,8 +88,9 @@ test('shows signed-in people their scenes before the editor', async ({ page }) =
   await page.goto('/')
   await page.getByTitle(email).click()
   await page.getByRole('menuitem', { name: 'Sign out' }).click()
-  await expect(page).toHaveURL(/\/edit$/)
-  await page.goto('/')
+  // Signed out, the front page is the landing page.
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('3D')
+  await page.getByRole('link', { name: /Start creating/ }).first().click()
   await expect(page.getByTitle('Add box')).toBeVisible()
 })
 

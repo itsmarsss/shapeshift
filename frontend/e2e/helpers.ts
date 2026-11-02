@@ -2,7 +2,7 @@ import { expect, type Page } from '@playwright/test'
 
 // Opens the editor fresh. Any first-run dialog is dismissed so tests start
 // from the same place a returning user would.
-export async function openEditor(page: Page, path = '/') {
+export async function openEditor(page: Page, path = '/edit') {
   await page.addInitScript(() => localStorage.setItem('shapeshift-onboarded', '1'))
   await page.goto(path)
   await expect(page.getByTitle('Add box')).toBeVisible()

@@ -288,7 +288,7 @@ export default function ViewerPage({ slug }: { slug: string }) {
                         <Compass size={16} />
                         <span>Explore</span>
                     </Action>
-                    <Action href="/" title="Open the editor">
+                    <Action href="/edit" title="Open the editor">
                         <ArrowSquareOut size={16} />
                         <span>Open the editor</span>
                     </Action>
