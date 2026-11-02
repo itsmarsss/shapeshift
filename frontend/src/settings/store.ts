@@ -33,6 +33,8 @@ export type Settings = {
     handsAutoStart: boolean;
     // The gesture walkthrough has been finished or skipped.
     handsTutorialDone: boolean;
+    // How strongly buttons and shapes pull the hand cursor; 0 turns it off.
+    handMagnet: number;
     // Anonymous usage numbers and crash reports; see telemetry.ts.
     shareUsage: boolean;
 };
@@ -61,6 +63,7 @@ export const DEFAULT_SETTINGS: Settings = {
     showSkeleton: true,
     handsAutoStart: false,
     handsTutorialDone: false,
+    handMagnet: 1,
     shareUsage: true,
 };
 
