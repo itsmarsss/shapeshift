@@ -11,17 +11,24 @@ import { LIBRARY, libraryPreview } from "../scene/library";
 import { useThumbnails } from "../scene/useThumbnails";
 import { editorLinks } from "../home/links";
 import { SiteShell } from "../site/SiteShell";
-import { PrimaryAction, SecondaryAction, TileArt, TileCaption, Tiles, entering, tile } from "../site/parts";
+import { PrimaryAction, SecondaryAction, appearing, entering } from "../site/parts";
 
 const HeroScene = lazy(() => import("./HeroScene"));
 
-// What the hero's 3D window cycles through.
+const template = (id: string) => buildTemplate(TEMPLATES.find((t) => t.id === id)!);
+const libraryItem = (id: string) => libraryPreview(LIBRARY.find((i) => i.id === id)!);
+
+// What the hero's 3D window cycles through, each with a gesture and a
+// request that would make sense for it.
 const SHOWCASE = [
-    buildTemplate(TEMPLATES.find((t) => t.id === "cabin")!),
-    libraryPreview(LIBRARY.find((i) => i.id === "rocket")!),
-    buildTemplate(TEMPLATES.find((t) => t.id === "snowman")!),
-    libraryPreview(LIBRARY.find((i) => i.id === "car")!),
+    { doc: template("cabin"), grab: "Pinch to move a pine", say: "“Light up the windows”" },
+    { doc: libraryItem("rocket"), grab: "Pinch to lift it off", say: "“Add a fourth fin”" },
+    { doc: template("snowman"), grab: "Pinch to tip his hat", say: "“Give him a carrot nose”" },
+    { doc: libraryItem("car"), grab: "Pinch to spin it round", say: "“Paint it blue”" },
 ];
+
+// The templates the landing page shows off, the first one large.
+const PICKS = ["cabin", "snowman", "solar-system", "product", "water"].map((id) => TEMPLATES.find((t) => t.id === id)!);
 const SHOWCASE_MS = 7000;
 const FADE_MS = 350;
 
@@ -247,6 +254,7 @@ const Chip = styled.div`
     font-size: 13px;
     white-space: nowrap;
     pointer-events: none;
+    transition: opacity ${FADE_MS}ms ease;
 
     svg {
         color: var(--accent);
@@ -285,8 +293,166 @@ const Section = styled.section`
     }
 `;
 
-const Template = styled.a`
-    ${tile}
+// Templates laid out with the first one large, pictures filling each card.
+const Bento = styled.div`
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-auto-rows: 220px;
+    gap: 16px;
+
+    > :first-child {
+        grid-column: span 2;
+        grid-row: span 2;
+    }
+    @media (max-width: 820px) {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-auto-rows: 180px;
+        gap: 12px;
+    }
+`;
+
+const Pick = styled.a`
+    position: relative;
+    display: block;
+    overflow: hidden;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    text-decoration: none;
+    transition:
+        box-shadow 0.25s ease,
+        transform 0.25s ease,
+        border-color 0.25s ease;
+    ${entering}
+
+    // The picture fills the card above its caption, on a soft stage.
+    .art {
+        position: absolute;
+        inset: 0 0 64px 0;
+        overflow: hidden;
+        background: radial-gradient(90% 80% at 50% 35%, var(--surface), var(--surface-raised));
+    }
+    img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+        ${appearing}
+    }
+    .text {
+        position: absolute;
+        left: 18px;
+        right: 60px;
+        bottom: 12px;
+        min-height: 40px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    b {
+        display: block;
+        font-size: 15px;
+        letter-spacing: -0.01em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    small {
+        display: block;
+        margin-top: 2px;
+        color: var(--text-muted);
+        font-size: 13px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .go {
+        position: absolute;
+        right: 14px;
+        bottom: 16px;
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--surface-raised);
+        color: var(--text);
+        transition:
+            background 0.25s ease,
+            color 0.25s ease,
+            translate 0.25s ease;
+    }
+    .tag {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: var(--accent);
+        color: var(--accent-text);
+        font-size: 12px;
+        font-weight: 700;
+    }
+    &:hover,
+    &:focus-visible {
+        border-color: var(--border-strong);
+        box-shadow: 0 20px 44px rgba(0, 0, 0, 0.14);
+        transform: translateY(-3px);
+    }
+    &:hover img {
+        transform: scale(1.07);
+    }
+    &:hover .go,
+    &:focus-visible .go {
+        background: var(--accent);
+        color: var(--accent-text);
+        translate: 2px 0;
+    }
+    &[data-featured] .art {
+        bottom: 84px;
+    }
+    &[data-featured] .text {
+        bottom: 18px;
+    }
+    &[data-featured] b {
+        font-size: 22px;
+    }
+    &[data-featured] small {
+        font-size: 15px;
+    }
+    @media (max-width: 820px) {
+        .text {
+            right: 14px;
+        }
+        .go {
+            display: none;
+        }
+        small {
+            display: none;
+        }
+        .art {
+            bottom: 48px;
+        }
+        &[data-featured] small {
+            display: block;
+        }
+    }
+`;
+
+const Samples = styled.a`
+    display: flex;
+    width: fit-content;
+    align-items: center;
+    gap: 8px;
+    margin: 28px auto 0;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-decoration: none;
+
+    &:hover {
+        color: var(--text);
+    }
 `;
 
 const Band = styled.section`
@@ -363,8 +529,12 @@ export default function LandingPage() {
             clearTimeout(swap);
         };
     }, []);
-    const templateDocs = useMemo(() => TEMPLATES.map(buildTemplate), []);
-    const pictures = useThumbnails(templateDocs);
+    // Bigger pictures for the big card.
+    const featuredDoc = useMemo(() => [buildTemplate(PICKS[0])], []);
+    const restDocs = useMemo(() => PICKS.slice(1).map(buildTemplate), []);
+    const [featuredPicture] = useThumbnails(featuredDoc, 880, 660);
+    const restPictures = useThumbnails(restDocs, 480, 360);
+    const pictures = [featuredPicture, ...restPictures];
 
     // Signed in after all (on another tab, or with this page open): their scenes.
     useEffect(() => {
@@ -431,16 +601,16 @@ export default function LandingPage() {
                             </Chrome>
                             <Scene style={{ opacity: fading ? 0 : 1 }}>
                                 <Suspense fallback={null}>
-                                    <HeroScene doc={SHOWCASE[shown]} />
+                                    <HeroScene doc={SHOWCASE[shown].doc} />
                                 </Suspense>
                             </Scene>
-                            <Chip style={{ top: "14%", left: "-4%" }} aria-hidden>
+                            <Chip style={{ top: "14%", left: "-4%", opacity: fading ? 0 : 1 }} aria-hidden>
                                 <HandGrabbing size={18} weight="fill" />
-                                Pinch to grab
+                                {SHOWCASE[shown].grab}
                             </Chip>
-                            <Chip style={{ bottom: "12%", right: "-3%", animationDelay: "-2s" }} aria-hidden>
+                            <Chip style={{ bottom: "12%", right: "-3%", animationDelay: "-2s", opacity: fading ? 0 : 1 }} aria-hidden>
                                 <Microphone size={18} weight="fill" />
-                                “Add a red roof”
+                                {SHOWCASE[shown].say}
                             </Chip>
                         </Window>
                     </HeroInner>
@@ -459,18 +629,26 @@ export default function LandingPage() {
 
                 <Section data-reveal>
                     <h2>Start from something</h2>
-                    <p>Open a template and make it yours.</p>
-                    <Tiles $min={190}>
-                        {TEMPLATES.map((t, i) => (
-                            <Template key={t.id} href={editorLinks.template(t.id)} style={at(i)}>
-                                <TileArt>{pictures[i] ? <img src={pictures[i]!} alt="" /> : null}</TileArt>
-                                <TileCaption>
+                    <p>Open a template and make it yours. Every piece stays editable.</p>
+                    <Bento>
+                        {PICKS.map((t, i) => (
+                            <Pick key={t.id} href={editorLinks.template(t.id)} style={at(i)} data-featured={i === 0 || undefined}>
+                                <span className="art">{pictures[i] && <img src={pictures[i]!} alt="" />}</span>
+                                {i === 0 && <span className="tag">New</span>}
+                                <span className="text">
                                     <b>{t.name}</b>
                                     <small>{t.blurb}</small>
-                                </TileCaption>
-                            </Template>
+                                </span>
+                                <span className="go" aria-hidden>
+                                    <ArrowRight size={16} weight="bold" />
+                                </span>
+                            </Pick>
                         ))}
-                    </Tiles>
+                    </Bento>
+                    <Samples href="/explore">
+                        Or look around the sample projects on Explore
+                        <ArrowRight size={14} weight="bold" />
+                    </Samples>
                 </Section>
 
                 <Band data-reveal>
