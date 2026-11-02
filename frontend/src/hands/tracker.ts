@@ -10,6 +10,10 @@ export type HandStatus = "off" | "starting" | "running" | "error";
 type HandStore = {
     status: HandStatus;
     error: string | null;
+    // While starting: waiting on the camera, or how much of the tracker has
+    // downloaded (0 to 1, only the first time; it's cached after).
+    stage: "camera" | "loading" | null;
+    progress: number | null;
     setEnabled: (on: boolean) => Promise<void>;
 };
 
@@ -56,14 +60,51 @@ applyTuning();
 useSettings.subscribe(applyTuning);
 
 let stream: MediaStream | null = null;
-let worker: Worker | null = null;
 let stopLoop: (() => void) | null = null;
+
+// The tracker: a worker with the model loaded. Loading it is the slow part
+// (about 22 MB the first time, then compiling it and setting up the graphics),
+// so it starts as early as there's a hint it'll be wanted, and stays loaded
+// when hand control is turned off, so turning it back on is quick.
+type Engine = { worker: Worker; ready: Promise<void>; onHands: ((msg: Extract<WorkerMessage, { type: "hands" }>) => void) | null };
+let engine: Engine | null = null;
+
+export function warmUpHands(): Engine {
+    if (engine) return engine;
+    const worker = new Worker(new URL("./handWorker.ts", import.meta.url), { type: "module" });
+    const current: Engine = { worker, ready: Promise.resolve(), onHands: null };
+    current.ready = new Promise<void>((resolve, reject) => {
+        worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
+            const msg = e.data;
+            if (msg.type === "progress") {
+                if (useHands.getState().status === "starting") useHands.setState({ progress: msg.loaded / msg.total });
+            } else if (msg.type === "ready") resolve();
+            else if (msg.type === "error") {
+                reject(new Error(msg.message));
+                worker.terminate();
+                if (engine === current) engine = null;
+            } else current.onHands?.(msg);
+        };
+    });
+    // Nobody waiting on it yet; a failure is reported when someone does.
+    current.ready.catch(() => {});
+    engine = current;
+    return current;
+}
+
+// Warms up in the background, later, for someone who has used hand control
+// before; for everyone else it waits for a hint like pointing at the button.
+export function warmUpHandsSoon() {
+    if (!useSettings.getState().handsUsed) return;
+    const start = () => void warmUpHands();
+    if ("requestIdleCallback" in window) requestIdleCallback(start, { timeout: 5000 });
+    else setTimeout(start, 3000);
+}
 
 function teardown() {
     stopLoop?.();
     stopLoop = null;
-    worker?.terminate();
-    worker = null;
+    if (engine) engine.onHands = null;
     stream?.getTracks().forEach((t) => t.stop());
     stream = null;
     live.hands = [];
@@ -74,17 +115,21 @@ function teardown() {
 export const useHands = create<HandStore>()((set, get) => ({
     status: "off",
     error: null,
+    stage: null,
+    progress: null,
     setEnabled: async (on) => {
         if (!on) {
             // Turned off on purpose, so it stays off next time.
             useSettings.getState().set({ handsAutoStart: false });
             teardown();
-            set({ status: "off", error: null });
+            set({ status: "off", error: null, stage: null, progress: null });
             return;
         }
         if (get().status !== "off" && get().status !== "error") return;
-        set({ status: "starting", error: null });
+        set({ status: "starting", error: null, stage: "camera", progress: null });
 
+        // The tracker loads while the camera is asked for, not after.
+        const tracker = warmUpHands();
         try {
             const cameraId = useSettings.getState().cameraId;
             stream = await navigator.mediaDevices.getUserMedia({
@@ -96,9 +141,10 @@ export const useHands = create<HandStore>()((set, get) => ({
             });
         } catch {
             teardown();
-            set({ status: "error", error: "Allow camera access to use hand control." });
+            set({ status: "error", error: "Allow camera access to use hand control.", stage: null });
             return;
         }
+        if (get().status !== "starting") return teardown();
 
         const video = document.createElement("video");
         video.muted = true;
@@ -107,39 +153,39 @@ export const useHands = create<HandStore>()((set, get) => ({
         await video.play();
         live.video = video;
 
+        set({ stage: "loading" });
+        try {
+            await tracker.ready;
+        } catch {
+            teardown();
+            set({ status: "error", error: "Hand tracking failed to load. Check your connection and try again.", stage: null });
+            return;
+        }
+        if (get().status !== "starting") return teardown();
+
         const gestures = new GestureTracker();
-        worker = new Worker(new URL("./handWorker.ts", import.meta.url), { type: "module" });
         let busy = false;
         let lastTime = -1;
-
-        worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
-            const msg = e.data;
-            if (msg.type === "ready") {
-                set({ status: "running" });
-                useSettings.getState().set({ handsAutoStart: true });
-                track("hands_on");
-            }
-            else if (msg.type === "error") {
-                teardown();
-                set({ status: "error", error: "Hand tracking failed to load." });
-            } else {
-                busy = false;
-                if (replaying) return;
-                live.frames = msg.hands;
-                live.hands = gestures.update(msg.hands, msg.time, video.videoWidth / Math.max(1, video.videoHeight));
-                if (recording.active) recording.frames.push({ time: msg.time, hands: msg.hands });
-            }
+        tracker.onHands = (msg) => {
+            busy = false;
+            if (replaying) return;
+            live.frames = msg.hands;
+            live.hands = gestures.update(msg.hands, msg.time, video.videoWidth / Math.max(1, video.videoHeight));
+            if (recording.active) recording.frames.push({ time: msg.time, hands: msg.hands });
         };
+        set({ status: "running", stage: null, progress: null });
+        useSettings.getState().set({ handsAutoStart: true, handsUsed: true });
+        track("hands_on");
 
         let raf = 0;
         const tick = async () => {
             raf = requestAnimationFrame(tick);
-            if (busy || !worker || get().status !== "running" || video.readyState < 2 || video.currentTime === lastTime) return;
+            if (busy || get().status !== "running" || video.readyState < 2 || video.currentTime === lastTime) return;
             lastTime = video.currentTime;
             busy = true;
             const frame = await createImageBitmap(video);
             const time = performance.now();
-            if (worker) worker.postMessage({ frame, time }, [frame]);
+            if (engine === tracker && tracker.onHands) tracker.worker.postMessage({ frame, time }, [frame]);
             else frame.close();
         };
         raf = requestAnimationFrame(tick);

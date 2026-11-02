@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, type RefObject } from "react";
 import styled from "styled-components";
 import { ArrowRight, ArrowsIn, ArrowsOut, Camera, CameraSlash, CircleNotch, HandGrabbing, ShieldCheck } from "@phosphor-icons/react";
-import { live, useHands } from "../hands/tracker";
+import { live, useHands, warmUpHands } from "../hands/tracker";
 import type { DemoStatus } from "./HandDemoScene";
 
 const HandDemoScene = lazy(() => import("./HandDemoScene"));
@@ -274,6 +274,8 @@ function useSkeleton(canvas: RefObject<HTMLCanvasElement | null>, on: boolean) {
 export function HandDemo() {
     const status = useHands((s) => s.status);
     const error = useHands((s) => s.error);
+    const stage = useHands((s) => s.stage);
+    const progress = useHands((s) => s.progress);
     const [asked, setAsked] = useState(false);
     const [full, setFull] = useState(false);
     const shapeStatus = useRef<DemoStatus>({ state: "none" });
@@ -339,7 +341,7 @@ export function HandDemo() {
                         </li>
                     ))}
                 </Guide>
-                <Button onClick={toggle} data-on={running || undefined}>
+                <Button onClick={toggle} data-on={running || undefined} onPointerEnter={() => void warmUpHands()} onFocus={() => void warmUpHands()}>
                     {status === "starting" ? (
                         <CircleNotch size={20} className="spin" />
                     ) : running ? (
@@ -347,7 +349,7 @@ export function HandDemo() {
                     ) : (
                         <Camera size={20} weight="bold" />
                     )}
-                    {status === "starting" ? "Starting the camera…" : running ? "Turn the camera off" : "Turn on the camera"}
+                    {status === "starting" ? (stage === "loading" ? `Loading hand tracking${progress !== null && progress < 1 ? ` · ${Math.round(progress * 100)}%` : "…"}` : "Starting the camera…") : running ? "Turn the camera off" : "Turn on the camera"}
                 </Button>
                 <small>
                     <ShieldCheck size={16} />

@@ -47,7 +47,7 @@ self.addEventListener("fetch", (event) => {
     if (url.origin === self.location.origin) {
         if (url.pathname.startsWith("/api/")) return;
         if (request.mode === "navigate") return event.respondWith(networkFirst(request));
-        if (url.pathname.startsWith("/assets/")) return event.respondWith(cacheFirst(request));
+        if (url.pathname.startsWith("/assets/") || url.pathname.startsWith("/mediapipe/")) return event.respondWith(cacheFirst(request));
         return event.respondWith(networkFirst(request));
     }
     if (CDN.some((prefix) => request.url.startsWith(prefix))) event.respondWith(cacheFirst(request));
