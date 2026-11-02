@@ -78,7 +78,10 @@ const DOING: Record<Exclude<HandActivity, null>, string> = {
     vertex: "Moving point",
     stretch: "Resize · turn",
     orbit: "Looking around",
-    camera: "Zoom · pan",
+    camera: "Zoom · pan · turn",
+    slider: "Adjusting",
+    scroll: "Scrolling",
+    press: "Let go to press",
 };
 
 function cursorFor(h: HandState, activity: HandActivity, hovered: boolean, objectHand: string, pair: boolean): { state: string; label: string } {

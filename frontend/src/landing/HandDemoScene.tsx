@@ -75,7 +75,7 @@ function Playground({ status }: { status: MutableRefObject<DemoStatus> }) {
     const hold = useRef<Hold | null>(null);
     const seen = useRef<Record<Handedness, number>>({ Left: -1, Right: -1 });
     const last = useRef<Record<Handedness, { x: number; y: number } | null>>({ Left: null, Right: null });
-    const pair = useRef<number | null>(null);
+    const pair = useRef<{ spread: number; angle: number } | null>(null);
     const view = useRef({ azimuth: 0.35, polar: 1.12, distance: 8.5 });
     const ray = useMemo(() => new THREE.Raycaster(), []);
 
@@ -92,12 +92,17 @@ function Playground({ status }: { status: MutableRefObject<DemoStatus> }) {
         let state: DemoState = hands.length ? "idle" : "none";
         let hovered = -1;
 
-        // Both hands pinching: zoom by spreading them.
+        // Both hands pinching: spread them to zoom, twist them to turn the view.
         if (pinching.length >= 2 && !hold.current) {
-            const [a, b] = pinching;
+            const [a, b] = pinching.slice().sort((p, q) => (p.handedness < q.handedness ? -1 : 1));
             const spread = Math.hypot(a.x - b.x, a.y - b.y);
-            if (pair.current !== null) view.current.distance = THREE.MathUtils.clamp(view.current.distance - (spread - pair.current) * ZOOM_SPEED, 4, 14);
-            pair.current = spread;
+            const angle = Math.atan2(b.y - a.y, b.x - a.x);
+            if (pair.current !== null) {
+                view.current.distance = THREE.MathUtils.clamp(view.current.distance - (spread - pair.current.spread) * ZOOM_SPEED, 4, 14);
+                const twist = Math.atan2(Math.sin(angle - pair.current.angle), Math.cos(angle - pair.current.angle));
+                view.current.azimuth += twist;
+            }
+            pair.current = { spread, angle };
             state = "zoom";
         } else pair.current = null;
 
