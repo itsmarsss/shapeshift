@@ -92,7 +92,49 @@ const productShot: Command[] = [
     { type: "environment", preset: "studio" },
 ];
 
+
+// A cabin by a lake, all from basic shapes: the landing page shows it off.
+function pine(name: string, x: number, z: number, size = 1): Command[] {
+    return [
+        { type: "add", primitive: "cylinder", name: `${name} trunk`, geometry: { type: "cylinder", radiusTop: 0.08 * size, radiusBottom: 0.11 * size, height: 0.5 * size }, position: [x, 0.25 * size, z], color: "#6b4a30" },
+        { type: "add", primitive: "cone", name: `${name} lower`, geometry: { type: "cone", radius: 0.62 * size, height: 1.0 * size }, position: [x, 0.85 * size, z], color: "#2f7d4a" },
+        { type: "add", primitive: "cone", name: `${name} upper`, geometry: { type: "cone", radius: 0.45 * size, height: 0.8 * size }, position: [x, 1.4 * size, z], color: "#3b9a5a" },
+        { type: "group", name, targets: [`${name} trunk`, `${name} lower`, `${name} upper`] },
+    ];
+}
+
+const cabin: Command[] = [
+    { type: "add", primitive: "cylinder", name: "Island", geometry: { type: "cylinder", radiusTop: 4, radiusBottom: 3.7, height: 0.4 }, position: [0, -0.2, 0], color: "#7cb36a" },
+    { type: "add", primitive: "cylinder", name: "Lake", geometry: { type: "cylinder", radiusTop: 1.3, radiusBottom: 1.3, height: 0.06 }, position: [2.2, 0.02, 1.2], color: "#5aa6d6" },
+    { type: "material", target: "Lake", roughness: 0.15, metalness: 0.1 },
+    { type: "add", primitive: "box", name: "Walls", geometry: { type: "box", width: 2.2, height: 1.4, depth: 1.8 }, position: [-0.5, 0.7, -0.5], color: "#c98b5b" },
+    { type: "add", primitive: "roof", name: "Roof", geometry: { type: "roof", width: 2.7, height: 1.0, depth: 2.2 }, position: [-0.5, 1.9, -0.5], color: "#5b3a2a" },
+    { type: "add", primitive: "box", name: "Door", geometry: { type: "box", width: 0.45, height: 0.8, depth: 0.06 }, position: [-0.5, 0.4, 0.42], color: "#3f2a1e" },
+    { type: "add", primitive: "box", name: "Left window", geometry: { type: "box", width: 0.4, height: 0.4, depth: 0.06 }, position: [-1.15, 0.85, 0.42], color: "#ffd98a" },
+    { type: "add", primitive: "box", name: "Right window", geometry: { type: "box", width: 0.4, height: 0.4, depth: 0.06 }, position: [0.15, 0.85, 0.42], color: "#ffd98a" },
+    { type: "material", target: "Left window", emissive: "#ffb648", emissiveIntensity: 0.8 },
+    { type: "material", target: "Right window", emissive: "#ffb648", emissiveIntensity: 0.8 },
+    { type: "add", primitive: "box", name: "Chimney", geometry: { type: "box", width: 0.3, height: 0.9, depth: 0.3 }, position: [0.2, 2.25, -1.0], color: "#8d8f96" },
+    { type: "add", primitive: "box", name: "Step", geometry: { type: "box", width: 0.9, height: 0.12, depth: 0.4 }, position: [-0.5, 0.06, 0.65], color: "#a0714b" },
+    { type: "group", name: "Cabin", targets: ["Walls", "Roof", "Door", "Left window", "Right window", "Chimney", "Step"] },
+    { type: "add", primitive: "box", name: "Dock", geometry: { type: "box", width: 1.1, height: 0.06, depth: 0.36 }, position: [1.3, 0.08, 1.0], color: "#a0714b" },
+    { type: "add", primitive: "cylinder", name: "Stone 1", geometry: { type: "cylinder", radiusTop: 0.2, radiusBottom: 0.22, height: 0.05 }, position: [-0.35, 0.02, 1.1], color: "#c9c5bd" },
+    { type: "add", primitive: "cylinder", name: "Stone 2", geometry: { type: "cylinder", radiusTop: 0.18, radiusBottom: 0.2, height: 0.05 }, position: [-0.1, 0.02, 1.65], color: "#c9c5bd" },
+    { type: "add", primitive: "cylinder", name: "Stone 3", geometry: { type: "cylinder", radiusTop: 0.2, radiusBottom: 0.22, height: 0.05 }, position: [0.25, 0.02, 2.2], color: "#c9c5bd" },
+    { type: "add", primitive: "sphere", name: "Rock", geometry: { type: "sphere", radius: 0.26 }, position: [3.3, 0.12, 0.2], scale: [1, 0.7, 0.9], color: "#9a9ca3" },
+    { type: "add", primitive: "sphere", name: "Bush", geometry: { type: "sphere", radius: 0.3 }, position: [-1.75, 0.22, 0.45], color: "#4fa35e" },
+    { type: "add", primitive: "cylinder", name: "Lamp post", geometry: { type: "cylinder", radiusTop: 0.035, radiusBottom: 0.045, height: 1.1 }, position: [0.55, 0.55, 1.05], color: "#2d2f36" },
+    { type: "add", primitive: "sphere", name: "Lamp", geometry: { type: "sphere", radius: 0.11 }, position: [0.55, 1.15, 1.05], color: "#ffe7a8" },
+    { type: "material", target: "Lamp", emissive: "#ffcf6e", emissiveIntensity: 1.5 },
+    ...pine("Pine 1", -2.6, -1.5, 1.2),
+    ...pine("Pine 2", -2.9, 0.9),
+    ...pine("Pine 3", 1.4, -2.3, 1.35),
+    ...pine("Pine 4", 2.9, -1.2, 0.85),
+    { type: "environment", preset: "sunset" },
+];
+
 export const TEMPLATES: Template[] = [
+    { id: "cabin", name: "Lakeside cabin", blurb: "A cabin, pines and a lake, all from basic shapes", commands: cabin },
     { id: "snowman", name: "Snowman", blurb: "Stacked shapes, grouped together", commands: snowman },
     { id: "solar-system", name: "Solar system", blurb: "Planets orbiting on the timeline", commands: solarSystem },
     { id: "house", name: "House and tree", blurb: "A little scene to make your own", commands: house },
