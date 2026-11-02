@@ -8,7 +8,7 @@ const HandDemoScene = lazy(() => import("./HandDemoScene"));
 
 const LABEL: Record<DemoStatus["state"], string> = {
     none: "Hold a hand up to the camera",
-    idle: "Move the ring onto a shape",
+    idle: "Move your fingertips onto a shape",
     near: "Pinch to grab it",
     holding: "Got it. Move it around, open to drop",
 };

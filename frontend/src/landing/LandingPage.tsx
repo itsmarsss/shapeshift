@@ -17,7 +17,7 @@ const HeroScene = lazy(() => import("./HeroScene"));
 
 // What the hero's 3D window cycles through.
 const SHOWCASE = [
-    buildTemplate(TEMPLATES.find((t) => t.id === "house")!),
+    buildTemplate(TEMPLATES.find((t) => t.id === "cabin")!),
     libraryPreview(LIBRARY.find((i) => i.id === "rocket")!),
     buildTemplate(TEMPLATES.find((t) => t.id === "snowman")!),
     libraryPreview(LIBRARY.find((i) => i.id === "car")!),
