@@ -25,7 +25,10 @@ export const tuning = { sensitivity: 1, smoothing: 0.5 };
 const minCutoff = () => 3 - tuning.smoothing * 2.6;
 const CONFIRM_FRAMES = 2;
 const LOST_FRAMES = 5;
-const MARGIN = 0.12;
+// How far in from each edge of the camera's view the screen's edge sits.
+// Tracking gets shaky as a hand nears the edge of the picture, so the screen
+// runs out well before the camera does.
+const MARGIN = 0.2;
 
 const THUMB_TIP = 4;
 const INDEX_TIP = 8;
