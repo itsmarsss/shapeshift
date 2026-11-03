@@ -17,4 +17,8 @@ interface Env {
     // Comma-separated emails with full admin access, set with
     // `wrangler secret put SUPERUSER_EMAILS` (kept out of the public repo).
     SUPERUSER_EMAILS?: string;
+    // Reads the anonymous usage numbers back for the admin page's charts: a
+    // Cloudflare API token with Account Analytics: Read, and the account id.
+    ANALYTICS_TOKEN?: string;
+    ANALYTICS_ACCOUNT_ID?: string;
 }

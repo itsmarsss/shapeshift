@@ -2,6 +2,7 @@ import { z } from "zod";
 import { can, PERMISSIONS, ROLE_IDS, type Permission, type Role } from "@shapeshift/shared/admin/roles";
 import { currentUser, Email, fail, isLocal, json, type User } from "./auth";
 import { feedbackPictureKey } from "./feedback";
+import { databaseMetrics, eventMetrics } from "./metrics";
 
 // /api/admin/*: the team's admin page. Every request checks the signed-in
 // person's role and the permission the action needs. To anyone who isn't an
@@ -79,6 +80,18 @@ export async function handleAdmin(request: Request, env: Env): Promise<Response 
             unreadFeedback: await count(env, "SELECT COUNT(*) AS n FROM feedback WHERE read_at IS NULL"),
             promptsThisMonth: await count(env, "SELECT COALESCE(SUM(prompts), 0) AS n FROM usage WHERE period = ?1", period()),
         });
+    }
+
+    if ((path === "/metrics" || path === "/metrics/events") && method === "GET") {
+        if (!allowed("metrics")) return forbidden();
+        const days = [7, 30, 90].includes(Number(searchParams.get("days"))) ? Number(searchParams.get("days")) : 30;
+        if (path === "/metrics") return json(await databaseMetrics(env, days));
+        try {
+            return json(await eventMetrics(env, days));
+        } catch (err) {
+            console.error("Admin metrics failed", err);
+            return fail(502, "Couldn't read the usage numbers from Cloudflare. Check the analytics token.", "upstream");
+        }
     }
 
     if (path === "/feedback" && method === "GET") {
