@@ -10,6 +10,15 @@ const TOOL_PARAMS = TOOLS.map((t) => ({
     function: { name: t.name, description: t.description, parameters: t.parameters },
 })) as ChatCompletionTool[];
 
+// Says what actually went wrong, for the errors Workers AI gives a code to.
+export function aiError(err: unknown): ProviderError {
+    const text = err instanceof Error ? err.message : String(err);
+    // The account's free daily allowance; it resets at midnight UTC.
+    if (/\b4006\b|daily free allocation/i.test(text)) return new ProviderError("overloaded", "The free assistant has used up today's capacity. It's back after midnight UTC.");
+    if (/\b5035\b|not available on the Workers Free plan/i.test(text)) return new ProviderError("not_configured", "This model needs Cloudflare's paid Workers plan.");
+    return new ProviderError("overloaded", "The model is busy right now. Try again in a moment.");
+}
+
 // Workers AI refuses a whole request if an earlier call's arguments aren't
 // valid JSON, so a broken one is sent back repaired, or empty.
 function validJson(args: string) {
@@ -128,9 +137,12 @@ export async function readAiStream(stream: ReadableStream<Uint8Array>, callbacks
     return { content: content.trim(), tool_calls, finish };
 }
 
-export function workersAiProvider(env: Env): Provider {
+// `model` may end in "#low", "#medium" or "#high" to say how long a model
+// that reasons (like gpt-oss) should think, for trying it in the Model lab.
+export function workersAiProvider(env: Env, model?: string): Provider {
     // Set in wrangler.jsonc, so a better free model is a config change.
-    const MODEL = env.FREE_MODEL || DEFAULT_MODEL;
+    const [MODEL, effort] = (model || env.FREE_MODEL || DEFAULT_MODEL).split("#") as [string, string | undefined];
+    const reasoning = effort && ["low", "medium", "high"].includes(effort) ? { reasoning: { effort } } : {};
     return {
         info: { provider: "workers-ai", model: MODEL },
         async step(messages, callbacks) {
@@ -145,10 +157,11 @@ export function workersAiProvider(env: Env): Provider {
                     max_tokens: 8192,
                     stream: true,
                     chat_template_kwargs: { enable_thinking: true },
+                    ...reasoning,
                 } as never)) as unknown as ReadableStream<Uint8Array>;
             } catch (err) {
                 console.error("Workers AI request failed", err);
-                throw new ProviderError("overloaded", "The model is busy right now. Try again in a moment.");
+                throw aiError(err);
             }
             const { content, tool_calls, finish } = await readAiStream(stream, callbacks);
             if (finish === "length") {

@@ -118,7 +118,8 @@ async function errorFromResponse(response: Response): Promise<AgentError> {
     return new AgentError(code, body?.error || MESSAGES[code], retryAfter);
 }
 
-export const httpTransport: Transport = async (request, handlers, outer) => {
+// Steps over HTTP to `endpoint`: the assistant's, or the Model lab's.
+export const makeHttpTransport = (endpoint: string): Transport => async (request, handlers, outer) => {
     const body = JSON.stringify(request);
     for (let attempt = 0; ; attempt++) {
         const controller = new AbortController();
@@ -132,7 +133,7 @@ export const httpTransport: Transport = async (request, handlers, outer) => {
         };
         let streamed = false;
         try {
-            const response = await fetch(ENDPOINT, {
+            const response = await fetch(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body,
@@ -143,6 +144,7 @@ export const httpTransport: Transport = async (request, handlers, outer) => {
                 response,
                 {
                     onText: (t) => ((streamed = true), handlers.onText?.(t)),
+                    onThinking: (t) => ((streamed = true), handlers.onThinking?.(t)),
                     onToolStart: (n) => ((streamed = true), handlers.onToolStart?.(n)),
                 },
                 controller.signal,
@@ -167,6 +169,8 @@ export const httpTransport: Transport = async (request, handlers, outer) => {
         }
     }
 };
+
+export const httpTransport = makeHttpTransport(ENDPOINT);
 
 export async function fetchAgentInfo(): Promise<AgentInfo | null> {
     try {

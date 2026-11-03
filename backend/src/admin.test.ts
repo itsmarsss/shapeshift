@@ -63,6 +63,22 @@ describe("admin", () => {
         expect((await call(e, mod, "/admins", { method: "POST", body: { email: "mod@example.com", role: "superuser" } })).status).toBe(403);
     });
 
+    it("runs the Model lab on the chosen model for admins, without counting prompts", async () => {
+        const run = vi.fn(async () => new Response('data: {"choices":[{"delta":{"content":"Hi"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n').body);
+        const e = env({ AI: { run } } as unknown as Partial<Env>);
+        const boss = await signIn(e, LOCAL_SUPERUSER);
+        const mod = await signIn(e, "mod@example.com");
+        await call(e, boss, "/admins", { method: "POST", body: { email: "mod@example.com", role: "moderator" } });
+        const body = { messages: [{ role: "user", content: "hi" }] };
+        expect((await call(e, mod, "/agent?model=@cf/openai/gpt-oss-120b", { method: "POST", body })).status).toBe(403);
+        expect((await call(e, boss, "/agent?model=nope", { method: "POST", body })).status).toBe(400);
+
+        const res = (await handleAdmin(req("/api/admin/agent?model=@cf/openai/gpt-oss-120b%23low", { method: "POST", body, cookie: boss }), e))!;
+        expect(await res.text()).toContain('"content":"Hi"');
+        expect(run).toHaveBeenCalledWith("@cf/openai/gpt-oss-120b", expect.objectContaining({ reasoning: { effort: "low" } }));
+        expect(await e.DB.prepare("SELECT COUNT(*) AS n FROM usage").first()).toEqual({ n: 0 });
+    });
+
     it("changes plans by hand and logs what admins do", async () => {
         const e = env();
         const boss = await signIn(e, LOCAL_SUPERUSER);

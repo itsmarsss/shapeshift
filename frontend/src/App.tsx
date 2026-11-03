@@ -10,6 +10,7 @@ const PricingPage = lazy(() => import('./pricing/PricingPage'))
 const ExplorePage = lazy(() => import('./explore/ExplorePage'))
 const LandingPage = lazy(() => import('./landing/LandingPage'))
 const AdminPage = lazy(() => import('./admin/AdminPage'))
+const LabRun = lazy(() => import('./lab/LabRun'))
 
 function App() {
   const path = location.pathname.replace(/\/$/, '')
@@ -39,6 +40,10 @@ function App() {
       ) : landing ? (
         <Suspense fallback={null}>
           <LandingPage />
+        </Suspense>
+      ) : path === '/lab/run' ? (
+        <Suspense fallback={null}>
+          <LabRun />
         </Suspense>
       ) : path === '/admin' ? (
         <Suspense fallback={null}>

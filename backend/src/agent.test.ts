@@ -225,3 +225,12 @@ describe("model choice", () => {
         expect(modelFor({ AGENT_MODEL: "claude-sonnet-5-5", AGENT_MODEL_PRO: "" } as Env, "pro")).toBe("claude-sonnet-5-5");
     });
 });
+
+describe("Workers AI errors", () => {
+    it("says when the free allowance is used up or the model needs the paid plan", async () => {
+        const { aiError } = await import("./workersAi");
+        expect(aiError(new Error("4006: you have used up your daily free allocation of 10,000 neurons")).message).toContain("today's capacity");
+        expect(aiError(new Error("5035: Model @cf/x is not available on the Workers Free plan")).message).toContain("paid Workers plan");
+        expect(aiError(new Error("boom")).message).toContain("busy");
+    });
+});
