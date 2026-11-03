@@ -49,7 +49,12 @@ function send(path: string, body: object) {
 
 // `label` is a short word like a template's name or an export format;
 // `value` a number like seconds.
+// Things in the app that want to know an event happened (like the first-steps
+// checklist), whether or not usage sharing is on. Nothing here leaves the browser.
+export const eventListeners = new Set<(event: EventName) => void>();
+
 export function track(event: EventName, label = "", value = 0) {
+    for (const listener of eventListeners) listener(event);
     if (!enabled()) return;
     send("/api/events", { event, label: label.slice(0, 40), value, id: anonId() });
 }

@@ -9,6 +9,7 @@ import { useHands, warmUpHands } from "../hands/tracker";
 import { useUI } from "../ui/store";
 import { COMPACT } from "../ui/compact";
 import { IconButton } from "./ui";
+import { askAssistant } from "../assistant/ask";
 
 // Places the card; the card itself animates inside it.
 const Spot = styled.div`
@@ -116,10 +117,7 @@ export function StartCard() {
 
     async function ask() {
         setDismissed(true);
-        useUI.getState().setShowChat(true);
-        // Loaded on demand, like the chat panel, to keep the first load small.
-        const { useAssistant } = await import("../assistant/store");
-        useAssistant.getState().send(PROMPT);
+        await askAssistant(PROMPT);
     }
 
     return (
