@@ -37,3 +37,10 @@ export const item: Variants = {
     hidden: { opacity: 0, y: 12 },
     shown: { opacity: 1, y: 0, transition: { duration: 0.3, ease: EASE_OUT } },
 };
+
+// Rows fade up one after another, quickly, so a long list doesn't drag.
+export const rowIn = (i: number) => ({
+    initial: { opacity: 0, y: 6 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.24, ease: EASE_OUT, delay: Math.min(i, 14) * 0.018 },
+});

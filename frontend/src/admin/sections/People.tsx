@@ -1,9 +1,10 @@
-import { useState } from "react";
+import * as m from "motion/react-m";
 import { CaretDown, CaretUp } from "@phosphor-icons/react";
 import { ROLES, type Role } from "@shapeshift/shared/admin/roles";
-import { Button, Input, Select } from "../../components/ui";
-import { ago, day, go, useLoad } from "../nav";
-import { Avatar, Badge, Header, Pager, PlanBadge, Problem, TableBox, Toolbar } from "../ui";
+import { Select } from "../../components/ui";
+import { rowIn } from "../../ui/motion";
+import { ago, day, go, useDebounced, useKept, useLoad } from "../nav";
+import { Avatar, Badge, Dim, Header, Loading, Pager, PlanBadge, Problem, SearchBox, TableBox, Toolbar } from "../ui";
 import { Empty } from "../charts";
 
 type Row = { id: string; email: string; name: string | null; plan: string; plan_status: string | null; joined: number; scenes: number; prompts: number; active: number | null; role: Role | null };
@@ -19,61 +20,44 @@ const COLUMNS: { key: string; label: string }[] = [
 ];
 
 export function People() {
-    const [draft, setDraft] = useState("");
-    const [q, setQ] = useState("");
-    const [plan, setPlan] = useState("");
-    const [role, setRole] = useState("");
-    const [scenes, setScenes] = useState("");
-    const [sort, setSort] = useState("joined");
-    const [dir, setDir] = useState<"asc" | "desc">("desc");
-    const [page, setPage] = useState(0);
-    const params = new URLSearchParams({ q, plan, role, scenes, sort, dir, page: String(page) });
-    const { data, error } = useLoad<List>(`/users?${params}`);
+    const [v, setV] = useKept("people", { q: "", plan: "", role: "", scenes: "", sort: "joined", dir: "desc" as "asc" | "desc", page: 0 });
+    const set = (change: Partial<typeof v>) => setV({ ...v, page: 0, ...change });
+    const q = useDebounced(v.q);
+    const { sort, dir, page } = v;
+    const params = new URLSearchParams({ q, plan: v.plan, role: v.role, scenes: v.scenes, sort, dir, page: String(page) });
+    const { data, error, loading } = useLoad<List>(`/users?${params}`);
 
     const sortBy = (key: string) => {
         if (key === "plan") return;
-        if (sort === key) setDir(dir === "asc" ? "desc" : "asc");
-        else {
-            setSort(key);
-            setDir(key === "email" ? "asc" : "desc");
-        }
-        setPage(0);
+        set(sort === key ? { dir: dir === "asc" ? "desc" : "asc" } : { sort: key, dir: key === "email" ? "asc" : "desc" });
     };
 
     return (
         <>
             <Header title="People">{data ? `${data.total.toLocaleString()} ${data.total === 1 ? "person" : "people"}` : "Everyone with an account"}</Header>
-            <Toolbar
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    setQ(draft);
-                    setPage(0);
-                }}
-            >
-                <Input type="search" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Search by email or name" aria-label="Search people" />
-                <Select value={plan} onChange={(e) => (setPlan(e.target.value), setPage(0))} aria-label="Plan">
+            <Toolbar onSubmit={(e) => e.preventDefault()}>
+                <SearchBox value={v.q} onChange={(q) => set({ q })} placeholder="Search by email or name" label="Search people" />
+                <Select value={v.plan} onChange={(e) => set({ plan: e.target.value })} aria-label="Plan">
                     <option value="">Every plan</option>
                     <option value="free">Free</option>
                     <option value="pro">Pro, paying</option>
                     <option value="given">Pro, given by hand</option>
                     <option value="trouble">Cancelling or overdue</option>
                 </Select>
-                <Select value={role} onChange={(e) => (setRole(e.target.value), setPage(0))} aria-label="Role">
+                <Select value={v.role} onChange={(e) => set({ role: e.target.value })} aria-label="Role">
                     <option value="">Everyone</option>
                     <option value="admin">Admins only</option>
                 </Select>
-                <Select value={scenes} onChange={(e) => (setScenes(e.target.value), setPage(0))} aria-label="Scenes">
+                <Select value={v.scenes} onChange={(e) => set({ scenes: e.target.value })} aria-label="Scenes">
                     <option value="">With or without scenes</option>
                     <option value="yes">Has saved scenes</option>
                 </Select>
-                <Button type="submit" $variant="primary">
-                    Search
-                </Button>
             </Toolbar>
             {error && <Problem>{error}</Problem>}
+            {!data && !error && <Loading kind="list" />}
             {data && !data.users.length && <Empty>Nobody matches.</Empty>}
             {data && data.users.length > 0 && (
-                <>
+                <Dim $busy={loading}>
                     <TableBox>
                         <table>
                             <thead>
@@ -94,8 +78,8 @@ export function People() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {data.users.map((u) => (
-                                    <tr key={u.id} onClick={() => go("people", u.id)}>
+                                {data.users.map((u, i) => (
+                                    <m.tr key={u.id} {...rowIn(i)} tabIndex={0} onClick={() => go("people", u.id)} onKeyDown={(e) => e.key === "Enter" && go("people", u.id)}>
                                         <td>
                                             <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
                                                 <Avatar email={u.email} />
@@ -115,13 +99,13 @@ export function People() {
                                         <td className="muted">{ago(u.active)}</td>
                                         <td className="muted">{day(u.joined)}</td>
                                         <td>{u.role && <Badge $tone={u.role === "superuser" ? "accent" : "plain"}>{ROLES[u.role].label}</Badge>}</td>
-                                    </tr>
+                                    </m.tr>
                                 ))}
                             </tbody>
                         </table>
                     </TableBox>
-                    <Pager page={data.page} pageSize={data.pageSize} total={data.total} onPage={setPage} />
-                </>
+                    <Pager page={data.page} pageSize={data.pageSize} total={data.total} onPage={(page) => setV({ ...v, page })} />
+                </Dim>
             )}
         </>
     );

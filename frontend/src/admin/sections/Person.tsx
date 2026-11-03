@@ -3,9 +3,8 @@ import styled from "styled-components";
 import { ArrowLeft, ArrowSquareOut, Copy, Cube } from "@phosphor-icons/react";
 import { ROLES, type Permission, type Role } from "@shapeshift/shared/admin/roles";
 import { Button, Input } from "../../components/ui";
-import { api } from "../api";
-import { ago, bytes, day, go, useLoad, when } from "../nav";
-import { Avatar, Badge, Confirm, Panel, PlanBadge, Problem } from "../ui";
+import { ago, bytes, day, go, run, toast, useLoad, when } from "../nav";
+import { Avatar, Badge, Confirm, Loading, Panel, PlanBadge, Problem } from "../ui";
 import { Empty, Kpis, Stat } from "../charts";
 
 type Scene = { id: string; title: string; size: number; created_at: number; updated_at: number; public_slug: string | null; listed: number };
@@ -206,24 +205,16 @@ function SceneThumb({ id }: { id: string }) {
 
 export function Person({ id, can }: { id: string; can: (p: Permission) => boolean }) {
     const { data, error, reload } = useLoad<Detail>(`/users/${id}`);
-    const [problem, setProblem] = useState<string | null>(null);
     const [typed, setTyped] = useState("");
-    const [copied, setCopied] = useState(false);
 
-    async function act(path: string, method = "POST", body?: unknown) {
-        setProblem(null);
-        try {
-            await api(path, { method, body });
-            reload();
-            return true;
-        } catch (e) {
-            setProblem(e instanceof Error ? e.message : "That didn't work.");
-            return false;
-        }
+    async function act(path: string, done: string, method = "POST", body?: unknown) {
+        const ok = await run(path, done, { method, body });
+        if (ok) reload();
+        return ok;
     }
 
     if (error) return <Problem>{error}</Problem>;
-    if (!data) return null;
+    if (!data) return <Loading />;
     const manual = data.plan === "pro" && data.plan_status === "manual";
     const shared = data.scenes.filter((s) => s.public_slug).length;
     const listed = data.scenes.filter((s) => s.listed && s.public_slug).length;
@@ -240,11 +231,12 @@ export function Person({ id, can }: { id: string; can: (p: Permission) => boolea
                         {data.email}
                         <button
                             className="icon"
-                            title={copied ? "Copied" : "Copy email"}
+                            title="Copy email"
                             onClick={() => {
-                                void navigator.clipboard?.writeText(data.email);
-                                setCopied(true);
-                                setTimeout(() => setCopied(false), 1200);
+                                void navigator.clipboard?.writeText(data.email).then(
+                                    () => toast("Email copied"),
+                                    () => toast("Couldn't copy it", "bad"),
+                                );
                             }}
                         >
                             <Copy size={16} />
@@ -265,7 +257,6 @@ export function Person({ id, can }: { id: string; can: (p: Permission) => boolea
                     </div>
                 </div>
             </Top>
-            {problem && <Problem>{problem}</Problem>}
             <Kpis>
                 <Stat label="Scenes" value={data.scenes.length} />
                 <Stat label="Shared · on Explore" value={`${shared} · ${listed}`} />
@@ -298,9 +289,9 @@ export function Person({ id, can }: { id: string; can: (p: Permission) => boolea
                                                             View
                                                         </Button>
                                                     )}
-                                                    {s.public_slug && s.listed ? <Confirm label="Unlist" sure="Unlist" onConfirm={() => void act(`/scenes/${s.id}/unlist`)} /> : null}
-                                                    {s.public_slug && <Confirm label="Unshare" sure="Unshare" variant="danger" onConfirm={() => void act(`/scenes/${s.id}/unshare`)} />}
-                                                    <Confirm label="Delete" sure="Delete it" variant="danger" onConfirm={() => void act(`/scenes/${s.id}`, "DELETE")} />
+                                                    {s.public_slug && s.listed ? <Confirm label="Unlist" sure="Unlist" onConfirm={() => void act(`/scenes/${s.id}/unlist`, "Taken off Explore")} /> : null}
+                                                    {s.public_slug && <Confirm label="Unshare" sure="Unshare" variant="danger" onConfirm={() => void act(`/scenes/${s.id}/unshare`, "Link turned off")} />}
+                                                    <Confirm label="Delete" sure="Delete it" variant="danger" onConfirm={() => void act(`/scenes/${s.id}`, "Scene deleted", "DELETE")} />
                                                 </div>
                                             )}
                                         </div>
@@ -339,9 +330,9 @@ export function Person({ id, can }: { id: string; can: (p: Permission) => boolea
                                 <div className="row">
                                     <span>{data.plan === "pro" ? (manual ? "Pro, given by hand" : "Paying for Pro (change it in Stripe)") : "On the free plan"}</span>
                                     {data.plan === "pro" ? (
-                                        manual && <Confirm label="Back to Free" sure="Make Free" variant="danger" onConfirm={() => void act(`/users/${id}/plan`, "POST", { plan: "free" })} />
+                                        manual && <Confirm label="Back to Free" sure="Make Free" variant="danger" onConfirm={() => void act(`/users/${id}/plan`, "Moved to Free", "POST", { plan: "free" })} />
                                     ) : (
-                                        <Confirm label="Give Pro" sure="Give Pro" onConfirm={() => void act(`/users/${id}/plan`, "POST", { plan: "pro" })} />
+                                        <Confirm label="Give Pro" sure="Give Pro" onConfirm={() => void act(`/users/${id}/plan`, "Pro given", "POST", { plan: "pro" })} />
                                     )}
                                 </div>
                             )}
@@ -349,11 +340,11 @@ export function Person({ id, can }: { id: string; can: (p: Permission) => boolea
                                 <>
                                     <div className="row">
                                         <span>{data.promptsThisMonth} prompts used this month</span>
-                                        <Confirm label="Reset prompts" sure="Reset" disabled={!data.promptsThisMonth} onConfirm={() => void act(`/users/${id}/usage/reset`)} />
+                                        <Confirm label="Reset prompts" sure="Reset" disabled={!data.promptsThisMonth} onConfirm={() => void act(`/users/${id}/usage/reset`, "Prompts reset")} />
                                     </div>
                                     <div className="row">
                                         <span>Signed in on {data.activeSessions} {data.activeSessions === 1 ? "device" : "devices"}</span>
-                                        <Confirm label="Sign out everywhere" sure="Sign out" variant="danger" disabled={!data.activeSessions} onConfirm={() => void act(`/users/${id}/signout`)} />
+                                        <Confirm label="Sign out everywhere" sure="Sign out" variant="danger" disabled={!data.activeSessions} onConfirm={() => void act(`/users/${id}/signout`, `Signed out on ${data.activeSessions} ${data.activeSessions === 1 ? "device" : "devices"}`)} />
                                     </div>
                                 </>
                             )}
@@ -370,7 +361,7 @@ export function Person({ id, can }: { id: string; can: (p: Permission) => boolea
                                     <Button
                                         $variant="danger"
                                         disabled={typed.trim().toLowerCase() !== data.email}
-                                        onClick={() => void act(`/users/${id}`, "DELETE").then((ok) => ok && go("people"))}
+                                        onClick={() => void act(`/users/${id}`, `Deleted ${data.email}`, "DELETE").then((ok) => ok && go("people"))}
                                     >
                                         Delete account
                                     </Button>

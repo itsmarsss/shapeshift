@@ -1,4 +1,5 @@
-import { useEffect, useState, type ComponentType, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
+import * as m from "motion/react-m";
 import styled from "styled-components";
 import {
     ChartLineUp,
@@ -19,7 +20,8 @@ import { SiteShell } from "../site/SiteShell";
 import { Empty } from "../site/parts";
 import { api } from "./api";
 import { go, useRoute } from "./nav";
-import { Badge } from "./ui";
+import { Badge, Toasts } from "./ui";
+import { EASE_OUT, rise } from "../ui/motion";
 import { People } from "./sections/People";
 import { Person } from "./sections/Person";
 import { Scenes } from "./sections/Scenes";
@@ -96,9 +98,30 @@ const Side = styled.nav`
         background: var(--surface-hover);
         color: var(--text);
     }
-    button[aria-current="page"] {
-        background: var(--surface-raised);
+    button {
+        position: relative;
+        z-index: 1;
+        transition: color 0.15s ease, background 0.15s ease;
+    }
+    button[aria-current="page"],
+    button[aria-current="page"]:hover {
+        background: transparent;
         color: var(--text);
+    }
+    .marker {
+        position: absolute;
+        top: 0;
+        left: 0;
+        border-radius: 10px;
+        background: var(--surface-raised);
+        box-shadow: inset 0 0 0 1px var(--border);
+        pointer-events: none;
+        transition: transform 0.32s cubic-bezier(0.34, 1.3, 0.5, 1), width 0.32s ease, height 0.32s ease;
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .marker {
+            transition: none;
+        }
     }
     button[aria-current="page"] svg {
         color: var(--accent);
@@ -114,7 +137,8 @@ const Side = styled.nav`
         text-align: center;
     }
     @media (max-width: 860px) {
-        position: static;
+        position: relative;
+        top: 0;
         flex-direction: row;
         flex-wrap: nowrap;
         overflow-x: auto;
@@ -165,6 +189,25 @@ const GROUPS: { title: string; sections: Section[] }[] = [
         ],
     },
 ];
+
+// The highlight behind the open section, which slides between them.
+function Marker({ current }: { current?: string }) {
+    const ref = useRef<HTMLSpanElement>(null);
+    const [box, setBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+    useLayoutEffect(() => {
+        const side = ref.current?.parentElement;
+        if (!side) return;
+        const place = () => {
+            const el = side.querySelector<HTMLElement>('button[aria-current="page"]');
+            if (el) setBox({ x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight });
+        };
+        place();
+        const ro = new ResizeObserver(place);
+        ro.observe(side);
+        return () => ro.disconnect();
+    }, [current]);
+    return <span ref={ref} className="marker" hidden={!box} style={box ? { transform: `translate(${box.x}px, ${box.y}px)`, width: box.w, height: box.h } : undefined} />;
+}
 
 export default function AdminPage() {
     const [me, setMe] = useState<Me | null | false>(null);
@@ -245,6 +288,7 @@ export default function AdminPage() {
         <SiteShell page="admin" wide>
             <Frame>
                 <Side aria-label="Admin sections">
+                    <Marker current={current?.id} />
                     <div className="me">
                         <b title={me.email}>{me.email}</b>
                         <Badge $tone={me.role === "superuser" ? "accent" : "plain"}>{ROLES[me.role].label}</Badge>
@@ -262,8 +306,11 @@ export default function AdminPage() {
                         </div>
                     ))}
                 </Side>
-                <main>{body}</main>
+                <m.main key={`${current?.id}:${route.id ?? ""}`} {...rise} exit={undefined} transition={{ duration: 0.28, ease: EASE_OUT }} style={{ minWidth: 0 }}>
+                    {body}
+                </m.main>
             </Frame>
+            <Toasts />
         </SiteShell>
     );
 }

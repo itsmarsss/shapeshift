@@ -1,9 +1,8 @@
-import { useState } from "react";
 import styled from "styled-components";
 import { ChatCircleText, Compass, CreditCard, ShieldCheck, UserPlus, Warning } from "@phosphor-icons/react";
 import type { Permission } from "@shapeshift/shared/admin/roles";
-import { ago, go, useLoad } from "../nav";
-import { Header, Panel, Problem, RangePicker, type Days } from "../ui";
+import { ago, go, useKept, useLoad } from "../nav";
+import { Header, Loading, Panel, Problem, RangePicker, type Days } from "../ui";
 import { AreaLines, Card, DayBars, Donut, Empty, Funnel, GroupBars, Grid, Kpis, Ranked, Stat } from "../charts";
 import { COLORS, split, total, type Point } from "../chartData";
 
@@ -182,7 +181,7 @@ export function Dashboard({ can }: { can: (p: Permission) => boolean }) {
     const metrics = useLoad<Db>(can("metrics") ? "/metrics?days=30" : null);
     const events = useLoad<Events>(can("metrics") ? "/metrics/events?days=7" : null);
     if (error) return <Problem>{error}</Problem>;
-    if (!data) return null;
+    if (!data) return <Loading />;
     const ev = events.data?.configured ? events.data : null;
     const visitors = ev ? split(ev.visitors, 7) : null;
     const errors = ev ? split(ev.errors, 7) : null;
@@ -288,10 +287,10 @@ export function Dashboard({ can }: { can: (p: Permission) => boolean }) {
 }
 
 export function Growth() {
-    const [days, setDays] = useState<Days>(30);
+    const [days, setDays] = useKept<Days>("growth-days", 30);
     const { data, error } = useLoad<Db>(`/metrics?days=${days}`);
     if (error) return <Problem>{error}</Problem>;
-    if (!data) return null;
+    if (!data) return <Loading />;
     const signups = split(data.signups, days);
     const signins = split(data.signins, days);
     const scenes = split(data.scenes, days);
@@ -389,10 +388,10 @@ const NAMES: Record<string, string> = {
 };
 
 export function Usage() {
-    const [days, setDays] = useState<Days>(30);
+    const [days, setDays] = useKept<Days>("usage-days", 30);
     const { data, error } = useLoad<Events>(`/metrics/events?days=${days}`);
     if (error) return <Problem>{error}</Problem>;
-    if (!data) return null;
+    if (!data) return <Loading />;
     if (!data.configured) return <NotSetUp />;
     const visitors = split(data.visitors, days);
     const ev = (name: string) => split(data.events[name] ?? zeros(data.visitors), days);
@@ -512,7 +511,7 @@ export function Assistant() {
     const { data, error } = useLoad<Assist>("/metrics/assistant");
     const events = useLoad<Events>("/metrics/events?days=30");
     if (error) return <Problem>{error}</Problem>;
-    if (!data) return null;
+    if (!data) return <Loading />;
     const ev = events.data?.configured ? events.data : null;
     const month = data.months.at(-1);
     const daily = ev ? split(ev.events.assistant_prompt ?? zeros(ev.visitors), 30) : null;
@@ -602,10 +601,10 @@ const ErrorList = styled.ol`
 `;
 
 export function Health() {
-    const [days, setDays] = useState<Days>(7);
+    const [days, setDays] = useKept<Days>("health-days", 7);
     const { data, error } = useLoad<Events>(`/metrics/events?days=${days}`);
     if (error) return <Problem>{error}</Problem>;
-    if (!data) return null;
+    if (!data) return <Loading />;
     if (!data.configured) return <NotSetUp />;
     const errors = split(data.errors, days);
     const visits = split(data.events.app_open ?? zeros(data.visitors), days);

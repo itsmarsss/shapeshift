@@ -1,8 +1,11 @@
-import { useState, type ReactNode } from "react";
-import styled from "styled-components";
-import { CaretLeft, CaretRight } from "@phosphor-icons/react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import styled, { keyframes } from "styled-components";
+import { AnimatePresence } from "motion/react";
+import * as m from "motion/react-m";
+import { CaretLeft, CaretRight, CheckCircle, MagnifyingGlass, WarningCircle, X } from "@phosphor-icons/react";
 import { Button, Segment, Segmented } from "../components/ui";
-import { hue, initials } from "./nav";
+import { drop, EASE_OUT, rise } from "../ui/motion";
+import { hue, initials, useToasts } from "./nav";
 
 // Pieces the admin sections share.
 
@@ -100,8 +103,13 @@ export const TableBox = styled.div`
     tbody tr {
         cursor: pointer;
     }
-    tbody tr:hover td {
+    tbody tr:hover td,
+    tbody tr:focus-visible td {
         background: var(--surface-hover);
+    }
+    tbody tr:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: -2px;
     }
     tr:last-child td {
         border-bottom: 0;
@@ -164,8 +172,16 @@ export function Avatar({ email, size = 28 }: { email: string; size?: number }) {
 // A button that asks once more before it acts.
 export function Confirm({ label, sure, onConfirm, variant = "primary", disabled }: { label: string; sure: string; onConfirm: () => void; variant?: "primary" | "danger"; disabled?: boolean }) {
     const [asking, setAsking] = useState(false);
-    return asking ? (
-        <span style={{ display: "inline-flex", gap: 6 }}>
+    // Asking again goes away by itself if they look elsewhere.
+    useEffect(() => {
+        if (!asking) return;
+        const t = setTimeout(() => setAsking(false), 5000);
+        return () => clearTimeout(t);
+    }, [asking]);
+    return (
+        <AnimatePresence mode="wait" initial={false}>
+            {asking ? (
+        <m.span key="ask" {...drop} style={{ display: "inline-flex", gap: 6 }}>
             <Button
                 $variant={variant}
                 onClick={(e) => {
@@ -184,17 +200,22 @@ export function Confirm({ label, sure, onConfirm, variant = "primary", disabled 
             >
                 Cancel
             </Button>
-        </span>
-    ) : (
-        <Button
-            disabled={disabled}
-            onClick={(e) => {
-                e.stopPropagation();
-                setAsking(true);
-            }}
-        >
-            {label}
-        </Button>
+        </m.span>
+            ) : (
+                <m.span key="ask-not" {...drop} style={{ display: "inline-flex" }}>
+                    <Button
+                        $variant={variant === "danger" ? "danger" : undefined}
+                        disabled={disabled}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setAsking(true);
+                        }}
+                    >
+                        {label}
+                    </Button>
+                </m.span>
+            )}
+        </AnimatePresence>
     );
 }
 
@@ -248,7 +269,7 @@ export function RangePicker({ days, setDays }: { days: Days; setDays: (d: Days) 
     );
 }
 
-export const Panel = styled.section`
+export const Panel = styled(m.section).attrs({ ...rise, exit: undefined })`
     padding: 18px;
     border-radius: 16px;
     border: 1px solid var(--border);
@@ -270,5 +291,232 @@ export function Header({ title, children, actions }: { title: string; children?:
             </div>
             {actions}
         </SectionHead>
+    );
+}
+
+const SearchField = styled.label`
+    flex: 1;
+    min-width: 220px;
+    position: relative;
+    display: flex;
+    align-items: center;
+
+    svg {
+        position: absolute;
+        left: 11px;
+        color: var(--text-faint);
+        pointer-events: none;
+    }
+    input {
+        width: 100%;
+        height: 38px;
+        padding: 0 34px 0 34px;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    input:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+    input::-webkit-search-cancel-button {
+        display: none;
+    }
+    kbd {
+        position: absolute;
+        right: 10px;
+        padding: 1px 6px;
+        border-radius: 5px;
+        border: 1px solid var(--border);
+        color: var(--text-faint);
+        font: 11px/16px inherit;
+        pointer-events: none;
+    }
+    .clear {
+        position: absolute;
+        right: 6px;
+        width: 26px;
+        height: 26px;
+        border: 0;
+        border-radius: 6px;
+        background: none;
+        display: grid;
+        place-items: center;
+        color: var(--text-muted);
+    }
+    .clear:hover {
+        background: var(--surface-hover);
+    }
+    .clear svg {
+        position: static;
+    }
+`;
+
+// Search that applies as you type. Press / anywhere to jump to it.
+export function SearchBox({ value, onChange, placeholder, label }: { value: string; onChange: (v: string) => void; placeholder: string; label: string }) {
+    const ref = useRef<HTMLInputElement>(null);
+    useEffect(() => {
+        const key = (e: KeyboardEvent) => {
+            const t = e.target as HTMLElement;
+            if (e.key !== "/" || /INPUT|TEXTAREA|SELECT/.test(t.tagName) || t.isContentEditable) return;
+            e.preventDefault();
+            ref.current?.focus();
+        };
+        window.addEventListener("keydown", key);
+        return () => window.removeEventListener("keydown", key);
+    }, []);
+    return (
+        <SearchField>
+            <MagnifyingGlass size={16} />
+            <input
+                ref={ref}
+                type="search"
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                onKeyDown={(e) => e.key === "Escape" && onChange("")}
+                placeholder={placeholder}
+                aria-label={label}
+            />
+            {value ? (
+                <button type="button" className="clear" aria-label="Clear search" onClick={() => (onChange(""), ref.current?.focus())}>
+                    <X size={14} />
+                </button>
+            ) : (
+                <kbd>/</kbd>
+            )}
+        </SearchField>
+    );
+}
+
+const shimmer = keyframes`
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+`;
+
+export const Bone = styled.div<{ $h?: number; $w?: string }>`
+    height: ${(p) => p.$h ?? 14}px;
+    width: ${(p) => p.$w ?? "100%"};
+    border-radius: 8px;
+    background: linear-gradient(90deg, var(--surface-raised) 25%, var(--surface-hover) 50%, var(--surface-raised) 75%);
+    background-size: 200% 100%;
+    animation: ${shimmer} 1.4s linear infinite;
+`;
+
+const BoneCard = styled.div`
+    padding: 18px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+`;
+
+const BoneGrid = styled.div<{ $cols: number }>`
+    display: grid;
+    grid-template-columns: repeat(${(p) => p.$cols}, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+
+    @media (max-width: 900px) {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+`;
+
+// Stand-ins for a section while it loads: numbers, then charts or a list.
+export function Loading({ kind = "charts" }: { kind?: "charts" | "list" | "cards" }) {
+    return (
+        <div aria-busy="true" aria-label="Loading">
+            {kind === "charts" && (
+                <>
+                    <BoneGrid $cols={4}>
+                        {[0, 1, 2, 3].map((i) => (
+                            <BoneCard key={i}>
+                                <Bone $h={26} $w="40%" />
+                                <Bone $h={10} $w="70%" />
+                            </BoneCard>
+                        ))}
+                    </BoneGrid>
+                    <BoneGrid $cols={2}>
+                        {[0, 1].map((i) => (
+                            <BoneCard key={i}>
+                                <Bone $h={12} $w="35%" />
+                                <Bone $h={200} />
+                            </BoneCard>
+                        ))}
+                    </BoneGrid>
+                </>
+            )}
+            {kind === "list" && (
+                <BoneCard>
+                    {Array.from({ length: 8 }, (_, i) => (
+                        <div key={i} style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                            <Bone $h={28} $w="28px" style={{ borderRadius: "50%" }} />
+                            <Bone $h={12} $w={`${30 + ((i * 17) % 40)}%`} />
+                        </div>
+                    ))}
+                </BoneCard>
+            )}
+            {kind === "cards" && (
+                <BoneGrid $cols={4}>
+                    {Array.from({ length: 8 }, (_, i) => (
+                        <BoneCard key={i}>
+                            <Bone $h={120} />
+                            <Bone $h={12} $w="60%" />
+                        </BoneCard>
+                    ))}
+                </BoneGrid>
+            )}
+        </div>
+    );
+}
+
+// A list that dims while its next page or filter loads.
+export const Dim = styled.div<{ $busy: boolean }>`
+    opacity: ${(p) => (p.$busy ? 0.55 : 1)};
+    transition: opacity 0.2s ease;
+    pointer-events: ${(p) => (p.$busy ? "none" : "auto")};
+`;
+
+const ToastStack = styled.div`
+    position: fixed;
+    right: 20px;
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+
+    > div {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        border-radius: 12px;
+        background: var(--surface);
+        border: 1px solid var(--border-strong);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+        font-weight: 500;
+        max-width: min(360px, calc(100vw - 40px));
+    }
+`;
+
+export function Toasts() {
+    const toasts = useToasts((s) => s.toasts);
+    return (
+        <ToastStack role="status" aria-live="polite">
+            <AnimatePresence initial={false}>
+                {toasts.map((t) => (
+                    <m.div key={t.id} initial={{ opacity: 0, y: 16, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, x: 24 }} transition={{ duration: 0.22, ease: EASE_OUT }}>
+                        {t.tone === "good" ? <CheckCircle size={18} weight="fill" color="#22c55e" /> : <WarningCircle size={18} weight="fill" color="#e5484d" />}
+                        {t.text}
+                    </m.div>
+                ))}
+            </AnimatePresence>
+        </ToastStack>
     );
 }
