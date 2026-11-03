@@ -5,7 +5,7 @@ import { ROLES, type Permission, type Role } from "@shapeshift/shared/admin/role
 import { Button, Input } from "../../components/ui";
 import { ago, bytes, day, go, run, toast, useLoad, when } from "../nav";
 import { Avatar, Badge, Confirm, Loading, Panel, PlanBadge, Problem } from "../ui";
-import { Empty, Kpis, Stat } from "../charts";
+import { NoData, Kpis, Stat } from "../charts";
 
 type Scene = { id: string; title: string; size: number; created_at: number; updated_at: number; public_slug: string | null; listed: number };
 type Detail = {
@@ -299,7 +299,7 @@ export function Person({ id, can }: { id: string; can: (p: Permission) => boolea
                                 ))}
                             </SceneGrid>
                         ) : (
-                            <Empty>No saved scenes.</Empty>
+                            <NoData>No saved scenes.</NoData>
                         )}
                     </Panel>
                     <Panel>
@@ -318,7 +318,7 @@ export function Person({ id, can }: { id: string; can: (p: Permission) => boolea
                                 ))}
                             </List>
                         ) : (
-                            <Empty>None.</Empty>
+                            <NoData>None.</NoData>
                         )}
                     </Panel>
                 </div>
@@ -383,7 +383,7 @@ export function Person({ id, can }: { id: string; can: (p: Permission) => boolea
                                 ))}
                             </List>
                         ) : (
-                            <Empty>Hasn't used the assistant.</Empty>
+                            <NoData>Hasn't used the assistant.</NoData>
                         )}
                     </Panel>
                     <Panel>
@@ -398,7 +398,7 @@ export function Person({ id, can }: { id: string; can: (p: Permission) => boolea
                                 ))}
                             </List>
                         ) : (
-                            <Empty>None kept.</Empty>
+                            <NoData>None kept.</NoData>
                         )}
                     </Panel>
                     <Panel>
@@ -415,7 +415,7 @@ export function Person({ id, can }: { id: string; can: (p: Permission) => boolea
                                 ))}
                             </List>
                         ) : (
-                            <Empty>None.</Empty>
+                            <NoData>None.</NoData>
                         )}
                     </Panel>
                 </div>

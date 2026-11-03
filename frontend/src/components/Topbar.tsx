@@ -1,7 +1,6 @@
 import { lazy, Suspense, useRef, useState } from "react";
 import { useDismiss } from "../ui/hooks";
 import { AnimatePresence } from "motion/react";
-import * as m from "motion/react-m";
 import { drop } from "../ui/motion";
 import styled from "styled-components";
 import {
@@ -37,7 +36,7 @@ import { useUI } from "../ui/store";
 import { toggleInspector, useInspectorVisible } from "../ui/inspector";
 import { useHands, warmUpHands } from "../hands/tracker";
 import { useSettings } from "../settings/store";
-import { Button, IconButton, Segment, Segmented } from "./ui";
+import { Button, IconButton, Menu, Segment, Segmented } from "./ui";
 import { CollabBar } from "../collab/CollabBar";
 import { useAccount } from "../account/store";
 import { AccountButton } from "../account/AccountButton";
@@ -149,37 +148,15 @@ const Wide = styled.span`
     }
 `;
 
-const Menu = styled(m.div)`
-    position: absolute;
+const FileMenu = styled(Menu)`
     top: calc(100% + 6px);
     left: 0;
     min-width: 220px;
     max-height: calc(100vh - var(--topbar) - 24px);
     overflow-y: auto;
-    padding: 6px;
-    display: flex;
-    flex-direction: column;
-    background: var(--surface);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-lg);
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
-    z-index: 200;
 
-    button {
-        display: flex;
-        align-items: center;
-        gap: 10px;
+    > button {
         height: 40px;
-        padding: 0 10px;
-        border: 0;
-        border-radius: var(--radius);
-        background: transparent;
-        color: var(--text);
-        text-align: left;
-    }
-    button:hover,
-    button[aria-pressed="true"] {
-        background: var(--surface-raised);
     }
 `;
 
@@ -223,7 +200,7 @@ function MoreMenu({ items, label }: { items: MenuItem[]; label?: string }) {
             )}
             <AnimatePresence>
                 {open && (
-                    <Menu {...drop} style={{ transformOrigin: "top left" }} role="menu">
+                    <FileMenu {...drop} style={{ transformOrigin: "top left" }} role="menu">
                         {items.map((item) => (
                             <button
                                 key={item.label}
@@ -238,7 +215,7 @@ function MoreMenu({ items, label }: { items: MenuItem[]; label?: string }) {
                                 {item.label}
                             </button>
                         ))}
-                    </Menu>
+                    </FileMenu>
                 )}
             </AnimatePresence>
         </div>

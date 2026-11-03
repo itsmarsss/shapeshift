@@ -4,7 +4,7 @@ import styled from "styled-components";
 import { Cube, ShareNetwork } from "@phosphor-icons/react";
 import { api, type ExploreScene } from "../account/api";
 import { SiteShell } from "../site/SiteShell";
-import { Container, Empty, PageHead, SectionHead, TileArt, TileCaption, Tiles, tile } from "../site/parts";
+import { Action, Container, Empty, PageHead, SectionHead, TileArt, TileCaption, Tiles, tile } from "../site/parts";
 import { buildTemplate } from "../scene/templates";
 import { useThumbnails } from "../scene/useThumbnails";
 import { SAMPLES } from "./samples";
@@ -37,20 +37,10 @@ const Placeholder = styled.div`
     }
 `;
 
-const More = styled.button`
-    display: block;
+const More = styled(Action).attrs({ as: "button", type: "button" })`
+    display: flex;
     margin: 28px auto 0;
-    height: 40px;
     padding: 0 20px;
-    border-radius: 10px;
-    border: 1px solid var(--border-strong);
-    background: var(--surface);
-    color: var(--text);
-    font-weight: 600;
-
-    &:hover {
-        background: var(--surface-hover);
-    }
 `;
 
 function Thumb({ slug }: { slug: string }) {

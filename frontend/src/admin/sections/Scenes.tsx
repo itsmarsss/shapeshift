@@ -7,7 +7,7 @@ import { Button, Select } from "../../components/ui";
 import { item, list } from "../../ui/motion";
 import { ago, bytes, go, run, useDebounced, useKept, useLoad } from "../nav";
 import { Badge, Confirm, Dim, Header, Loading, Pager, Problem, SearchBox, Toolbar } from "../ui";
-import { Empty } from "../charts";
+import { NoData } from "../charts";
 
 type Scene = { id: string; title: string; size: number; created_at: number; updated_at: number; public_slug: string | null; listed: number; owner_id: string; owner: string };
 type List = { total: number; page: number; pageSize: number; scenes: Scene[] };
@@ -115,7 +115,7 @@ export function Scenes({ can }: { can: (p: Permission) => boolean }) {
             </Toolbar>
             {error && <Problem>{error}</Problem>}
             {!data && !error && <Loading kind="cards" />}
-            {data && !data.scenes.length && <Empty>No scenes match.</Empty>}
+            {data && !data.scenes.length && <NoData>No scenes match.</NoData>}
             {data && data.scenes.length > 0 && (
                 <Dim $busy={loading}>
                     <Cards>

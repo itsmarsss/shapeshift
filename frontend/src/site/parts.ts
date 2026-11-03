@@ -213,24 +213,25 @@ const action = css`
     }
 `;
 
-export const PrimaryAction = styled.a`
-    ${action}
-    background: var(--accent);
-    border: 1px solid var(--accent);
-    color: var(--accent-text);
 
-    &:hover {
-        background: var(--accent-hover);
+// The site's buttons and button-like links: 40px, accent when $primary.
+// Render `as="button"` for a button.
+export const Action = styled.a<{ $primary?: boolean }>`
+    ${action}
+    background: ${(p) => (p.$primary ? "var(--accent)" : "var(--surface)")};
+    border: 1px solid ${(p) => (p.$primary ? "var(--accent)" : "var(--border-strong)")};
+    color: ${(p) => (p.$primary ? "var(--accent-text)" : "var(--text)")};
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        background: ${(p) => (p.$primary ? "var(--accent-hover)" : "var(--surface-hover)")};
+    }
+    &:disabled {
+        opacity: 0.6;
+        cursor: default;
     }
 `;
-
-export const SecondaryAction = styled.a`
-    ${action}
-    background: var(--surface);
-    border: 1px solid var(--border-strong);
-    color: var(--text);
-
-    &:hover {
-        background: var(--surface-hover);
-    }
-`;
+export const PrimaryAction = styled(Action).attrs({ $primary: true })``;
+export const SecondaryAction = Action;

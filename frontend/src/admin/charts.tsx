@@ -260,7 +260,7 @@ const DonutBox = styled.div`
 
 export function Donut({ slices, center }: { slices: { label: string; n: number; color?: string }[]; center?: string }) {
     const sum = Math.max(1, slices.reduce((n, s) => n + s.n, 0));
-    if (!slices.some((s) => s.n > 0)) return <Empty>Nothing yet.</Empty>;
+    if (!slices.some((s) => s.n > 0)) return <NoData>Nothing yet.</NoData>;
     return (
         <DonutBox>
             <div className="middle">
@@ -335,7 +335,7 @@ const Rows = styled.div`
 // A ranked list with bars, for things like features or top users.
 export function Ranked({ rows: items, color = COLORS.blue, note }: { rows: { label: string; n: number; href?: string; note?: string }[]; color?: string; note?: (n: number) => string }) {
     const max = Math.max(1, ...items.map((r) => r.n));
-    if (!items.length) return <Empty>Nothing yet.</Empty>;
+    if (!items.length) return <NoData>Nothing yet.</NoData>;
     return (
         <Rows>
             {items.map((r) => (
@@ -528,7 +528,7 @@ export function Stat({
     );
 }
 
-export const Empty = styled.p`
+export const NoData = styled.p`
     margin: 0;
     padding: 20px 0;
     color: var(--text-faint);

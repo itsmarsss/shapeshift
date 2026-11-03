@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Action as SiteAction } from "../site/parts";
 import { useCopy } from "../ui/hooks";
 import styled from "styled-components";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
@@ -60,21 +61,12 @@ const Bar = styled.header`
     }
 `;
 
-const Action = styled.a<{ $primary?: boolean }>`
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+// Smaller than the site's, to fit the viewer's top bar.
+const Action = styled(SiteAction)`
     height: 34px;
     padding: 0 12px;
-    border-radius: var(--radius);
-    border: 1px solid ${(p) => (p.$primary ? "var(--accent)" : "var(--border-strong)")};
-    background: ${(p) => (p.$primary ? "var(--accent)" : "transparent")};
-    color: ${(p) => (p.$primary ? "var(--accent-text)" : "var(--text)")};
-    font: inherit;
+    gap: 6px;
     font-weight: 500;
-    text-decoration: none;
-    white-space: nowrap;
-    cursor: pointer;
 
     @media (max-width: 520px) {
         span {

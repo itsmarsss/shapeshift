@@ -5,7 +5,7 @@ import { Select } from "../../components/ui";
 import { rowIn } from "../../ui/motion";
 import { ago, day, go, useDebounced, useKept, useLoad } from "../nav";
 import { Avatar, Badge, Dim, Header, Loading, Pager, PlanBadge, Problem, SearchBox, TableBox, Toolbar } from "../ui";
-import { Empty } from "../charts";
+import { NoData } from "../charts";
 
 type Row = { id: string; email: string; name: string | null; plan: string; plan_status: string | null; joined: number; scenes: number; prompts: number; active: number | null; role: Role | null };
 type List = { total: number; page: number; pageSize: number; users: Row[] };
@@ -55,7 +55,7 @@ export function People() {
             </Toolbar>
             {error && <Problem>{error}</Problem>}
             {!data && !error && <Loading kind="list" />}
-            {data && !data.users.length && <Empty>Nobody matches.</Empty>}
+            {data && !data.users.length && <NoData>Nobody matches.</NoData>}
             {data && data.users.length > 0 && (
                 <Dim $busy={loading}>
                     <TableBox>

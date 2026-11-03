@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Button } from "../components/ui";
+import { Avatar, Button, Menu } from "../components/ui";
 import { initials } from "../ui/format";
 import { useDismiss } from "../ui/hooks";
 import { AnimatePresence } from "motion/react";
-import * as m from "motion/react-m";
 import { drop } from "../ui/motion";
 import styled from "styled-components";
 import { ChatTeardropText, CheckCircle, CloudArrowUp, CloudSlash, FolderOpen, SignOut, Sparkle, UserCircle, WarningCircle } from "@phosphor-icons/react";
@@ -29,18 +28,6 @@ const SignIn = styled(Button).attrs({ $variant: "outline" })`
     }
 `;
 
-const Avatar = styled.button`
-    position: relative;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    border: 0;
-    background: var(--accent);
-    color: var(--accent-text);
-    font-size: 12px;
-    font-weight: 700;
-`;
-
 const Dot = styled.span<{ $state: string }>`
     position: absolute;
     right: -1px;
@@ -52,46 +39,9 @@ const Dot = styled.span<{ $state: string }>`
     background: ${(p) => (p.$state === "error" ? "var(--danger)" : p.$state === "saving" ? "var(--warning)" : "var(--success)")};
 `;
 
-const Menu = styled(m.div)`
-    position: absolute;
-    top: calc(100% + 8px);
+const AccountMenu = styled(Menu)`
     right: 0;
     width: 260px;
-    max-width: calc(100vw - 24px);
-    padding: 6px;
-    background: var(--surface);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-lg);
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
-    z-index: 200;
-
-    header {
-        padding: 8px 10px 10px;
-        border-bottom: 1px solid var(--border);
-        margin-bottom: 4px;
-    }
-    header b {
-        display: block;
-    }
-    header small {
-        color: var(--text-muted);
-    }
-    button {
-        width: 100%;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        height: 38px;
-        padding: 0 10px;
-        border: 0;
-        border-radius: var(--radius);
-        background: transparent;
-        color: var(--text);
-        text-align: left;
-    }
-    button:hover {
-        background: var(--surface-raised);
-    }
 `;
 
 const Status = styled.div`
@@ -140,13 +90,13 @@ export function AccountButton() {
     const label = user.name || user.email;
     return (
         <Wrap ref={ref}>
-            <Avatar title={label} onClick={() => setOpen((v) => !v)}>
+            <Avatar as="button" title={label} onClick={() => setOpen((v) => !v)}>
                 {initials(label)}
                 {cloudId && <Dot $state={save} />}
             </Avatar>
             <AnimatePresence>
                 {open && (
-                    <Menu {...drop} style={{ transformOrigin: "top right" }} role="menu">
+                    <AccountMenu {...drop} style={{ transformOrigin: "top right" }} role="menu">
                         <header>
                             <b>{user.name || "Signed in"}</b>
                             <small>{user.email}</small>
@@ -188,7 +138,7 @@ export function AccountButton() {
                         <button role="menuitem" onClick={act(() => void useAccount.getState().signOut())}>
                             <SignOut size={18} /> Sign out
                         </button>
-                    </Menu>
+                    </AccountMenu>
                 )}
             </AnimatePresence>
         </Wrap>

@@ -245,6 +245,81 @@ export const Select = styled.select`
     cursor: pointer;
 `;
 
+// A floating card under the button that opened it. Spread a motion preset
+// (usually `drop`) onto it, and position it with left or right.
+export const Popover = styled(m.div)`
+    position: absolute;
+    top: calc(100% + 8px);
+    max-width: calc(100vw - 24px);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+    z-index: 200;
+`;
+
+// A popover of rows: an optional header (b and small), then links or buttons.
+export const Menu = styled(Popover)`
+    padding: 6px;
+
+    header {
+        padding: 8px 10px 10px;
+        margin-bottom: 4px;
+        border-bottom: 1px solid var(--border);
+        min-width: 0;
+    }
+    header b,
+    header small {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    header small {
+        margin-top: 2px;
+        color: var(--text-muted);
+    }
+    > a,
+    > button {
+        width: 100%;
+        height: 38px;
+        padding: 0 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border: 0;
+        border-radius: var(--radius);
+        background: transparent;
+        color: var(--text);
+        text-align: left;
+        text-decoration: none;
+    }
+    > a:hover,
+    > button:hover,
+    > button[aria-pressed="true"] {
+        background: var(--surface-raised);
+    }
+`;
+
+// A person's initials in a circle. Accent-coloured unless given their colour.
+// Render `as="button"` when it opens something.
+export const Avatar = styled.span<{ $size?: number; $color?: string }>`
+    position: relative;
+    width: ${(p) => p.$size ?? 30}px;
+    height: ${(p) => p.$size ?? 30}px;
+    flex-shrink: 0;
+    display: inline-grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: ${(p) => p.$color ?? "var(--accent)"};
+    color: ${(p) => (p.$color ? "#fff" : "var(--accent-text)")};
+    font-size: ${(p) => Math.round((p.$size ?? 30) * 0.4)}px;
+    font-weight: 700;
+    line-height: 1;
+`;
+
 export const FieldLabel = styled.div`
     color: var(--text-muted);
     font-size: 12px;

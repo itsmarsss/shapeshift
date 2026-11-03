@@ -1,33 +1,19 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import styled from "styled-components";
-import * as m from "motion/react-m";
-import { fade, pop } from "../ui/motion";
+import { Modal } from "../components/Modal";
 import { Cube, Database, Hand, HandPointing, Keyboard, Monitor, PencilSimple, X } from "@phosphor-icons/react";
 import { useUI } from "../ui/store";
 import { useHands } from "../hands/tracker";
 import { useSettings, type Settings } from "./store";
 import { Button, IconButton, Segment, Segmented, Select } from "../components/ui";
 
-const Backdrop = styled(m.div)`
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.45);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 16px;
-    z-index: 1000;
-`;
 
-const Dialog = styled(m.div)`
+const Dialog = styled(Modal)`
     width: min(760px, 100%);
     height: min(560px, 100%);
+    max-height: 100%;
     display: grid;
     grid-template-columns: 190px 1fr;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
 
     @media (max-width: 560px) {
         grid-template-columns: 1fr;
@@ -618,47 +604,34 @@ export function SettingsModal() {
     const open = useUI((s) => s.showSettings);
     const setOpen = useUI((s) => s.setShowSettings);
     const [section, setSection] = useState<SectionId>("appearance");
-
-    useEffect(() => {
-        if (!open) return;
-        // Caught on the way in, so closing settings doesn't also clear the selection.
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key !== "Escape") return;
-            e.stopPropagation();
-            setOpen(false);
-        };
-        window.addEventListener("keydown", onKey, true);
-        return () => window.removeEventListener("keydown", onKey, true);
-    }, [open, setOpen]);
+    const close = useCallback(() => setOpen(false), [setOpen]);
 
     if (!open) return null;
     const current = SECTIONS.find((s) => s.id === section)!;
 
     return (
-        <Backdrop {...fade} onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}>
-            <Dialog {...pop} role="dialog" aria-modal="true" aria-label="Settings">
-                <Nav>
-                    <NavTitle>Settings</NavTitle>
-                    {SECTIONS.map(({ id, label, Icon }) => (
-                        <NavItem key={id} type="button" $active={id === section} onClick={() => setSection(id)}>
-                            <Icon size={16} />
-                            {label}
-                        </NavItem>
-                    ))}
-                </Nav>
-                <Main>
-                    <Header>
-                        {current.label}
-                        <IconButton title="Close" onClick={() => setOpen(false)}>
-                            <X size={16} />
-                        </IconButton>
-                    </Header>
-                    <Body>
-                        <Section id={section} />
-                    </Body>
-                </Main>
-            </Dialog>
-        </Backdrop>
+        <Dialog label="Settings" onClose={close}>
+            <Nav>
+                <NavTitle>Settings</NavTitle>
+                {SECTIONS.map(({ id, label, Icon }) => (
+                    <NavItem key={id} type="button" $active={id === section} onClick={() => setSection(id)}>
+                        <Icon size={16} />
+                        {label}
+                    </NavItem>
+                ))}
+            </Nav>
+            <Main>
+                <Header>
+                    {current.label}
+                    <IconButton title="Close" onClick={() => setOpen(false)}>
+                        <X size={16} />
+                    </IconButton>
+                </Header>
+                <Body>
+                    <Section id={section} />
+                </Body>
+            </Main>
+        </Dialog>
     );
 }
 
