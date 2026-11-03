@@ -1,7 +1,7 @@
 import { useState } from "react";
 import styled from "styled-components";
 import { ArrowRight, CheckCircle } from "@phosphor-icons/react";
-import { GlobalStyle, Input } from "../components/ui";
+import { GlobalStyle, Input, TextButton } from "../components/ui";
 
 const Page = styled.main`
     // The editor turns off page scrolling, so pages scroll inside themselves.
@@ -82,17 +82,9 @@ const ErrorText = styled.div`
     font-size: 13px;
 `;
 
-const Editor = styled.a`
-    display: inline-flex;
-    align-items: center;
+const Editor = styled(TextButton).attrs({ as: "a" })`
     justify-content: center;
-    gap: 6px;
-    color: var(--text-muted);
-    text-decoration: none;
-
-    &:hover {
-        color: var(--text);
-    }
+    font-weight: 400;
 `;
 
 export default function WaitlistPage() {

@@ -159,7 +159,7 @@ export function Avatar({ email, size = 28 }: { email: string; size?: number }) {
 }
 
 // A button that asks once more before it acts.
-export function Confirm({ label, sure, onConfirm, variant = "primary", disabled }: { label: string; sure: string; onConfirm: () => void; variant?: "primary" | "danger"; disabled?: boolean }) {
+export function Confirm({ label, sure, onConfirm, variant = "primary", disabled, size }: { label: string; sure: string; onConfirm: () => void; variant?: "primary" | "danger"; disabled?: boolean; size?: "sm" }) {
     const [asking, setAsking] = useState(false);
     // Asking again goes away by itself if they look elsewhere.
     useEffect(() => {
@@ -172,6 +172,7 @@ export function Confirm({ label, sure, onConfirm, variant = "primary", disabled 
             {asking ? (
         <m.span key="ask" {...drop} style={{ display: "inline-flex", gap: 6 }}>
             <Button
+                $size={size}
                 $variant={variant}
                 onClick={(e) => {
                     e.stopPropagation();
@@ -182,6 +183,7 @@ export function Confirm({ label, sure, onConfirm, variant = "primary", disabled 
                 {sure}
             </Button>
             <Button
+                $size={size}
                 onClick={(e) => {
                     e.stopPropagation();
                     setAsking(false);
@@ -193,6 +195,7 @@ export function Confirm({ label, sure, onConfirm, variant = "primary", disabled 
             ) : (
                 <m.span key="ask-not" {...drop} style={{ display: "inline-flex" }}>
                     <Button
+                        $size={size}
                         $variant={variant === "danger" ? "danger" : undefined}
                         disabled={disabled}
                         onClick={(e) => {

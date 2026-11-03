@@ -1,11 +1,13 @@
 import { useState } from "react";
 import styled from "styled-components";
-import { ArrowLeft, ArrowSquareOut, Copy, Cube } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowSquareOut, Copy } from "@phosphor-icons/react";
 import { ROLES, type Permission, type Role } from "@shapeshift/shared/admin/roles";
-import { Button, Input } from "../../components/ui";
-import { ago, bytes, day, go, run, toast, useLoad, when } from "../nav";
+import { Button, Input, TextButton } from "../../components/ui";
+import { ago, day, go, run, toast, useLoad, when } from "../nav";
 import { Avatar, Badge, Confirm, Loading, Panel, PlanBadge, Problem } from "../ui";
 import { NoData, Kpis, Stat } from "../charts";
+import { Tiles } from "../../site/parts";
+import { SceneTile } from "../SceneTile";
 
 type Scene = { id: string; title: string; size: number; created_at: number; updated_at: number; public_slug: string | null; listed: number };
 type Detail = {
@@ -66,20 +68,8 @@ const Top = styled.div`
     }
 `;
 
-const Back = styled.button`
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+const Back = styled(TextButton)`
     margin-bottom: 14px;
-    border: 0;
-    background: none;
-    padding: 0;
-    color: var(--text-muted);
-    font-weight: 600;
-
-    &:hover {
-        color: var(--text);
-    }
 `;
 
 const Columns = styled.div`
@@ -93,60 +83,6 @@ const Columns = styled.div`
     }
 `;
 
-const SceneGrid = styled.div`
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-    gap: 10px;
-`;
-
-const SceneCard = styled.div`
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-    background: var(--bg);
-
-    .art {
-        aspect-ratio: 4 / 3;
-        display: grid;
-        place-items: center;
-        background: var(--surface-raised);
-        color: var(--text-faint);
-    }
-    img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-    .body {
-        padding: 8px 10px 10px;
-    }
-    b {
-        display: block;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    small {
-        display: block;
-        color: var(--text-muted);
-        margin: 2px 0 6px;
-    }
-    .badges,
-    .actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-    }
-    .actions {
-        margin-top: 8px;
-    }
-    .actions button,
-    .actions a {
-        height: 26px;
-        padding: 0 8px;
-        font-size: 12px;
-    }
-`;
 
 const Actions = styled.div`
     display: flex;
@@ -198,10 +134,6 @@ const List = styled.ul`
     }
 `;
 
-function SceneThumb({ id }: { id: string }) {
-    const [broken, setBroken] = useState(false);
-    return <div className="art">{broken ? <Cube size={28} /> : <img src={`/api/admin/scenes/${id}/thumbnail`} alt="" loading="lazy" onError={() => setBroken(true)} />}</div>;
-}
 
 export function Person({ id, can }: { id: string; can: (p: Permission) => boolean }) {
     const { data, error, reload } = useLoad<Detail>(`/users/${id}`);
@@ -269,35 +201,11 @@ export function Person({ id, can }: { id: string; can: (p: Permission) => boolea
                     <Panel>
                         <h3>Scenes</h3>
                         {data.scenes.length ? (
-                            <SceneGrid>
-                                {data.scenes.map((s) => (
-                                    <SceneCard key={s.id}>
-                                        <SceneThumb id={s.id} />
-                                        <div className="body">
-                                            <b title={s.title}>{s.title}</b>
-                                            <small>
-                                                {ago(s.updated_at)} · {bytes(s.size)}
-                                            </small>
-                                            <div className="badges">
-                                                {s.public_slug && <Badge $tone="green">Shared</Badge>}
-                                                {s.public_slug && s.listed ? <Badge $tone="accent">On Explore</Badge> : null}
-                                            </div>
-                                            {(can("scenes.moderate") || can("users.manage")) && (
-                                                <div className="actions">
-                                                    {s.public_slug && (
-                                                        <Button as="a" href={`/s/${s.public_slug}`} target="_blank" rel="noopener">
-                                                            View
-                                                        </Button>
-                                                    )}
-                                                    {s.public_slug && s.listed ? <Confirm label="Unlist" sure="Unlist" onConfirm={() => void act(`/scenes/${s.id}/unlist`, "Taken off Explore")} /> : null}
-                                                    {s.public_slug && <Confirm label="Unshare" sure="Unshare" variant="danger" onConfirm={() => void act(`/scenes/${s.id}/unshare`, "Link turned off")} />}
-                                                    <Confirm label="Delete" sure="Delete it" variant="danger" onConfirm={() => void act(`/scenes/${s.id}`, "Scene deleted", "DELETE")} />
-                                                </div>
-                                            )}
-                                        </div>
-                                    </SceneCard>
+                            <Tiles $min={170}>
+                                {data.scenes.map((s, i) => (
+                                    <SceneTile key={s.id} scene={s} index={i} moderate={can("scenes.moderate") || can("users.manage")} act={(path, done, method) => void act(path, done, method)} />
                                 ))}
-                            </SceneGrid>
+                            </Tiles>
                         ) : (
                             <NoData>No saved scenes.</NoData>
                         )}

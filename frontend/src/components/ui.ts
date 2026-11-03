@@ -119,6 +119,7 @@ export const fadeEdges = css`
 
 const control = css`
     height: 30px;
+    text-decoration: none;
     border-radius: var(--radius);
     border: 1px solid transparent;
     background: transparent;
@@ -187,6 +188,28 @@ export const Button = styled.button<{ $variant?: "default" | "primary" | "danger
         css`
             color: var(--danger);
         `}
+`;
+
+// Text that acts as a button or link: "More options", "Back", "Show more".
+// $size="sm" is the quieter 12px kind.
+export const TextButton = styled.button<{ $size?: "sm" }>`
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: ${(p) => (p.$size === "sm" ? "var(--text-faint)" : "var(--text-muted)")};
+    font: inherit;
+    font-size: ${(p) => (p.$size === "sm" ? "12px" : "inherit")};
+    font-weight: ${(p) => (p.$size === "sm" ? 400 : 600)};
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 0.12s ease;
+
+    &:hover {
+        color: ${(p) => (p.$size === "sm" ? "var(--text-muted)" : "var(--text)")};
+    }
 `;
 
 export const IconButton = styled.button<{ $active?: boolean; $size?: number }>`

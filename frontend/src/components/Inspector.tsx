@@ -16,7 +16,7 @@ import { toggleInspector, useInspectorVisible } from "../ui/inspector";
 import { loadCsg } from "../scene/csg";
 import { UNIT_SCALE, useSettings } from "../settings/store";
 import { ColorPicker } from "./ColorPicker";
-import { Button, FieldLabel, IconButton, Input, Panel, PanelHeader, PanelTitle, Select } from "./ui";
+import { Button, FieldLabel, IconButton, Input, Panel, PanelHeader, PanelTitle, Select, TextButton } from "./ui";
 
 const Root = styled(Panel)`
     top: calc(var(--topbar) + var(--gap));
@@ -147,18 +147,11 @@ function VectorField({
 
 const LIGHT_KIND: Record<Light["type"], string> = { point: "Point light", spot: "Spot light", directional: "Directional light" };
 
-const MoreToggle = styled.button`
+const MoreToggle = styled(TextButton)`
     display: flex;
-    align-items: center;
-    gap: 6px;
     width: 100%;
     height: 30px;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: var(--text-muted);
     font-size: 12px;
-    font-weight: 600;
 
     svg {
         transition: transform 0.15s ease;

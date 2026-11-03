@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { TextButton } from "../ui";
 import { pulse } from "../../ui/keyframes";
 import styled from "styled-components";
 import { CaretRight, Lightbulb } from "@phosphor-icons/react";
@@ -7,19 +8,8 @@ import { CaretRight, Lightbulb } from "@phosphor-icons/react";
 // moved on, so you can watch it work without it crowding the reply.
 
 
-const Toggle = styled.button`
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+const Toggle = styled(TextButton).attrs({ $size: "sm" })`
     padding: 2px 0;
-    border: 0;
-    background: none;
-    color: var(--text-faint);
-    font-size: 12px;
-
-    &:hover {
-        color: var(--text-muted);
-    }
     svg {
         transition: rotate 0.15s ease;
     }

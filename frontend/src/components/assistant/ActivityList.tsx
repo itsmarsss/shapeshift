@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { TextButton } from "../ui";
 import styled from "styled-components";
 import { CaretDown, Check, WarningCircle } from "@phosphor-icons/react";
 import type { Activity } from "../../assistant/executor";
@@ -111,20 +112,9 @@ function Snapshot({ src, label }: { src: string; label: string }) {
     );
 }
 
-const More = styled.button`
-    display: inline-flex;
-    align-items: center;
+const More = styled(TextButton).attrs({ $size: "sm" })`
     gap: 4px;
     margin: 2px 0 0 10px;
-    padding: 0;
-    border: 0;
-    background: none;
-    color: var(--text-faint);
-    font-size: 12px;
-
-    &:hover {
-        color: var(--text);
-    }
 `;
 
 export function ActivityList({ activities }: { activities: Activity[] }) {
