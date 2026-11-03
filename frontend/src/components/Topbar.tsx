@@ -34,7 +34,7 @@ import { download, exportGLB, importModel, parseSceneFile, saveSceneFile } from 
 import { takeSnapshot } from "../viewport/snapshot";
 import { useUI } from "../ui/store";
 import { toggleInspector, useInspectorVisible } from "../ui/inspector";
-import { useHands } from "../hands/tracker";
+import { useHands, warmUpHands } from "../hands/tracker";
 import { useSettings } from "../settings/store";
 import { IconButton, Segment, Segmented } from "./ui";
 import { CollabBar } from "../collab/CollabBar";
@@ -422,6 +422,9 @@ export function Topbar() {
                         title={handStatus === "off" ? "Turn on hand control" : "Turn off hand control"}
                         aria-pressed={handStatus !== "off"}
                         onClick={() => setHands(handStatus === "off")}
+                        // About to be pressed, most likely: start loading the tracker.
+                        onPointerEnter={() => void warmUpHands()}
+                        onFocus={() => void warmUpHands()}
                     >
                         <Hand size={16} weight={handStatus === "off" ? "regular" : "fill"} />
                         <span>Hands</span>

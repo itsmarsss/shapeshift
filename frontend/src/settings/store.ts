@@ -35,6 +35,8 @@ export type Settings = {
     handsTutorialDone: boolean;
     // How strongly buttons and shapes pull the hand cursor; 0 turns it off.
     handMagnet: number;
+    // Hand control has worked on this device before, so it's worth loading early.
+    handsUsed: boolean;
     // Anonymous usage numbers and crash reports; see telemetry.ts.
     shareUsage: boolean;
 };
@@ -64,6 +66,7 @@ export const DEFAULT_SETTINGS: Settings = {
     handsAutoStart: false,
     handsTutorialDone: false,
     handMagnet: 1,
+    handsUsed: false,
     shareUsage: true,
 };
 

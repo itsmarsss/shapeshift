@@ -20,7 +20,7 @@ import { Viewport } from "../viewport/Viewport";
 import { useShortcuts } from "../hooks/useShortcuts";
 import { useUI } from "../ui/store";
 import { useInspectorVisible } from "../ui/inspector";
-import { resumeHands, useHands } from "../hands/tracker";
+import { resumeHands, useHands, warmUpHandsSoon } from "../hands/tracker";
 import { useResolvedTheme } from "../settings/theme";
 
 // Loaded after the editor so they don't hold up the first frame.
@@ -69,7 +69,10 @@ export function Layout() {
     useEffect(() => {
         document.documentElement.dataset.theme = theme;
     }, [theme]);
-    useEffect(() => void resumeHands(), []);
+    useEffect(() => {
+        warmUpHandsSoon();
+        void resumeHands();
+    }, []);
     return (
         <Root
             data-editor

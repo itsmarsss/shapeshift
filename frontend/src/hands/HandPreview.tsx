@@ -89,6 +89,8 @@ const canRecord = new URLSearchParams(location.search).has("record");
 export function HandPreview() {
     const status = useHands((s) => s.status);
     const error = useHands((s) => s.error);
+    const stage = useHands((s) => s.stage);
+    const progress = useHands((s) => s.progress);
     const canvas = useRef<HTMLCanvasElement>(null);
     const [rec, setRec] = useState(false);
     const showPreview = useSettings((s) => s.showHandPreview);
@@ -144,7 +146,11 @@ export function HandPreview() {
                 {status === "starting" && (
                     <Overlay>
                         <CircleNotch size={18} />
-                        Starting hand tracking
+                        {stage === "camera"
+                            ? "Starting the camera…"
+                            : progress !== null && progress < 1
+                              ? `Loading hand tracking · ${Math.round(progress * 100)}%`
+                              : "Getting hand tracking ready…"}
                     </Overlay>
                 )}
                 {status === "error" && (

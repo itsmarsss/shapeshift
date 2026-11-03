@@ -5,7 +5,7 @@ import * as m from "motion/react-m";
 import { rise } from "../ui/motion";
 import { Cube, Hand, Shapes, Sparkle, X } from "@phosphor-icons/react";
 import { useScene } from "../scene/store";
-import { useHands } from "../hands/tracker";
+import { useHands, warmUpHands } from "../hands/tracker";
 import { useUI } from "../ui/store";
 import { COMPACT } from "../ui/compact";
 import { IconButton } from "./ui";
@@ -148,7 +148,7 @@ export function StartCard() {
                                 <Cube size={20} />
                                 Add a box
                             </button>
-                            <button onClick={() => void useHands.getState().setEnabled(true)}>
+                            <button onClick={() => void useHands.getState().setEnabled(true)} onPointerEnter={() => void warmUpHands()}>
                                 <Hand size={20} />
                                 Use your hands
                             </button>

@@ -80,6 +80,7 @@ export async function agentStep(request: Request, env: Env): Promise<Response> {
             const out = await provider.step(messages, {
                 onText: (t) => void emit({ type: "text", text: t }),
                 onToolStart: (name) => void emit({ type: "tool_start", name }),
+                onThinking: (t) => void emit({ type: "thinking", text: t }),
                 signal: request.signal,
             });
             await emit({ type: "message", ...out });

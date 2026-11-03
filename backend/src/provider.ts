@@ -3,6 +3,7 @@ import type { AgentErrorCode, AgentInfo, StopReason, WireAssistantMessage, WireM
 export type StepCallbacks = {
     onText: (text: string) => void;
     onToolStart: (name: string) => void;
+    onThinking?: (text: string) => void;
     signal?: AbortSignal;
 };
 

@@ -1,10 +1,11 @@
-import { memo, useEffect, useMemo } from "react";
-import type { ThreeEvent } from "@react-three/fiber";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
+import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { Edges } from "@react-three/drei";
 import type * as THREE from "three";
 import { buildGeometry } from "../scene/geometry";
 import type { SceneObject } from "@shapeshift/shared/scene/schema";
 import { usePalette } from "../settings/theme";
+import { spawnState } from "../scene/spawn";
 
 export type MeshLook = "solid" | "hole" | "hidden";
 
@@ -35,9 +36,39 @@ export const SceneMesh = memo(function SceneMesh({ object, selected, hovered, pe
     const palette = usePalette();
     const outlined = look !== "hidden" && !cut;
 
+    // Growing in or glowing after an assistant edit; see spawn.ts.
+    const mesh = useRef<THREE.Mesh | null>(null);
+    const setMesh = useCallback(
+        (m: THREE.Mesh | null) => {
+            mesh.current = m;
+            meshRef?.(m);
+        },
+        [meshRef],
+    );
+    useFrame((state) => {
+        const m = mesh.current;
+        if (!m) return;
+        const now = spawnState(object.id, performance.now());
+        const material = m.material as THREE.MeshStandardMaterial;
+        if (!now) {
+            if (m.userData.spawning) {
+                m.userData.spawning = false;
+                m.visible = true;
+                m.scale.set(...object.scale);
+                if ("emissiveIntensity" in material) material.emissiveIntensity = emissiveIntensity;
+            }
+            return;
+        }
+        m.userData.spawning = true;
+        m.visible = now.scale > 0.001;
+        m.scale.set(object.scale[0] * now.scale, object.scale[1] * now.scale, object.scale[2] * now.scale);
+        if ("emissiveIntensity" in material) material.emissiveIntensity = emissiveIntensity + now.glow;
+        state.invalidate();
+    });
+
     return (
         <mesh
-            ref={meshRef}
+            ref={setMesh}
             name={object.id}
             userData={{ look }}
             geometry={cut ?? own}

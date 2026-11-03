@@ -6,6 +6,7 @@ import { AgentError, type Transport } from "./transport";
 
 export type TurnHandlers = {
     onText?: (text: string) => void;
+    onThinking?: (text: string) => void;
     onToolStart?: (name: string) => void;
     onActivities?: (activities: Activity[]) => void;
     onModel?: (model: string) => void;
@@ -78,7 +79,7 @@ export async function runTurn(opts: {
         if (signal.aborted) throw new AgentError("aborted", "Stopped.");
         const result = await transport(
             { messages: requestWindow(conversation) },
-            { onText: handlers.onText, onToolStart: handlers.onToolStart },
+            { onText: handlers.onText, onThinking: handlers.onThinking, onToolStart: handlers.onToolStart },
             signal
         );
         handlers.onModel?.(result.model);

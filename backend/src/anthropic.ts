@@ -134,7 +134,8 @@ export function anthropicProvider(env: Env & { ANTHROPIC_API_KEY: string }, mode
                         tools: TOOL_PARAMS,
                         messages: toParams(messages),
                         cache_control: { type: "ephemeral" },
-                        thinking: { type: "adaptive", block_binding: { prefix_mismatch_behavior: "drop_block" } },
+                        // Summarized, so the app can show it thinking as it works.
+                        thinking: { type: "adaptive", display: "summarized", block_binding: { prefix_mismatch_behavior: "drop_block" } },
                         output_config: { effort },
                         fallbacks: "default",
                         betas: ["thinking-binding-controls-2026-08-01", "server-side-fallback-2026-07-01"],
@@ -142,6 +143,7 @@ export function anthropicProvider(env: Env & { ANTHROPIC_API_KEY: string }, mode
                     { signal: callbacks.signal }
                 );
                 stream.on("text", (delta) => callbacks.onText(delta));
+                stream.on("thinking", (delta) => callbacks.onThinking?.(delta));
                 stream.on("streamEvent", (event) => {
                     if (event.type === "content_block_start" && event.content_block.type === "tool_use") {
                         callbacks.onToolStart(event.content_block.name);
