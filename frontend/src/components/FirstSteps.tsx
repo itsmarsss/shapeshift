@@ -3,31 +3,34 @@ import styled from "styled-components";
 import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-m";
 import { ArrowsOutCardinal, CaretDown, Check, CloudArrowUp, Hand, PaintBrush, Sparkle, X } from "@phosphor-icons/react";
-import { askAssistant } from "../assistant/ask";
 import { useAccount } from "../account/store";
-import { useHands, warmUpHands } from "../hands/tracker";
+import { warmUpHands } from "../hands/tracker";
 import { useScene } from "../scene/store";
 import { COMPACT } from "../ui/compact";
 import { EASE_OUT, EASE_OUT_CSS, rise } from "../ui/motion";
 import { useUI } from "../ui/store";
 import { useTools } from "../viewport/tools";
 import { STEPS, useFirstSteps, type Step } from "./firstStepsStore";
+import { hideGuide, showGuide } from "./guideStore";
+import { useDraggable } from "../ui/hooks";
 import { Button, IconButton } from "./ui";
 
 // A short checklist for new visitors, in the corner of the editor. Each step
 // ticks itself off when they do it, and "Show me" starts it for them.
 
+// Bottom middle until it's dragged somewhere else (by its header).
 const Spot = styled.div`
     position: absolute;
-    left: calc(var(--left-inset, 70px) + var(--gap));
-    bottom: calc(var(--gap) + 28px + var(--bottom-offset, 0px));
-    width: 280px;
+    left: 50%;
+    translate: -50% 0;
+    bottom: calc(var(--gap) + 12px + var(--bottom-offset, 0px));
+    width: 290px;
     z-index: 24;
-    transition: left 0.2s ease;
 
     @media ${COMPACT} {
         left: 12px;
         right: 12px;
+        translate: none;
         width: auto;
         bottom: calc(var(--gap) * 2 + 48px + env(safe-area-inset-bottom, 0px) + var(--bottom-offset, 0px));
     }
@@ -143,21 +146,61 @@ const Done = styled(m.div)`
     }
 `;
 
+// What each step is, and how "Show me" points the way: it gets things ready
+// (opens the panel, picks a shape) and puts a guide on the control to use.
 const INFO: Record<Step, { label: string; Icon: typeof Sparkle; show: () => void }> = {
-    ask: { label: "Ask the assistant to build something", Icon: Sparkle, show: () => void askAssistant("Build a snowman with a hat and a carrot nose") },
-    move: { label: "Drag a shape somewhere new", Icon: ArrowsOutCardinal, show: () => pickShape("translate") },
-    color: { label: "Give it a new color", Icon: PaintBrush, show: () => (pickShape(), useUI.getState().setShowInspector(true)) },
-    hands: { label: "Try building with your hands", Icon: Hand, show: () => void useHands.getState().setEnabled(true) },
-    share: { label: "Save it so it's there next time", Icon: CloudArrowUp, show: () => void useAccount.getState().saveToCloud() },
+    ask: {
+        label: "Ask the assistant to build something",
+        Icon: Sparkle,
+        show: () => {
+            useUI.getState().setShowChat(true);
+            showGuide({ target: 'textarea[aria-label="Message the assistant"]', text: "Type what you'd like, like “a snowman with a top hat”, and press Enter." });
+        },
+    },
+    move: {
+        label: "Drag a shape somewhere new",
+        Icon: ArrowsOutCardinal,
+        show: () => {
+            pickShape();
+            showGuide({ target: 'canvas', text: "Press on the shape and drag it across the floor. Or pull one of its colored arrows." });
+        },
+    },
+    color: {
+        label: "Give it a new color",
+        Icon: PaintBrush,
+        show: () => {
+            pickShape();
+            useUI.getState().setShowInspector(true);
+            showGuide({ target: 'button[aria-label^="Color: #"]', text: "Click here and pick a color." });
+        },
+    },
+    hands: {
+        label: "Try building with your hands",
+        Icon: Hand,
+        show: () =>
+            showGuide({
+                target: 'button[title="Turn on hand control"], button[title="More"]',
+                text: window.matchMedia(COMPACT).matches ? "Open this menu and choose Hand control, then allow the camera." : "Click Hands and allow the camera. Then raise a hand.",
+            }),
+    },
+    share: {
+        label: "Save it so it's there next time",
+        Icon: CloudArrowUp,
+        show: () =>
+            showGuide({
+                target: '[data-guide="account"], button[title="More"]',
+                text: useAccount.getState().user ? "Open your account menu and choose Save to the cloud." : "Sign in with your email, then choose Save to the cloud from this menu.",
+            }),
+    },
 };
 
 // Selects a shape to work on, adding a box when the scene has none.
-function pickShape(mode?: "translate") {
+function pickShape() {
     const scene = useScene.getState();
     if (!scene.doc.objects.length) scene.run({ type: "add", primitive: "box" });
     const first = useScene.getState().doc.objects[0];
     if (first) useScene.getState().select(first.id);
-    if (mode) useTools.getState().setTool("select");
+    useTools.getState().setTool("select");
 }
 
 export function FirstSteps() {
@@ -170,6 +213,10 @@ export function FirstSteps() {
     const count = STEPS.filter((s) => done.includes(s)).length;
     const finished = count === STEPS.length;
     const next = STEPS.find((s) => !done.includes(s));
+    const drag = useDraggable<HTMLDivElement>("first-steps");
+
+    // A step done puts its guide away.
+    useEffect(() => hideGuide, [count]);
 
     // Open again for the moment of finishing, so it's seen.
     useEffect(() => {
@@ -185,9 +232,9 @@ export function FirstSteps() {
     return (
         <AnimatePresence>
             {show && (
-                <Spot key="first-steps">
+                <Spot key="first-steps" ref={drag.ref} style={drag.style}>
                     <Card {...rise} aria-label="First steps">
-                        <header>
+                        <header {...drag.handle}>
                             <button type="button" className="toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
                                 <Ring width="24" height="24" viewBox="0 0 24 24" aria-hidden>
                                     <circle className="track" cx="12" cy="12" r={r} />

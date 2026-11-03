@@ -39,8 +39,22 @@ test('gives new visitors a first-steps checklist that ticks itself off', async (
   await page.keyboard.press('Escape')
   await expect(steps).toContainText('1 of 5 done')
 
-  // "Show me" on the next step starts it: here, the assistant.
+  // "Show me" points at what to use: here, the assistant's message box.
   await steps.getByRole('button', { name: 'Show me' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'and press Enter' })).toBeVisible()
+  await page.getByLabel('Message the assistant').fill('Build a snowman')
+  await page.getByLabel('Message the assistant').press('Enter')
+  await expect(steps).toContainText('2 of 5 done')
+  await expect(page.getByRole('status').filter({ hasText: 'and press Enter' })).toHaveCount(0)
+
+  // It can be dragged out of the way, by its header.
+  const before = (await steps.boundingBox())!
+  await page.mouse.move(before.x + 60, before.y + 20)
+  await page.mouse.down()
+  await page.mouse.move(before.x - 140, before.y - 220, { steps: 6 })
+  await page.mouse.up()
+  const after = (await steps.boundingBox())!
+  expect(after.y).toBeLessThan(before.y - 150)
   await expect(steps).toContainText('2 of 5 done')
 
   await steps.getByTitle('Hide first steps').click()
