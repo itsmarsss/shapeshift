@@ -1,7 +1,7 @@
 import type { WireMessage, WireToolCall } from "@shapeshift/shared/assistant/protocol";
 import { TOOLS } from "@shapeshift/shared/assistant/tools";
 import { SYSTEM_PROMPT } from "./prompt";
-import { ProviderError, userText, type Provider } from "./provider";
+import { ProviderError, userText, type Provider, type StepCallbacks } from "./provider";
 
 const MODEL = "@cf/zai-org/glm-4.7-flash";
 
@@ -44,35 +44,102 @@ function normalizeCalls(calls: LooseCall[] | undefined): WireToolCall[] {
     });
 }
 
+type Delta = { content?: string | null; reasoning_content?: string | null; reasoning?: string | null; tool_calls?: (LooseCall & { index?: number })[] };
+type Chunk = { response?: string; tool_calls?: LooseCall[]; choices?: { delta?: Delta; message?: Delta; finish_reason?: string | null }[] };
+
+// Reads Workers AI's server-sent events as they come, passing text and
+// thinking on and noting each tool as it starts. Handles both shapes the
+// service uses: OpenAI-style deltas, and the older { response, tool_calls }.
+export async function readAiStream(stream: ReadableStream<Uint8Array>, callbacks: StepCallbacks) {
+    const reader = stream.pipeThrough(new TextDecoderStream()).getReader();
+    let buffer = "";
+    let content = "";
+    let finish: string | null = null;
+    // Tool calls arrive in pieces, keyed by their index.
+    const calls = new Map<number, { id?: string; name?: string; arguments: string; whole?: unknown }>();
+
+    const handle = (chunk: Chunk) => {
+        if (typeof chunk.response === "string" && chunk.response) {
+            content += chunk.response;
+            callbacks.onText(chunk.response);
+        }
+        for (const [i, c] of (chunk.tool_calls ?? []).entries()) {
+            const name = c.function?.name ?? c.name;
+            if (name && !calls.has(1000 + i)) callbacks.onToolStart(name);
+            calls.set(1000 + i, { id: c.id, name, arguments: "", whole: c.function?.arguments ?? c.arguments ?? {} });
+        }
+        const choice = chunk.choices?.[0];
+        if (!choice) return;
+        if (choice.finish_reason) finish = choice.finish_reason;
+        const d = choice.delta ?? choice.message ?? {};
+        const thought = d.reasoning_content ?? d.reasoning;
+        if (thought) callbacks.onThinking?.(thought);
+        if (d.content) {
+            content += d.content;
+            callbacks.onText(d.content);
+        }
+        for (const c of d.tool_calls ?? []) {
+            const index = c.index ?? calls.size;
+            const call = calls.get(index) ?? { arguments: "" };
+            if (c.id) call.id = c.id;
+            const name = c.function?.name ?? c.name;
+            if (name && !call.name) {
+                call.name = name;
+                callbacks.onToolStart(name);
+            }
+            const args = c.function?.arguments ?? c.arguments;
+            if (typeof args === "string") call.arguments += args;
+            else if (args && typeof args === "object") call.whole = args;
+            calls.set(index, call);
+        }
+    };
+
+    for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += value;
+        let nl: number;
+        while ((nl = buffer.indexOf("\n")) >= 0) {
+            const line = buffer.slice(0, nl).trim();
+            buffer = buffer.slice(nl + 1);
+            if (!line.startsWith("data:")) continue;
+            const data = line.slice(5).trim();
+            if (!data || data === "[DONE]") continue;
+            try {
+                handle(JSON.parse(data) as Chunk);
+            } catch {
+                // A line that isn't JSON is skipped rather than failing the whole reply.
+            }
+        }
+    }
+    const tool_calls = normalizeCalls(
+        [...calls.entries()].sort(([a], [b]) => a - b).map(([, c]) => ({ id: c.id, name: c.name, arguments: c.arguments || c.whole || {} })),
+    );
+    return { content: content.trim(), tool_calls, finish };
+}
+
 export function workersAiProvider(env: Env): Provider {
     return {
         info: { provider: "workers-ai", model: MODEL },
         async step(messages, callbacks) {
-            let result: unknown;
+            let stream: ReadableStream<Uint8Array>;
             try {
-                result = await env.AI.run(MODEL, {
+                // Streamed, so its thinking and words show as they come
+                // instead of all at the end.
+                stream = (await env.AI.run(MODEL, {
                     messages: toParams(messages),
                     tools: TOOL_PARAMS,
                     temperature: 0.2,
                     max_tokens: 8192,
-                    chat_template_kwargs: { enable_thinking: false },
-                });
+                    stream: true,
+                    chat_template_kwargs: { enable_thinking: true },
+                } as never)) as unknown as ReadableStream<Uint8Array>;
             } catch (err) {
                 console.error("Workers AI request failed", err);
                 throw new ProviderError("overloaded", "The model is busy right now. Try again in a moment.");
             }
-            // Workers AI returns the OpenAI shape for this model; older models
-            // return { response, tool_calls }.
-            const r = result as {
-                choices?: { message?: { content?: string | null; tool_calls?: LooseCall[] }; finish_reason?: string }[];
-                response?: string;
-                tool_calls?: LooseCall[];
-            };
-            const choice = r.choices?.[0];
-            const content = (choice?.message?.content ?? r.response ?? "").trim();
-            const tool_calls = normalizeCalls(choice?.message?.tool_calls ?? r.tool_calls);
-            if (content) callbacks.onText(content);
-            if (choice?.finish_reason === "length") {
+            const { content, tool_calls, finish } = await readAiStream(stream, callbacks);
+            if (finish === "length") {
                 // Tool calls cut off mid-way can't run.
                 return { message: { role: "assistant", content: content || null }, stop: "max_tokens", model: MODEL };
             }
