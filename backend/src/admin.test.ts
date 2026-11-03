@@ -79,6 +79,28 @@ describe("admin", () => {
         expect(await e.DB.prepare("SELECT COUNT(*) AS n FROM usage").first()).toEqual({ n: 0 });
     });
 
+    it("keeps Model lab runs to look at again, and deletes them", async () => {
+        const e = env();
+        const boss = await signIn(e, LOCAL_SUPERUSER);
+        const record = { run: "abc123", model: "@cf/openai/gpt-oss-120b#low", prompt: "A table", ms: 61000, steps: 3, changes: 6, failed: 1, doc: { objects: [] }, log: [{ kind: "text", text: "Done" }], picture: btoa("jpeg") };
+        expect((await call(e, boss, "/lab/runs", { method: "POST", body: record })).status).toBe(200);
+        expect((await call(e, boss, "/lab/runs", { method: "POST", body: { ...record, model: "@cf/zai-org/glm-4.7-flash", error: "Too slow", picture: undefined } })).status).toBe(200);
+        expect((await call(e, boss, "/lab/runs", { method: "POST", body: { nope: true } })).status).toBe(400);
+
+        const list = (await call(e, boss, "/lab/runs")).body as { runs: { run: string; prompt: string; results: { model: string; ms: number; failed: number; error?: string; picture: boolean }[] }[] };
+        expect(list.runs).toHaveLength(1);
+        expect(list.runs[0]).toMatchObject({ run: "abc123", prompt: "A table" });
+        expect(list.runs[0]!.results).toEqual([
+            expect.objectContaining({ model: "@cf/openai/gpt-oss-120b#low", ms: 61000, failed: 1, picture: true }),
+            expect.objectContaining({ model: "@cf/zai-org/glm-4.7-flash", error: "Too slow", picture: false }),
+        ]);
+        const one = (await call(e, boss, `/lab/runs/abc123/record?model=${encodeURIComponent(record.model)}`)).body;
+        expect(one).toMatchObject({ prompt: "A table", log: [{ kind: "text", text: "Done" }] });
+
+        expect((await call(e, boss, "/lab/runs/abc123", { method: "DELETE" })).status).toBe(200);
+        expect(((await call(e, boss, "/lab/runs")).body as { runs: unknown[] }).runs).toHaveLength(0);
+    });
+
     it("changes plans by hand and logs what admins do", async () => {
         const e = env();
         const boss = await signIn(e, LOCAL_SUPERUSER);

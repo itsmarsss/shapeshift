@@ -7,11 +7,14 @@ import { makeHttpTransport, type Transport } from "../assistant/transport";
 import { GlobalStyle } from "../components/ui";
 import { useScene } from "../scene/store";
 import { SceneView } from "../viewer/SceneView";
+import type { SceneDoc } from "@shapeshift/shared/scene/schema";
 
 // One model in the Model lab, run in its own frame so several can work at
 // once without sharing a scene. It builds from an empty scene, shows the
 // scene as it goes and every step the model takes, then tells the lab how
-// it went. Nothing here is saved: main.tsx skips autosave on /lab pages.
+// it went and keeps the run (numbers, final scene, picture and steps) so it
+// can be opened again: `?replay=<run>&model=` shows a kept one. The editor's
+// saved scene is never touched: main.tsx skips autosave on /lab pages.
 
 type Entry =
     | { kind: "thinking" | "text"; text: string }
@@ -114,7 +117,40 @@ const secs = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 // development; reloading the frame starts again.
 let begun = false;
 
+// A picture of the finished scene, small enough to keep with the run.
+function picture(): string | undefined {
+    const canvas = document.querySelector("canvas");
+    if (!canvas) return undefined;
+    const small = document.createElement("canvas");
+    small.width = 480;
+    small.height = Math.round((480 * canvas.height) / Math.max(1, canvas.width));
+    small.getContext("2d")?.drawImage(canvas, 0, 0, small.width, small.height);
+    return small.toDataURL("image/jpeg", 0.75).split(",")[1];
+}
+
 export default function LabRun() {
+    const replay = new URLSearchParams(location.search).get("replay");
+    return replay ? <Replay run={replay} model={new URLSearchParams(location.search).get("model") ?? ""} /> : <Live />;
+}
+
+type Kept = { model: string; prompt: string; ms: number; steps: number; changes: number; failed: number; error?: string; doc: SceneDoc; log: Entry[] };
+
+// A kept run, shown as it ended.
+function Replay({ run, model }: { run: string; model: string }) {
+    const [kept, setKept] = useState<Kept | null>(null);
+    const [problem, setProblem] = useState<string | null>(null);
+    useEffect(() => {
+        void fetch(`/api/admin/lab/runs/${run}/record?model=${encodeURIComponent(model)}`)
+            .then(async (r) => (r.ok ? setKept((await r.json()) as Kept) : setProblem("That run isn't kept anymore.")))
+            .catch(() => setProblem("Couldn't load that run."));
+    }, [run, model]);
+    if (problem || !kept) return <View model={model} status={problem ? "error" : "running"} ms={0} counts={{ steps: 0, changes: 0, failed: 0 }} doc={EMPTY} log={problem ? [{ kind: "error", text: problem }] : []} />;
+    return <View model={kept.model} status={kept.error ? "error" : "done"} ms={kept.ms} counts={kept} doc={kept.doc} log={kept.log} />;
+}
+
+const EMPTY: SceneDoc = { version: 1, objects: [], lights: [], environment: "none", animation: { duration: 4, loop: true, tracks: [] } } as unknown as SceneDoc;
+
+function Live() {
     const params = new URLSearchParams(location.search);
     const model = params.get("model") ?? "";
     const prompt = params.get("prompt") ?? "";
@@ -126,9 +162,13 @@ export default function LabRun() {
     const started = useRef(Date.now());
     const end = useRef<HTMLLIElement>(null);
     const counts = useRef({ steps: 0, changes: 0, failed: 0 });
+    const logRef = useRef<Entry[]>([]);
+    logRef.current = log;
 
     // Keeps the newest step in view, and the clock ticking while it runs.
-    useEffect(() => end.current?.scrollIntoView({ block: "end" }), [log.length]);
+    useEffect(() => {
+        end.current?.scrollIntoView({ block: "end" });
+    }, [log.length]);
     useEffect(() => {
         if (status !== "running") return;
         const t = setInterval(() => setNow(Date.now()), 200);
@@ -163,7 +203,13 @@ export default function LabRun() {
             setNow(Date.now());
             setStatus(error ? "error" : "done");
             const message: LabResult = { type: "lab-done", run, model, ms, ...counts.current, ...(error ? { error } : {}) };
-            window.parent.postMessage(message, location.origin);
+            // Kept for later, then the lab is told, so its list of past runs includes this one.
+            setTimeout(() => {
+                const record = { run: run.split(":")[0], model, prompt, ms, ...counts.current, ...(error ? { error: error.slice(0, 400) } : {}), doc: useScene.getState().doc, log: logRef.current, picture: picture() };
+                void fetch("/api/admin/lab/runs", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(record) })
+                    .catch(() => {})
+                    .finally(() => window.parent.postMessage(message, location.origin));
+            }, 800);
         };
         runTurn({
             conversation,
@@ -191,8 +237,29 @@ export default function LabRun() {
         // Closing the lab or starting another run removes the frame, which ends this.
     }, [model, prompt, run]);
 
+    return <View model={model} status={status} ms={now - started.current} counts={counts.current} doc={doc} log={log} end={end} capture />;
+}
+
+function View({
+    model,
+    status,
+    ms,
+    counts: c,
+    doc,
+    log,
+    end,
+    capture,
+}: {
+    model: string;
+    status: "running" | "done" | "error";
+    ms: number;
+    counts: { steps: number; changes: number; failed: number };
+    doc: SceneDoc;
+    log: Entry[];
+    end?: React.RefObject<HTMLLIElement | null>;
+    capture?: boolean;
+}) {
     const color = status === "running" ? "var(--warning)" : status === "done" ? "var(--success)" : "var(--danger)";
-    const c = counts.current;
     return (
         <Root>
             <GlobalStyle />
@@ -200,11 +267,11 @@ export default function LabRun() {
                 <i style={{ background: color }} />
                 <b title={model}>{model}</b>
                 <span>
-                    {secs(now - started.current)} · {c.steps} steps · {c.changes} changes{c.failed ? ` · ${c.failed} failed` : ""}
+                    {secs(ms)} · {c.steps} steps · {c.changes} changes{c.failed ? ` · ${c.failed} failed` : ""}
                 </span>
             </Head>
             <Stage>
-                <SceneView doc={doc} />
+                <SceneView doc={doc} capture={capture} />
             </Stage>
             <Log>
                 {log.map((e, i) =>

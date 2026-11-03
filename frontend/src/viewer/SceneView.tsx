@@ -71,9 +71,10 @@ function Scene({ doc }: { doc: SceneDoc }) {
     );
 }
 
-export function SceneView({ doc }: { doc: SceneDoc }) {
+// `capture` keeps the last frame readable, so a picture can be taken of it.
+export function SceneView({ doc, capture = false }: { doc: SceneDoc; capture?: boolean }) {
     return (
-        <Canvas shadows dpr={[1, 2]} camera={{ position: [4, 3.5, 6], fov: 45, near: 0.05, far: 500 }} style={{ position: "absolute", inset: 0 }}>
+        <Canvas gl={capture ? { preserveDrawingBuffer: true } : undefined} shadows dpr={[1, 2]} camera={{ position: [4, 3.5, 6], fov: 45, near: 0.05, far: 500 }} style={{ position: "absolute", inset: 0 }}>
             <Scene doc={doc} />
         </Canvas>
     );
