@@ -225,7 +225,7 @@ test('turns the view by dragging the view cube, without clicking a face', async 
   expect(await turn()).toBe(dragged)
 })
 
-test('keeps the inspector simple, with exact numbers under More options', async ({ page }) => {
+test('keeps the inspector simple, with exact numbers in a section that stays open', async ({ page }) => {
   await openEditor(page)
   await page.getByTitle('Add sphere').click()
   await expect(page.getByText('Position (m)')).toHaveCount(0)
@@ -233,19 +233,20 @@ test('keeps the inspector simple, with exact numbers under More options', async 
   // Metal needs something to reflect, so the lighting switches to Studio too.
   await page.getByRole('button', { name: 'Gold', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Gold', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  // Lighting belongs to the scene, so it shows once nothing is selected.
+  // Lighting belongs to the scene, so the docked inspector shows it once
+  // nothing is selected, without closing and moving the view.
   await page.keyboard.press('Escape')
-  await page.getByTitle('Inspector').click()
+  await expect(page.getByText('Lighting', { exact: true })).toBeVisible()
   await expect(page.locator('select').filter({ hasText: 'Studio' }).last()).toHaveValue('studio')
   // The scene panel can pick things by name, too.
   await page.locator('select').first().selectOption({ label: 'Sphere' })
 
-  await page.getByRole('button', { name: 'More options' }).click()
+  await page.getByRole('button', { name: 'Position, rotation and size' }).click()
   await expect(page.getByText('Position (m)')).toBeVisible()
   // The choice sticks for the next object.
   await page.getByTitle('Add box').click()
   await expect(page.getByText('Position (m)')).toBeVisible()
-  await page.getByRole('button', { name: 'Fewer options' }).click()
+  await page.getByRole('button', { name: 'Position, rotation and size' }).click()
   await expect(page.getByText('Position (m)')).toHaveCount(0)
 })
 
@@ -276,10 +277,8 @@ test('keeps the get-started card clear of the side panels', async ({ page }) => 
   await page.setViewportSize({ width: 1280, height: 720 })
   await openEditor(page)
   const card = page.getByRole('region', { name: 'Get started' })
-  // With nothing selected the inspector stays out of the way.
-  await expect(page.getByText('Inspector', { exact: true })).toHaveCount(0)
-  // Opened for scene settings, it sits beside the card, not under it.
-  await page.getByTitle('Inspector').click()
+  // Docked, the inspector shows the scene settings beside the card, not under it.
+  await expect(page.getByText('Scene', { exact: true })).toBeVisible()
   const scene = (await page.getByText('Scene', { exact: true }).locator('..').locator('..').boundingBox())!
   expect((await card.boundingBox())!.x).toBeGreaterThanOrEqual(scene.x + scene.width)
 })
@@ -447,4 +446,44 @@ test('opens a sample project from Explore and remixes it into the editor', async
   await page.getByRole('button', { name: /Remix in ShapeShift/ }).click()
   await expect(page).toHaveURL(/\/edit$/)
   await expect.poll(countNamed(page, 'Sails 1')).toBe(1)
+})
+
+test('docks the inspector beside the view or floats it where it is dragged', async ({ page }) => {
+  await openEditor(page)
+  await page.getByTitle('Add box').click()
+  const inspector = page.getByRole('button', { name: 'Pop out as a floating panel' }).first()
+  await expect(inspector).toBeVisible()
+  // Docked, it takes its own column and the 3D view starts after it.
+  const view = async () => (await page.locator('canvas').first().boundingBox())!
+  expect((await view()).x).toBeGreaterThan(250)
+
+  await inspector.click()
+  await expect.poll(async () => (await view()).x).toBeLessThan(10)
+  // Floating, it can be dragged by its header and stays there after a reload.
+  const header = page.getByText('Inspector', { exact: true })
+  const from = (await header.boundingBox())!
+  await page.mouse.move(from.x + 10, from.y + 5)
+  await page.mouse.down()
+  await page.mouse.move(from.x + 310, from.y + 125, { steps: 6 })
+  await page.mouse.up()
+  await expect.poll(async () => (await header.boundingBox())!.x).toBeGreaterThan(from.x + 250)
+  await page.reload()
+  await page.getByTitle('Add box').click()
+  await expect.poll(async () => (await page.getByText('Inspector', { exact: true }).boundingBox())?.x ?? 0).toBeGreaterThan(from.x + 250)
+
+  await page.getByRole('button', { name: 'Dock to the left side' }).click()
+  await expect.poll(async () => (await view()).x).toBeGreaterThan(250)
+})
+
+test('shows a bar for the selected shape while the inspector is closed', async ({ page }) => {
+  await openEditor(page)
+  await page.getByTitle('Add box').click()
+  const bar = page.getByRole('toolbar', { name: 'Selected shape' })
+  await expect(bar).toHaveCount(0)
+  await page.getByTitle('Inspector').click()
+  await expect(bar).toBeVisible()
+  await bar.getByTitle('Duplicate').click()
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('shapeshift-scene') ?? '{"objects":[]}').objects.length)).toBe(2)
+  await bar.getByTitle('More settings (inspector)').click()
+  await expect(bar).toHaveCount(0)
 })

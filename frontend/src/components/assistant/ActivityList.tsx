@@ -18,7 +18,8 @@ const List = styled.ul`
 
 const Row = styled.li<{ $ok: boolean }>`
     display: grid;
-    grid-template-columns: 16px 1fr auto;
+    // The color dot sits right after its label, not at the far edge.
+    grid-template-columns: 16px auto auto 1fr;
     align-items: start;
     gap: 6px;
     padding: 2px 0 2px 10px;
@@ -71,7 +72,7 @@ const LinkLabel = styled(Label).attrs({ as: "button" })`
 `;
 
 const ErrorText = styled.div`
-    grid-column: 2 / 4;
+    grid-column: 2 / 5;
     color: var(--text-faint);
     white-space: normal;
 `;
@@ -80,13 +81,13 @@ const Swatch = styled.span<{ $color: string }>`
     width: 10px;
     height: 10px;
     margin-top: 4px;
-    border-radius: 3px;
+    border-radius: 50%;
     background: ${(p) => p.$color};
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
 `;
 
 const Shot = styled.button<{ $open: boolean }>`
-    grid-column: 2 / 4;
+    grid-column: 2 / 5;
     margin: 4px 0 2px;
     padding: 0;
     border: 1px solid var(--border);
@@ -146,6 +147,7 @@ export function ActivityList({ activities }: { activities: Activity[] }) {
                         <Label title={a.label}>{a.label}</Label>
                     )}
                     {a.color ? <Swatch $color={a.color} title={a.color} /> : <span />}
+                    <span />
                     {a.error && <ErrorText>{a.error}</ErrorText>}
                     {a.image && <Snapshot src={a.image} label={a.label} />}
                 </Row>

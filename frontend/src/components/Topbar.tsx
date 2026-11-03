@@ -68,6 +68,7 @@ const Bar = styled.div`
         // Sides size to their buttons so the mode switch can sit between them.
         grid-template-columns: auto 1fr auto;
         padding: 0 4px;
+        gap: 4px;
         padding-top: env(safe-area-inset-top, 0px);
         height: calc(var(--topbar) + env(safe-area-inset-top, 0px));
     }
@@ -102,10 +103,26 @@ const Brand = styled.a`
 // The mode switch, tightened on phones so the bar fits a 360px screen.
 const Modes = styled(Segmented)`
     justify-self: center;
+    // Shrinks rather than pushing buttons off a very narrow screen.
+    min-width: 0;
+    max-width: 100%;
+
+    button {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 
     @media ${MEDIUM} {
         button {
             padding: 0 8px;
+        }
+    }
+    // The smallest phones: just enough room for every button in the bar.
+    @media (max-width: 380px) {
+        button {
+            padding: 0 5px;
+            font-size: 12px;
         }
     }
 `;

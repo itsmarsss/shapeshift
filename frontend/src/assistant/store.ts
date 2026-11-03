@@ -98,7 +98,8 @@ export const useAssistant = create<AssistantState>()((set, get) => {
                 signal: controller.signal,
                 ctx,
                 handlers: {
-                    onText: (text) =>
+                    onText: (text) => (
+                        flushPaced(turnId),
                         patchTurn(turnId, (t) => {
                             const last = t.items[t.items.length - 1];
                             const items =
@@ -106,8 +107,10 @@ export const useAssistant = create<AssistantState>()((set, get) => {
                                     ? [...t.items.slice(0, -1), { kind: "text" as const, text: last.text + text }]
                                     : [...t.items, { kind: "text" as const, text }];
                             return { items };
-                        }),
-                    onThinking: (text) =>
+                        })
+                    ),
+                    onThinking: (text) => (
+                        flushPaced(turnId),
                         patchTurn(turnId, (t) => {
                             const last = t.items[t.items.length - 1];
                             const items =
@@ -115,7 +118,8 @@ export const useAssistant = create<AssistantState>()((set, get) => {
                                     ? [...t.items.slice(0, -1), { kind: "thinking" as const, text: last.text + text }]
                                     : [...t.items, { kind: "thinking" as const, text }];
                             return { items };
-                        }),
+                        })
+                    ),
                     onToolStart: (name) => patchTurn(turnId, () => ({ writing: TOOL_LABELS[name] ?? "Working" })),
                     // Listed one at a time, in step with the shapes growing in,
                     // so a build reads as it happens rather than all at once.
@@ -140,6 +144,7 @@ export const useAssistant = create<AssistantState>()((set, get) => {
                       : stop === "refusal"
                         ? "The model declined this request."
                         : undefined;
+            flushPaced(turnId);
             patchTurn(turnId, () => ({ status: "done", note, error: undefined }));
         } catch (err) {
             const error = err instanceof AgentError ? err : new AgentError("internal", "Something went wrong.");
@@ -291,9 +296,18 @@ function fromShared(t: SharedTurn): Turn {
 const SHARE_MS = 150;
 // Each turn's activities waiting to be listed. A long build speeds up so it
 // still finishes in a few seconds.
-const queues = new Map<string, { waiting: Activity[]; timer: ReturnType<typeof setTimeout> | null }>();
+const queues = new Map<string, { waiting: Activity[]; timer: ReturnType<typeof setTimeout> | null; add: (one: Activity) => void }>();
+// Lists anything still waiting straight away, before words or the end of the
+// turn, so the list never ends up below what comes after it.
+function flushPaced(turnId: string) {
+    const q = queues.get(turnId);
+    if (!q) return;
+    if (q.timer) clearTimeout(q.timer);
+    queues.delete(turnId);
+    for (const one of q.waiting.splice(0)) q.add(one);
+}
 function pace(turnId: string, activities: Activity[], add: (one: Activity) => void) {
-    const q = queues.get(turnId) ?? { waiting: [], timer: null };
+    const q = queues.get(turnId) ?? { waiting: [], timer: null, add };
     q.waiting.push(...activities);
     queues.set(turnId, q);
     const next = () => {

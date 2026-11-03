@@ -64,8 +64,8 @@ test('aligns and mirrors the selection', async ({ page }) => {
   await page.keyboard.press('1')
   await page.keyboard.press('2')
   await pick(page, 'Sphere')
-  // Exact numbers live under More options, which stays open once opened.
-  await page.getByRole('button', { name: 'More options' }).click()
+  // Exact numbers live in a section that stays open once opened.
+  await page.getByRole('button', { name: 'Position, rotation and size' }).click()
   await field(page, 'Position (m)').fill('3')
   await field(page, 'Position (m)', 1).fill('2')
   await field(page, 'Position (m)', 1).blur()

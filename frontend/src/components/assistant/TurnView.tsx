@@ -1,6 +1,7 @@
 import styled, { css } from "styled-components";
 import { shimmer, spin } from "../../ui/keyframes";
-import { Button } from "../ui";
+import { Avatar, Button } from "../ui";
+import { initials } from "../../ui/format";
 import { ArrowClockwise, ArrowCounterClockwise, CircleNotch, WarningCircle } from "@phosphor-icons/react";
 import { useScene } from "../../scene/store";
 import { useAssistant, type Turn } from "../../assistant/store";
@@ -16,21 +17,19 @@ const Root = styled.section`
     gap: 10px;
 `;
 
-const Author = styled.div<{ $color: string; $remote?: boolean }>`
+// Who asked, in a shared room: their face and name above the request.
+const Author = styled.div<{ $remote?: boolean }>`
     align-self: ${(p) => (p.$remote ? "flex-start" : "flex-end")};
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-bottom: -6px;
+    margin-bottom: -4px;
     color: var(--text-muted);
-    font-size: 11px;
+    font-size: 12px;
 
-    &::before {
-        content: "";
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: ${(p) => p.$color};
+    b {
+        color: var(--text);
+        font-weight: 600;
     }
 `;
 
@@ -38,9 +37,10 @@ const RemotePrompt = styled.div<{ $color: string }>`
     align-self: flex-start;
     max-width: 88%;
     padding: 7px 11px;
-    border-radius: 14px 14px 14px 4px;
-    background: var(--surface-raised);
-    border-left: 3px solid ${(p) => p.$color};
+    border-radius: 4px 14px 14px 14px;
+    // Tinted with the asker's color, so it's clear whose request it is.
+    background: color-mix(in srgb, ${(p) => p.$color} 12%, var(--surface-raised));
+    border: 1px solid color-mix(in srgb, ${(p) => p.$color} 30%, transparent);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     line-height: 1.45;
@@ -196,8 +196,17 @@ export function TurnView({ turn, last }: { turn: Turn; last: boolean }) {
                 </Pictures>
             ) : null}
             {turn.author && (
-                <Author $color={turn.author.color} $remote={turn.remote}>
-                    {turn.remote ? `${turn.author.name} asked` : "You asked"}
+                <Author $remote={turn.remote}>
+                    {turn.remote ? (
+                        <>
+                            <Avatar $size={20} $color={turn.author.color}>
+                                {initials(turn.author.name)}
+                            </Avatar>
+                            <b>{turn.author.name}</b> asked
+                        </>
+                    ) : (
+                        "You asked"
+                    )}
                 </Author>
             )}
             {turn.remote ? <RemotePrompt $color={turn.author!.color}>{turn.prompt}</RemotePrompt> : <Prompt>{turn.prompt}</Prompt>}

@@ -1,4 +1,5 @@
 import { OfflineNote } from "./OfflineNote";
+import { useDockLayout } from "../ui/useDockLayout";
 import { Timeline, TIMELINE_HEIGHT } from "./timeline/Timeline";
 import { useTimeline } from "../scene/timeline";
 import { useCompact } from "../ui/compact";
@@ -14,6 +15,7 @@ import { GridScale } from "./GridScale";
 import { HistoryPanel } from "./HistoryPanel";
 import { StartCard } from "./StartCard";
 import { FirstSteps } from "./FirstSteps";
+import { SelectionBar } from "./SelectionBar";
 import { HandStartup } from "../hands/HandStartup";
 import { Guide } from "./Guide";
 import { ViewCube } from "./ViewCube";
@@ -22,7 +24,6 @@ import { RoomChat } from "../collab/RoomChat";
 import { Viewport } from "../viewport/Viewport";
 import { useShortcuts } from "../hooks/useShortcuts";
 import { useUI } from "../ui/store";
-import { useInspectorVisible } from "../ui/inspector";
 import { resumeHands, useHands, warmUpHandsSoon } from "../hands/tracker";
 import { useResolvedTheme } from "../settings/theme";
 
@@ -46,8 +47,26 @@ function Lazy({ of: Component }: { of: ComponentType }) {
 
 const Root = styled.div`
     position: relative;
+    overflow: hidden;
     width: 100vw;
     height: 100vh;
+`;
+
+// The part of the editor that isn't a docked panel: the 3D view and what
+// floats over it. It runs the full height, under the top bar, so the
+// overlays inside keep measuring from the top of the window.
+const Area = styled.div`
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--dock-left, 0px);
+    right: var(--dock-right, 0px);
+    overflow: hidden;
+    pointer-events: none;
+
+    > * {
+        pointer-events: auto;
+    }
 `;
 
 const Stage = styled.div`
@@ -57,8 +76,9 @@ const Stage = styled.div`
 
 export function Layout() {
     useShortcuts();
-    const showChat = useUI((s) => s.showChat);
-    const showInspector = useInspectorVisible();
+    const dock = useDockLayout();
+    const assistantFloats = dock.open.assistant && !dock.docked("assistant") && !dock.compact;
+    const inspectorFloats = dock.open.inspector && !dock.docked("inspector") && !dock.compact;
     const handsOn = useHands((s) => s.status !== "off");
     const showSettings = useUI((s) => s.showSettings);
     const showTemplates = useUI((s) => s.showTemplates);
@@ -81,13 +101,17 @@ export function Layout() {
             data-editor
             style={
                 {
-                    "--chat-width": showChat && !compact ? "360px" : "0px",
+                    "--dock-left": `${dock.left}px`,
+                    "--dock-right": `${dock.right}px`,
+                    // What a floating room chat keeps clear of on the right.
+                    "--chat-width": assistantFloats ? "372px" : `${dock.right}px`,
                     // How much of each side the panels cover, so things meant
                     // for the middle of the 3D view (cards, the camera's fit)
                     // land in the part that's still visible. On phones the
                     // panels are bottom sheets instead.
-                    "--left-inset": compact ? "0px" : showInspector ? "354px" : "70px",
-                    "--right-inset": showChat && !compact ? "372px" : "0px",
+                    // Measured inside the area beside any docked panels.
+                    "--left-inset": compact ? "0px" : inspectorFloats ? "354px" : "70px",
+                    "--right-inset": assistantFloats ? "372px" : "0px",
                     // Panels along the bottom sit above the timeline when it's open.
                     "--bottom-offset": timelineOpen ? `${(compact ? 120 : TIMELINE_HEIGHT) + 12}px` : "0px",
                 } as CSSProperties
@@ -95,25 +119,28 @@ export function Layout() {
         >
             <GlobalStyle />
             <Topbar />
-            <Stage>
-                <Viewport />
-            </Stage>
-            <Toolbar />
+            <Area>
+                <Stage>
+                    <Viewport />
+                </Stage>
+                <Toolbar />
+                <GridScale />
+                <HistoryPanel />
+                <Timeline />
+                <OfflineNote />
+                <StartCard />
+                <SelectionBar />
+                <FirstSteps />
+                <HandStartup />
+                <ViewCube />
+                <Suspense fallback={null}>{handsOn && <HandUI />}</Suspense>
+            </Area>
             <Inspector />
-            <GridScale />
-            <HistoryPanel />
-            <Timeline />
-            <OfflineNote />
-            <StartCard />
-            <FirstSteps />
-            <HandStartup />
             <Guide />
-            <ViewCube />
             <Tooltips />
             <RoomChat />
             <Suspense fallback={null}>
                 <ChatPanel />
-                {handsOn && <HandUI />}
             </Suspense>
             {/* Each in its own Suspense so the first open of one doesn't blank the
                 others, and kept by AnimatePresence until it has faded out. */}

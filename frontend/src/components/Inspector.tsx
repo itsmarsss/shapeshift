@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { DockResizer, DockToggle } from "./Dock";
+import { useDockPanel } from "../ui/useDockLayout";
 import { NumberInput } from "./NumberInput";
 import { ArrangeSection, HoleToggle, ShapeSection } from "./ModelingSections";
 import styled from "styled-components";
@@ -98,6 +100,22 @@ const Check = styled.label`
     }
 `;
 
+const PickRow = styled.div`
+    display: flex;
+    gap: 4px;
+    align-items: center;
+`;
+
+const NameRow = styled.div`
+    display: flex;
+    gap: 6px;
+    align-items: center;
+
+    > input {
+        flex: 1;
+    }
+`;
+
 const Muted = styled.div`
     color: var(--text-muted);
 `;
@@ -147,10 +165,14 @@ function VectorField({
 
 const LIGHT_KIND: Record<Light["type"], string> = { point: "Point light", spot: "Spot light", directional: "Directional light" };
 
-const MoreToggle = styled(TextButton)`
+// A collapsible group of settings, like Blender's panels: a header to open
+// or close it, remembered per group between objects and visits.
+const SectionHead = styled(TextButton)`
     display: flex;
     width: 100%;
-    height: 30px;
+    height: 32px;
+    margin-top: 2px;
+    border-top: 1px solid var(--border);
     font-size: 12px;
 
     svg {
@@ -164,37 +186,35 @@ const MoreToggle = styled(TextButton)`
     }
 `;
 
-const MORE_KEY = "shapeshift-inspector-more";
+const openKey = (id: string) => `shapeshift-inspector-${id}`;
 
-function readMore() {
+function readOpen(id: string) {
     try {
-        return localStorage.getItem(MORE_KEY) === "1";
+        return localStorage.getItem(openKey(id)) === "1";
     } catch {
         return false;
     }
 }
 
-// Exact numbers stay out of the way until someone asks for them, and the
-// choice sticks between objects and visits.
-function More({ children }: { children: React.ReactNode }) {
-    const [open, setOpen] = useState(readMore);
+function More({ id = "more", title = "More options", children }: { id?: string; title?: string; children: React.ReactNode }) {
+    const [open, setOpen] = useState(() => readOpen(id));
     return (
         <>
-            <MoreToggle
+            <SectionHead
                 type="button"
                 aria-expanded={open}
                 onClick={() => {
                     setOpen(!open);
                     try {
-                        localStorage.setItem(MORE_KEY, open ? "0" : "1");
+                        localStorage.setItem(openKey(id), open ? "0" : "1");
                     } catch {
                         // Optional.
                     }
                 }}
             >
                 <CaretRight size={12} weight="bold" />
-                {open ? "Fewer options" : "More options"}
-            </MoreToggle>
+                {title}
+            </SectionHead>
             {open && children}
         </>
     );
@@ -238,7 +258,7 @@ function LightSection({ light }: { light: Light }) {
                     />
                 </Sub>
             </Grid>
-            <More>
+            <More id="transform" title="Position and aim">
                 <div>
                     <FieldLabel>Position</FieldLabel>
                     <VectorField
@@ -380,7 +400,7 @@ function SelectionSection({ objects, groups }: { objects: SceneObject[]; groups:
             </div>
             <HoleToggle objects={objects} />
             {count === 2 && <CombineSection />}
-            <More>
+            <More id="transform" title="Arrange and align">
                 <ArrangeSection canAlign={units > 1} />
             </More>
             <Actions>
@@ -397,28 +417,27 @@ function SelectionSection({ objects, groups }: { objects: SceneObject[]; groups:
     );
 }
 
+// One row of material balls; hover for the name.
 const Tiles = styled.div`
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    display: flex;
     gap: 6px;
+    margin-top: 8px;
 `;
 
 // A little shaded ball per material, so it reads as a material and not a color.
 const Tile = styled.button<{ $swatch: string; $glow?: boolean }>`
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-    padding: 8px 4px 6px;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 50%;
     background: transparent;
-    color: var(--text-muted);
-    font-size: 11px;
 
     span {
-        width: 26px;
-        height: 26px;
+        width: 24px;
+        height: 24px;
         border-radius: 50%;
         background: radial-gradient(circle at 32% 30%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 42%), ${(p) => p.$swatch};
         box-shadow: ${(p) => (p.$glow ? "0 0 10px 2px #ff4fd8aa" : "inset -3px -4px 8px rgba(0, 0, 0, 0.25)")};
@@ -472,6 +491,7 @@ const ENVIRONMENT_LABELS: Record<Environment, string> = {
 export function Inspector() {
     const show = useInspectorVisible();
     const compact = useCompact();
+    const place = useDockPanel<HTMLDivElement>("inspector");
     const objects = useScene((s) => s.doc.objects);
     const selected = useScene(selectSelected);
     const pose = useTimeline((s) => (selected ? s.poses.get(selected.id) : undefined));
@@ -498,14 +518,17 @@ export function Inspector() {
     return (
         <AnimatePresence>
             {show && (
-                <Root key="panel" {...slide(compact ? "bottom" : "left")}>
-                    <PanelHeader>
+                <Root key="panel" ref={place.ref} style={place.style} {...slide(compact ? "bottom" : "left")}>
+                    <DockResizer id="inspector" />
+                    <PanelHeader {...place.handle}>
                         <PanelTitle>{selected || selectedLight || multi ? "Inspector" : "Scene"}</PanelTitle>
+                        <DockToggle id="inspector" />
                         <IconButton title="Close" onClick={toggleInspector}>
                             <X size={16} />
                         </IconButton>
                     </PanelHeader>
                     <Body>
+                        <PickRow>
                         <Select value={selected?.id ?? selectedLight?.id ?? ""} onChange={(e) => select(e.target.value || null)}>
                             <option value="">{objects.length || lights.length ? "No selection" : "Scene is empty"}</option>
                             {objects.map((o) => (
@@ -523,6 +546,17 @@ export function Inspector() {
                                 </optgroup>
                             )}
                         </Select>
+                        {selected && !multi && (
+                            <>
+                                <IconButton title="Duplicate" onClick={() => run({ type: "duplicate", target: selected.id })}>
+                                    <Copy size={16} />
+                                </IconButton>
+                                <IconButton title="Delete" onClick={() => run({ type: "remove", target: selected.id })} style={{ color: "var(--danger)" }}>
+                                    <Trash size={16} />
+                                </IconButton>
+                            </>
+                        )}
+                        </PickRow>
 
                         {!selected && !selectedLight && objects.length + lights.length > 0 && <Muted>Select an object to edit it.</Muted>}
 
@@ -535,8 +569,9 @@ export function Inspector() {
                         {selected && !multi && (
                             <>
                                 <div>
-                                    <FieldLabel>Name</FieldLabel>
+                                    <NameRow>
                                     <Input
+                                        aria-label="Name"
                                         value={selected.name}
                                         onChange={(e) => {
                                             if (e.target.value.trim())
@@ -544,28 +579,26 @@ export function Inspector() {
                                         }}
                                         onBlur={endCoalesce}
                                     />
+                                    <HoleToggle objects={[selected]} />
+                                    </NameRow>
                                     {selected.group && <Muted style={{ marginTop: 6 }}>In group “{selected.group}”.{touchOnly() ? "" : " Alt-click picks one part."}</Muted>}
                                     {pose && <Muted style={{ marginTop: 6 }}>Animated. Moving it adds a keyframe at {time.toFixed(1)}s.</Muted>}
-                                    <div style={{ marginTop: 8 }}>
-                                        <HoleToggle objects={[selected]} />
-                                    </div>
                                 </div>
                                 <ShapeSection object={selected} />
                                 <div>
-                                    <FieldLabel>Color</FieldLabel>
+                                    <FieldLabel>Color and material</FieldLabel>
                                     <ColorPicker
                                         value={selected.material.color}
                                         onChange={(color) => edit("color", { type: "material", target: selected.id, color })}
                                         onCommit={endCoalesce}
                                     />
-                                </div>
-                                <div>
-                                    <FieldLabel>Material</FieldLabel>
                                     <Tiles>
                                         {MATERIAL_PRESETS.map((p) => (
                                             <Tile
                                                 key={p.name}
                                                 type="button"
+                                                title={p.name}
+                                                aria-label={p.name}
                                                 aria-pressed={looksLike(selected.material, p.material)}
                                                 $swatch={p.swatch}
                                                 $glow={p.name === "Neon"}
@@ -579,22 +612,11 @@ export function Inspector() {
                                                 }
                                             >
                                                 <span />
-                                                {p.name}
                                             </Tile>
                                         ))}
                                     </Tiles>
                                 </div>
-                                <Actions>
-                                    <Button onClick={() => run({ type: "duplicate", target: selected.id })}>
-                                        <Copy size={16} />
-                                        Duplicate
-                                    </Button>
-                                    <Button $variant="danger" onClick={() => run({ type: "remove", target: selected.id })}>
-                                        <Trash size={16} />
-                                        Delete
-                                    </Button>
-                                </Actions>
-                                <More>
+                                <More id="transform" title="Position, rotation and size">
                                     <ArrangeSection canAlign={false} />
                                     <div>
                                         <FieldLabel>Position ({units})</FieldLabel>
@@ -625,8 +647,9 @@ export function Inspector() {
                                             onChange={(scale) => edit("scale", transformCommand(selected.id, { scale }))}
                                         />
                                     </div>
+                                </More>
+                                <More id="material" title="Material details">
                                     <div>
-                                        <FieldLabel>Fine-tune the material</FieldLabel>
                                         <Grid $cols={2}>
                                                 <Sub>
                                                     Opacity

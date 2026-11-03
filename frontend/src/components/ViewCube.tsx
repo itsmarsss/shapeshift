@@ -13,7 +13,7 @@ const CLICK_SLOP = 4;
 
 const Root = styled.div`
     position: absolute;
-    right: calc(var(--gap) * 2 + var(--chat-width, 0px));
+    right: calc(var(--gap) + var(--right-inset, 0px));
     bottom: calc(var(--gap) + var(--bottom-offset, 0px));
     z-index: 20;
     display: flex;

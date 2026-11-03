@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { DockResizer, DockToggle } from "../components/Dock";
+import { useDockPanel } from "../ui/useDockLayout";
 import styled from "styled-components";
 import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-m";
@@ -177,6 +179,7 @@ export function RoomChat() {
     const say = useCollab((s) => s.say);
     const setOpen = useCollab((s) => s.setChatOpen);
     const compact = useCompact();
+    const place = useDockPanel<HTMLDivElement>("chat");
     const [draft, setDraft] = useState("");
     const [peek, setPeek] = useState<RoomMessage | null>(null);
     const list = useRef<HTMLOListElement>(null);
@@ -211,9 +214,11 @@ export function RoomChat() {
             </AnimatePresence>
             <AnimatePresence>
                 {open && (
-                    <Root key="room-chat" {...slide(compact ? "bottom" : "right")} role="dialog" aria-label="Room chat">
-                        <PanelHeader>
+                    <Root key="room-chat" ref={place.ref} style={place.style} {...slide(compact ? "bottom" : "right")} role="dialog" aria-label="Room chat">
+                        <DockResizer id="chat" />
+                        <PanelHeader {...place.handle}>
                             <PanelTitle>Room chat</PanelTitle>
+                            <DockToggle id="chat" />
                             <IconButton title="Close" onClick={() => setOpen(false)}>
                                 <X size={16} />
                             </IconButton>
