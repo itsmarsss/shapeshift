@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { fromFileMenu, openEditor } from './helpers'
+import { fromFileMenu, nextFrames, openEditor } from './helpers'
 
 const field = (page: Page, label: string, index = 0) =>
   page.locator(`xpath=//div[normalize-space(.)="${label}"]/following-sibling::div[1]//input`).nth(index)
@@ -89,6 +89,7 @@ test('measures between two points until cleared', async ({ page }) => {
   await page.keyboard.press('Escape')
   await page.getByTitle('Ruler').click()
   await expect(page.getByTitle('Ruler')).toHaveAttribute('aria-pressed', 'true')
+  await nextFrames(page)
   await page.mouse.click(640, 520)
   await page.mouse.click(800, 600)
   const label = page.locator('[data-ruler]')

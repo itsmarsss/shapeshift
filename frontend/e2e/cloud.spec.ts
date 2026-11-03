@@ -93,7 +93,11 @@ test('shows signed-in people their scenes before the editor', async ({ page }) =
   await page.getByRole('menuitem', { name: 'Sign out' }).click()
   // Signed out, the front page is the landing page.
   await expect(page.getByRole('heading', { level: 1 })).toContainText('3D')
-  await page.getByRole('link', { name: /Start creating/ }).first().click()
+  // Followed by address rather than clicked: the 3D hero keeps CI's software
+  // graphics too busy for a click to land in time.
+  const start = page.getByRole('link', { name: /Start creating/ }).first()
+  await expect(start).toHaveAttribute('href', '/edit')
+  await page.goto('/edit')
   await expect(page.getByTitle('Add box')).toBeVisible()
 })
 

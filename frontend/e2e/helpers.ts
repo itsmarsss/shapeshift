@@ -38,3 +38,24 @@ export function countNamed(page: Page, name: string) {
       name,
     )
 }
+
+// Waits until a value read from the page stops changing for a while (three
+// reads in a row, half a second apart). The scene autosaves 300ms after the
+// last change, and slow CI machines can still be applying a drag after the
+// mouse is released, so one matching pair of reads isn't enough.
+export async function settled<T>(read: () => Promise<T>): Promise<T> {
+  const seen: string[] = []
+  await expect
+    .poll(
+      async () => {
+        seen.push(JSON.stringify(await read()))
+        return seen.length >= 3 && seen.slice(-3).every((v) => v === seen.at(-1))
+      },
+      { intervals: [500], timeout: 15000 },
+    )
+    .toBe(true)
+  return JSON.parse(seen.at(-1)!) as T
+}
+
+// Lets the 3D view draw after a change, so the next click hits what was just added.
+export const nextFrames = (page: Page) => page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))))
