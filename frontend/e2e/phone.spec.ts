@@ -55,3 +55,25 @@ test('drags a shape with a finger', async ({ page }) => {
   await expect.poll(async () => (await position())?.[0] ?? 0).toBeGreaterThan(0.3)
   expect((await position())?.[1]).toBeCloseTo(0.5)
 })
+
+test('pinches to zoom without moving the shape, and hints the toolbar scrolls', async ({ page }) => {
+  await openEditor(page)
+  await page.getByTitle('Add box').tap()
+  await page.keyboard.press('Escape')
+  const position = () =>
+    page.evaluate(() => JSON.parse(localStorage.getItem('shapeshift-scene') ?? '{"objects":[]}').objects[0]?.position as number[] | undefined)
+  await expect.poll(position).toEqual([0, 0.5, 0])
+  // The toolbar is wider than a phone, so its far end fades out.
+  await expect(page.getByTitle('Add box').locator('xpath=ancestor::div[@data-more]')).toHaveAttribute('data-more', 'end')
+
+  const { width, height } = page.viewportSize()!
+  const before = await page.locator('canvas').first().screenshot()
+  const cdp = await page.context().newCDPSession(page)
+  const c = { x: width / 2, y: height / 2 - 120 }
+  const fingers = (d: number) => [{ x: c.x - d, y: c.y, id: 0 }, { x: c.x + d, y: c.y, id: 1 }]
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: fingers(30) })
+  for (let i = 1; i <= 15; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: fingers(30 + i * 8) })
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await expect.poll(async () => (await page.locator('canvas').first().screenshot()).equals(before)).toBe(false)
+  expect(await position()).toEqual([0, 0.5, 0])
+})

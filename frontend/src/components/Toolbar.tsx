@@ -28,7 +28,8 @@ import { addShape } from "../scene/selection";
 import { insertLibraryItem, libraryPreview, LIBRARY } from "../scene/library";
 import { useThumbnails } from "../scene/useThumbnails";
 import { PRIMITIVES, type LightType, type Primitive } from "@shapeshift/shared/scene/schema";
-import { IconButton } from "./ui";
+import { fadeEdges, IconButton } from "./ui";
+import { useScrollEdges } from "../ui/hooks";
 import { COMPACT } from "../ui/compact";
 import { useTools, type Tool } from "../viewport/tools";
 
@@ -50,6 +51,7 @@ const Rail = styled.div`
         justify-content: flex-start;
         overflow-x: auto;
         scrollbar-width: none;
+        ${fadeEdges}
 
         > div {
             flex-direction: row;
@@ -266,11 +268,13 @@ export function Toolbar() {
     const workplane = useTools((s) => s.workplane);
     const setWorkplane = useTools((s) => s.setWorkplane);
     const [picker, setPicker] = useState<HTMLElement | null>(null);
+    const rail = useRef<HTMLDivElement>(null);
+    useScrollEdges(rail, mode);
 
     if (mode === "render") return null;
 
     return (
-        <Rail>
+        <Rail ref={rail}>
             <Group>
                 {PINNED.map((primitive) => {
                     const Icon = SHAPE_ICONS[primitive];
