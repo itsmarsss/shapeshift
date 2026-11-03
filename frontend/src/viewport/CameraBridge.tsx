@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useThree } from "@react-three/fiber";
 import type { CameraControls } from "@react-three/drei";
 import { attachControls, useCameraAngles } from "./frame";
+import { attachRedraw } from "../scene/spawn";
 
 // Gives the camera moves in frame.ts the canvas's camera controls, and keeps
 // the view cube in step with the camera.
@@ -11,6 +12,7 @@ export function CameraBridge() {
     const canvas = useThree((s) => s.gl.domElement);
     useEffect(() => {
         attachControls(controls, invalidate, canvas);
+        attachRedraw(invalidate);
         if (!controls) return;
         const update = () => useCameraAngles.setState({ azimuth: controls.azimuthAngle, polar: controls.polarAngle });
         update();

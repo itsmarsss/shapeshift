@@ -1,4 +1,5 @@
 import { findLight, findObject } from "../scene/commands";
+import { flash, reveal } from "../scene/spawn";
 import type { Command } from "@shapeshift/shared/scene/schema";
 import { useScene } from "../scene/store";
 import { takeSnapshot, type View } from "../viewport/snapshot";
@@ -95,6 +96,9 @@ function runCommand(original: Command, ctx: TurnContext): Outcome {
         return l ? [describeLight(l, selectedId)] : [];
     });
     if (cmd.type === "add" && cmd.name && result.created[0]) ctx.aliases.set(cmd.name.toLowerCase(), result.created[0]);
+    // Shown one at a time: new shapes grow in, changed ones glow.
+    if (result.created.length) reveal(result.created);
+    else if (touched.length) flash(touched);
 
     return {
         activity: { label, ok: true, color: commandColor(cmd), changed: true, target: touched[0] },

@@ -66,6 +66,8 @@ export type AgentErrorCode = "bad_request" | "rate_limited" | "overloaded" | "up
 // Newline-delimited JSON events streamed back from /api/agent.
 export type AgentEvent =
     | { type: "text"; text: string }
+    // The model's summarized thinking as it goes, to show while it works.
+    | { type: "thinking"; text: string }
     | { type: "tool_start"; name: string }
     | { type: "message"; message: WireAssistantMessage; stop: StopReason; model: string }
     | { type: "error"; code: AgentErrorCode; error: string; retryAfter?: number };

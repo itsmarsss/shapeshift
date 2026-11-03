@@ -4,6 +4,7 @@ import { useScene } from "../../scene/store";
 import { useAssistant, type Turn } from "../../assistant/store";
 import { useAccount } from "../../account/store";
 import { ActivityList } from "./ActivityList";
+import { Thinking } from "./Thinking";
 import { RichText } from "./RichText";
 
 const spin = keyframes`to { transform: rotate(360deg); }`;
@@ -223,7 +224,13 @@ export function TurnView({ turn, last }: { turn: Turn; last: boolean }) {
             {turn.remote ? <RemotePrompt $color={turn.author!.color}>{turn.prompt}</RemotePrompt> : <Prompt>{turn.prompt}</Prompt>}
             <Body>
                 {turn.items.map((item, i) =>
-                    item.kind === "text" ? <RichText key={i} text={item.text} /> : <ActivityList key={i} activities={item.activities} />
+                    item.kind === "text" ? (
+                        <RichText key={i} text={item.text} />
+                    ) : item.kind === "thinking" ? (
+                        <Thinking key={i} text={item.text} live={turn.status === "running" && i === turn.items.length - 1} />
+                    ) : (
+                        <ActivityList key={i} activities={item.activities} />
+                    )
                 )}
                 {turn.status === "running" && (
                     <Status role="status">
