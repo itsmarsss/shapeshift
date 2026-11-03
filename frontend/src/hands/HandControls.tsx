@@ -218,6 +218,8 @@ export function HandControls() {
         }
         if (d?.kind !== "object") return;
         aim(x, y);
+        // Shared so the gesture guide can show how far the push or pull is.
+        if (Math.abs(useHandActivity.getState().reach - depth) > 0.003) useHandActivity.setState({ reach: depth });
         // The camera sits at the screen, so reaching toward it reaches into the
         // scene and pushes the object away; pulling the hand back brings it
         // closer. Scaled to how far away the object is, and the object stays
@@ -240,7 +242,7 @@ export function HandControls() {
         const d = drag.current;
         const kind = d?.kind === "ui" ? (d.moved ? (d.scroller ? "scroll" : null) : d.control ? "press" : null) : d?.kind;
         const activity: HandActivity = kind ?? (pairing.current ? "camera" : null);
-        if (useHandActivity.getState().activity !== activity) useHandActivity.setState({ activity });
+        if (useHandActivity.getState().activity !== activity) useHandActivity.setState({ activity, ...(activity === "object" ? {} : { reach: 0 }) });
     }
 
     function pairStart(holding: Handedness | null) {

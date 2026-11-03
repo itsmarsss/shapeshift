@@ -1,4 +1,5 @@
 import { lazy, Suspense, useRef, useState } from "react";
+import { spin } from "../ui/keyframes";
 import { useDismiss } from "../ui/hooks";
 import { AnimatePresence } from "motion/react";
 import { drop } from "../ui/motion";
@@ -13,6 +14,7 @@ import {
     ChatCircle,
     ClockCounterClockwise,
     Camera,
+    CircleNotch,
     Export,
     FilmStrip,
     FilePlus,
@@ -111,6 +113,10 @@ const Modes = styled(Segmented)`
 // Hand control is what ShapeShift is about, so it gets a named button.
 const HandsButton = styled(Button).attrs({ $variant: "outline" })`
     padding: 0 12px;
+
+    .spin {
+        animation: ${spin} 0.9s linear infinite;
+    }
     margin: 0 2px;
 
     &[aria-pressed="true"],
@@ -386,7 +392,7 @@ export function Topbar() {
                         onPointerEnter={() => void warmUpHands()}
                         onFocus={() => void warmUpHands()}
                     >
-                        <Hand size={16} weight={handStatus === "off" ? "regular" : "fill"} />
+                        {handStatus === "starting" ? <CircleNotch className="spin" size={16} /> : <Hand size={16} weight={handStatus === "off" ? "regular" : "fill"} />}
                         <span>Hands</span>
                     </HandsButton>
                 </Wide>

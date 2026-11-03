@@ -14,6 +14,11 @@ type HandStore = {
     // downloaded (0 to 1, only the first time; it's cached after).
     stage: "camera" | "loading" | null;
     progress: number | null;
+    // The tracker's download in bytes, kept even when it started before
+    // anyone pressed the button (it warms up on hover).
+    download: { loaded: number; total: number } | null;
+    // Downloaded and running, so starting again is quick.
+    loaded: boolean;
     setEnabled: (on: boolean) => Promise<void>;
 };
 
@@ -77,9 +82,13 @@ export function warmUpHands(): Engine {
         worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
             const msg = e.data;
             if (msg.type === "progress") {
-                if (useHands.getState().status === "starting") useHands.setState({ progress: msg.loaded / msg.total });
-            } else if (msg.type === "ready") resolve();
+                useHands.setState({ progress: msg.loaded / msg.total, download: { loaded: msg.loaded, total: msg.total } });
+            } else if (msg.type === "ready") {
+                useHands.setState({ loaded: true });
+                resolve();
+            }
             else if (msg.type === "error") {
+                useHands.setState({ download: null, loaded: false });
                 reject(new Error(msg.message));
                 worker.terminate();
                 if (engine === current) engine = null;
@@ -117,6 +126,8 @@ export const useHands = create<HandStore>()((set, get) => ({
     error: null,
     stage: null,
     progress: null,
+    download: null,
+    loaded: false,
     setEnabled: async (on) => {
         if (!on) {
             // Turned off on purpose, so it stays off next time.
@@ -126,7 +137,7 @@ export const useHands = create<HandStore>()((set, get) => ({
             return;
         }
         if (get().status !== "off" && get().status !== "error") return;
-        set({ status: "starting", error: null, stage: "camera", progress: null });
+        set({ status: "starting", error: null, stage: "camera" });
 
         // The tracker loads while the camera is asked for, not after.
         const tracker = warmUpHands();

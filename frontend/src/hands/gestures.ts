@@ -65,7 +65,9 @@ class HandTrack {
     depth: number | null = null;
     startDepth: number | null = null;
     // Steadier than x and y: distance is the noisiest thing a webcam measures.
-    private fz = new OneEuroFilter(0.6, 0.6);
+    // Still, a deliberate reach (around 0.3 m/s) opens the filter up enough
+    // that pushing doesn't lag behind the hand.
+    private fz = new OneEuroFilter(0.6, 1.5);
 
 
     update(frame: HandFrame | undefined, time: number, aspect = 16 / 9) {
