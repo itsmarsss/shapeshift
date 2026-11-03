@@ -71,7 +71,7 @@ const STEPS = [
     {
         image: "hands",
         title: "Hand control",
-        text: "Click the hand in the top bar to use your webcam. Pinch to grab an object. Your other hand turns the view.",
+        text: "Click Hands in the top bar to use your webcam. Pinch a shape to grab it, pinch empty space to turn the view, and hold up an open palm for a menu.",
     },
     {
         image: "together",
