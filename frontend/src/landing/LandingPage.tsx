@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { TextButton } from "../components/ui";
 import { EASE_OUT_CSS } from "../ui/motion";
 import styled, { keyframes } from "styled-components";
 import { ArrowRight, CaretDown, HandGrabbing, Microphone } from "@phosphor-icons/react";
@@ -84,25 +85,13 @@ const nudge = keyframes`
 `;
 
 // Points down to the story.
-const More = styled.button`
+const More = styled(TextButton)`
     position: absolute;
     left: 50%;
     bottom: 18px;
     translate: -50% 0;
-    display: flex;
-    align-items: center;
-    gap: 6px;
     padding: 8px 14px;
-    border: 0;
-    border-radius: 999px;
-    background: transparent;
-    color: var(--text-muted);
-    font-weight: 600;
     font-size: 13px;
-
-    &:hover {
-        color: var(--text);
-    }
     svg {
         @media (prefers-reduced-motion: no-preference) {
             animation: ${nudge} 1.6s ease-in-out infinite;
@@ -441,19 +430,11 @@ const Pick = styled.a`
     }
 `;
 
-const Samples = styled.a`
+const Samples = styled(TextButton).attrs({ as: "a" })`
     display: flex;
     width: fit-content;
-    align-items: center;
     gap: 8px;
     margin: 28px auto 0;
-    color: var(--text-muted);
-    font-weight: 600;
-    text-decoration: none;
-
-    &:hover {
-        color: var(--text);
-    }
 `;
 
 const Band = styled.section`
