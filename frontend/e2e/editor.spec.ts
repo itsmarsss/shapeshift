@@ -233,9 +233,10 @@ test('keeps the inspector simple, with exact numbers in a section that stays ope
   // Metal needs something to reflect, so the lighting switches to Studio too.
   await page.getByRole('button', { name: 'Gold', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Gold', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  // Lighting belongs to the scene, so it shows once nothing is selected.
+  // Lighting belongs to the scene, so the docked inspector shows it once
+  // nothing is selected, without closing and moving the view.
   await page.keyboard.press('Escape')
-  await page.getByTitle('Inspector').click()
+  await expect(page.getByText('Lighting', { exact: true })).toBeVisible()
   await expect(page.locator('select').filter({ hasText: 'Studio' }).last()).toHaveValue('studio')
   // The scene panel can pick things by name, too.
   await page.locator('select').first().selectOption({ label: 'Sphere' })

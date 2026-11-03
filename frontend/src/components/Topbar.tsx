@@ -103,6 +103,15 @@ const Brand = styled.a`
 // The mode switch, tightened on phones so the bar fits a 360px screen.
 const Modes = styled(Segmented)`
     justify-self: center;
+    // Shrinks rather than pushing buttons off a very narrow screen.
+    min-width: 0;
+    max-width: 100%;
+
+    button {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 
     @media ${MEDIUM} {
         button {
