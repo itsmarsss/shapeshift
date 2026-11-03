@@ -20,7 +20,7 @@ const SignIn = styled.button`
     gap: 6px;
     height: 30px;
     padding: 0 10px;
-    border-radius: 999px;
+    border-radius: var(--radius);
     border: 1px solid var(--border-strong);
     background: transparent;
     color: var(--text);

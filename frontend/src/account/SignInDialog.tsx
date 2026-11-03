@@ -18,11 +18,8 @@ const Form = styled.form`
     gap: 10px;
 
     input {
-        height: 42px;
-        font-size: 15px;
-    }
-    button[type="submit"] {
         height: 40px;
+        font-size: 15px;
     }
 `;
 

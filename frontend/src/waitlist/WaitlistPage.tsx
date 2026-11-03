@@ -50,6 +50,7 @@ const Form = styled.form`
     button {
         height: 44px;
         padding: 0 18px;
+        font-size: 15px;
         border: 0;
         border-radius: var(--radius);
         background: var(--accent);
