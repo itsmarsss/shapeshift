@@ -259,7 +259,7 @@ export function Person({ id, can }: { id: string; can: (p: Permission) => boolea
                             {can("admins.manage") && data.role !== "superuser" && (
                                 <div className="row">
                                     <span>{data.role ? `Admin role: ${ROLES[data.role].label}` : "Not an admin"}</span>
-                                    <Button onClick={() => go("admins")}>Change in Admins</Button>
+                                    <Button $variant="outline" onClick={() => go("admins")}>Change in Admins</Button>
                                 </div>
                             )}
                             {can("users.delete") && data.role !== "superuser" && (
@@ -267,7 +267,8 @@ export function Person({ id, can }: { id: string; can: (p: Permission) => boolea
                                     <span>Delete this account and all {data.scenes.length} of their scenes. This can't be undone.</span>
                                     <Input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={`Type ${data.email} to confirm`} aria-label="Type the email to confirm" />
                                     <Button
-                                        $variant="danger"
+                                        $variant="outline"
+                                        style={{ color: "var(--danger)" }}
                                         disabled={typed.trim().toLowerCase() !== data.email}
                                         onClick={() => void act(`/users/${id}`, `Deleted ${data.email}`, "DELETE").then((ok) => ok && go("people"))}
                                     >
