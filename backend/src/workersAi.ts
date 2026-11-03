@@ -1,14 +1,24 @@
 import type { WireMessage, WireToolCall } from "@shapeshift/shared/assistant/protocol";
-import { TOOLS } from "@shapeshift/shared/assistant/tools";
+import { TOOLS, looseJson } from "@shapeshift/shared/assistant/tools";
 import { SYSTEM_PROMPT } from "./prompt";
 import { ProviderError, userText, type Provider, type StepCallbacks } from "./provider";
 
-const MODEL = "@cf/zai-org/glm-4.7-flash";
+const DEFAULT_MODEL = "@cf/zai-org/glm-4.7-flash";
 
 const TOOL_PARAMS = TOOLS.map((t) => ({
     type: "function" as const,
     function: { name: t.name, description: t.description, parameters: t.parameters },
 })) as ChatCompletionTool[];
+
+// Workers AI refuses a whole request if an earlier call's arguments aren't
+// valid JSON, so a broken one is sent back repaired, or empty.
+function validJson(args: string) {
+    try {
+        return JSON.stringify(looseJson(args));
+    } catch {
+        return "{}";
+    }
+}
 
 function toParams(messages: WireMessage[]): ChatCompletionMessageParam[] {
     return [
@@ -26,7 +36,7 @@ function toParams(messages: WireMessage[]): ChatCompletionMessageParam[] {
                 role: "assistant",
                 content: m.content ?? "",
                 ...(m.tool_calls?.length
-                    ? { tool_calls: m.tool_calls.map((c) => ({ id: c.id, type: "function" as const, function: { name: c.name, arguments: c.arguments } })) }
+                    ? { tool_calls: m.tool_calls.map((c) => ({ id: c.id, type: "function" as const, function: { name: c.name, arguments: validJson(c.arguments) } })) }
                     : {}),
             };
         }),
@@ -119,6 +129,8 @@ export async function readAiStream(stream: ReadableStream<Uint8Array>, callbacks
 }
 
 export function workersAiProvider(env: Env): Provider {
+    // Set in wrangler.jsonc, so a better free model is a config change.
+    const MODEL = env.FREE_MODEL || DEFAULT_MODEL;
     return {
         info: { provider: "workers-ai", model: MODEL },
         async step(messages, callbacks) {

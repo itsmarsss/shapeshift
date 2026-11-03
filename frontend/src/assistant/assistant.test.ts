@@ -31,6 +31,18 @@ describe("tools", () => {
         expect(parseToolCall("align", '{"targets":["A","B"],"axis":"w","to":"min"}').ok).toBe(false);
     });
 
+    it("forgives the slips smaller models make in tool arguments", () => {
+        // Numbers as text, and a size without its type (as Gemma sends them).
+        const gemma = parseToolCall("add", '{"color": "#0000ff", "geometry": {"depth": "1", "height": "1", "width": "1"}, "name": "1", "position": [0, "0.5", 0], "primitive": "box"}');
+        expect(gemma).toMatchObject({
+            ok: true,
+            request: { command: { type: "add", primitive: "box", name: "1", geometry: { type: "box", width: 1, height: 1, depth: 1 }, position: [0, 0.5, 0] } },
+        });
+        // A code fence around it, or a trailing comma.
+        expect(parseToolCall("drop", '```json\n{"targets":["Box"],}\n```')).toMatchObject({ ok: true, request: { command: { targets: ["Box"] } } });
+        expect(parseToolCall("drop", "not json at all")).toEqual({ ok: false, error: "The arguments were not valid JSON" });
+    });
+
     it("validates arguments and reports why they failed", () => {
         expect(parseToolCall("material", '{"target":"Box","color":"#ff0000"}')).toEqual({
             ok: true,
