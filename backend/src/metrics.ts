@@ -35,13 +35,15 @@ async function perDay(env: Env, table: string, column: string, days: number, whe
 
 const one = async (env: Env, sql: string, ...params: unknown[]) => (await env.DB.prepare(sql).bind(...params).first<{ n: number }>())?.n ?? 0;
 
+// Series cover twice the window, so the page can compare with the period before.
 export async function databaseMetrics(env: Env, days: number) {
-    const since = Date.now() - days * DAY;
+    const span = days * 2;
+    const since = Date.now() - span * DAY;
     const [signups, signins, scenes, feedback] = await Promise.all([
-        perDay(env, "users", "created_at", days),
-        perDay(env, "sessions", "created_at", days),
-        perDay(env, "scenes", "created_at", days),
-        perDay(env, "feedback", "created_at", days),
+        perDay(env, "users", "created_at", span),
+        perDay(env, "sessions", "created_at", span),
+        perDay(env, "scenes", "created_at", span),
+        perDay(env, "feedback", "created_at", span),
     ]);
     const before = await one(env, "SELECT COUNT(*) AS n FROM users WHERE created_at <= ?1", since);
 
@@ -98,14 +100,17 @@ async function sql<T>(env: Env, query: string): Promise<T[]> {
 export async function eventMetrics(env: Env, days: number) {
     if (!env.ANALYTICS_TOKEN) return { configured: false as const };
     const window = `timestamp > NOW() - INTERVAL '${days}' DAY`;
+    // Daily series cover twice the window, for comparing with the period before.
+    const span = days * 2;
+    const wide = `timestamp > NOW() - INTERVAL '${span}' DAY`;
     const [daily, visitors, reach, labels, firstShape, errors] = await Promise.all([
         sql<{ day: string; event: string; n: number }>(
             env,
-            `SELECT formatDateTime(timestamp, '%Y-%m-%d') AS day, blob1 AS event, SUM(_sample_interval) AS n FROM ${DATASET} WHERE ${window} AND blob1 != 'error' GROUP BY day, event`,
+            `SELECT formatDateTime(timestamp, '%Y-%m-%d') AS day, blob1 AS event, SUM(_sample_interval) AS n FROM ${DATASET} WHERE ${wide} AND blob1 != 'error' GROUP BY day, event`,
         ),
         sql<{ day: string; n: number }>(
             env,
-            `SELECT formatDateTime(timestamp, '%Y-%m-%d') AS day, COUNT(DISTINCT blob3) AS n FROM ${DATASET} WHERE ${window} AND blob1 = 'app_open' GROUP BY day`,
+            `SELECT formatDateTime(timestamp, '%Y-%m-%d') AS day, COUNT(DISTINCT blob3) AS n FROM ${DATASET} WHERE ${wide} AND blob1 = 'app_open' GROUP BY day`,
         ),
         // How many different browsers did each thing at least once.
         sql<{ event: string; n: number }>(env, `SELECT blob1 AS event, COUNT(DISTINCT blob3) AS n FROM ${DATASET} WHERE ${window} AND blob1 != 'error' GROUP BY event`),
@@ -119,7 +124,7 @@ export async function eventMetrics(env: Env, days: number) {
         ),
         sql<{ day: string; n: number }>(
             env,
-            `SELECT formatDateTime(timestamp, '%Y-%m-%d') AS day, SUM(_sample_interval) AS n FROM ${DATASET} WHERE ${window} AND blob1 = 'error' GROUP BY day`,
+            `SELECT formatDateTime(timestamp, '%Y-%m-%d') AS day, SUM(_sample_interval) AS n FROM ${DATASET} WHERE ${wide} AND blob1 = 'error' GROUP BY day`,
         ),
     ]);
     const topErrors = await sql<{ place: string; message: string; n: number }>(
@@ -132,12 +137,12 @@ export async function eventMetrics(env: Env, days: number) {
     return {
         configured: true as const,
         days,
-        visitors: fill(visitors.map((v) => ({ day: v.day, n: Number(v.n) })), days),
-        events: Object.fromEntries([...byEvent].map(([event, rows]) => [event, fill(rows, days)])),
+        visitors: fill(visitors.map((v) => ({ day: v.day, n: Number(v.n) })), span),
+        events: Object.fromEntries([...byEvent].map(([event, rows]) => [event, fill(rows, span)])),
         reach: Object.fromEntries(reach.map((r) => [r.event, Number(r.n)])),
         labels: labels.map((l) => ({ ...l, n: Number(l.n) })),
         firstShape: { medianSeconds: Math.round(Number(firstShape[0]?.median ?? 0)), count: Number(firstShape[0]?.n ?? 0) },
-        errors: fill(errors.map((e) => ({ day: e.day, n: Number(e.n) })), days),
+        errors: fill(errors.map((e) => ({ day: e.day, n: Number(e.n) })), span),
         topErrors: topErrors.map((e) => ({ ...e, n: Number(e.n) })),
     };
 }

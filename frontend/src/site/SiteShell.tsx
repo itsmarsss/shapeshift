@@ -32,8 +32,8 @@ const Nav = styled.header`
     border-bottom: 1px solid var(--border);
 `;
 
-const NavInner = styled.div`
-    width: min(1120px, 100%);
+const NavInner = styled.div<{ $wide?: boolean }>`
+    width: min(${(p) => (p.$wide ? 1360 : 1120)}px, 100%);
     height: 60px;
     margin: 0 auto;
     padding: 0 24px;
@@ -219,9 +219,9 @@ const Menu = styled(m.div)`
     }
 `;
 
-const Footer = styled.footer`
+const Footer = styled.footer<{ $wide?: boolean }>`
     // As wide as the page's content, so the line above it lines up.
-    width: min(1072px, calc(100% - 48px));
+    width: min(${(p) => (p.$wide ? 1312 : 1072)}px, calc(100% - 48px));
     margin: 0 auto;
     padding: 24px 0 calc(32px + env(safe-area-inset-bottom, 0px));
     display: flex;
@@ -299,7 +299,7 @@ function AccountMenu() {
 
 // The frame around every page outside the editor: one navigation bar, the
 // page, and a footer.
-export function SiteShell({ page, children }: { page: SitePage; children: ReactNode }) {
+export function SiteShell({ page, wide, children }: { page: SitePage; wide?: boolean; children: ReactNode }) {
     const user = useAccount((s) => s.user);
     const loaded = useAccount((s) => s.loaded);
     const showSignIn = useAccount((s) => s.showSignIn);
@@ -319,7 +319,7 @@ export function SiteShell({ page, children }: { page: SitePage; children: ReactN
         <Page data-scroller>
             <GlobalStyle />
             <Nav>
-                <NavInner>
+                <NavInner $wide={wide}>
                     <Brand href="/" aria-label="ShapeShift">
                         <img src="/icon.svg" alt="" />
                         <span>ShapeShift</span>
@@ -345,7 +345,7 @@ export function SiteShell({ page, children }: { page: SitePage; children: ReactN
                 </NavInner>
             </Nav>
             {children}
-            <Footer>
+            <Footer $wide={wide}>
                 <span>ShapeShift · Build in 3D with your hands, your voice, or a few words.</span>
                 <a href="/explore">Explore</a>
                 <a href="/pricing">Pricing</a>

@@ -9,15 +9,18 @@ export const PERMISSIONS = {
     "feedback.manage": "Mark feedback as read",
     "users.read": "Look people up",
     "users.plans": "Change someone's plan",
+    "users.manage": "Sign people out, reset their prompts, and manage their scenes",
+    "users.delete": "Delete accounts",
+    "scenes.moderate": "Browse every scene, and unshare or delete them",
     "explore.moderate": "Take scenes off Explore",
     "admins.manage": "Add and remove admins, and read the activity log",
 } as const;
 export type Permission = keyof typeof PERMISSIONS;
 
 export const ROLES = {
-    superuser: { label: "Superuser", about: "Everything, including other admins" },
-    admin: { label: "Admin", about: "Everything except managing admins" },
-    moderator: { label: "Moderator", about: "Feedback and Explore" },
+    superuser: { label: "Superuser", about: "Everything, including other admins and deleting accounts" },
+    admin: { label: "Admin", about: "Everything except managing admins and deleting accounts" },
+    moderator: { label: "Moderator", about: "Charts, feedback, scenes and Explore" },
     support: { label: "Support", about: "Reads feedback and looks people up" },
 } as const;
 export type Role = keyof typeof ROLES;
@@ -27,8 +30,8 @@ const ALL = Object.keys(PERMISSIONS) as Permission[];
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     superuser: ALL,
-    admin: ALL.filter((p) => p !== "admins.manage"),
-    moderator: ["overview", "feedback.read", "feedback.manage", "explore.moderate"],
+    admin: ALL.filter((p) => p !== "admins.manage" && p !== "users.delete"),
+    moderator: ["overview", "metrics", "feedback.read", "feedback.manage", "scenes.moderate", "explore.moderate"],
     support: ["overview", "feedback.read", "users.read"],
 };
 

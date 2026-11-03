@@ -55,7 +55,7 @@ describe("admin", () => {
         expect((await call(e, boss, "/admins", { method: "POST", body: { email: "nobody@example.com", role: "support" } })).body).toMatchObject({ code: "no_user" });
         expect((await call(e, boss, "/admins", { method: "POST", body: { email: "mod@example.com", role: "moderator" } })).status).toBe(200);
 
-        expect((await call(e, mod, "/me")).body).toMatchObject({ role: "moderator", permissions: ["overview", "feedback.read", "feedback.manage", "explore.moderate"] });
+        expect((await call(e, mod, "/me")).body).toMatchObject({ role: "moderator", permissions: ["overview", "metrics", "feedback.read", "feedback.manage", "scenes.moderate", "explore.moderate"] });
         expect((await call(e, mod, "/feedback")).status).toBe(200);
         expect((await call(e, mod, "/explore")).status).toBe(200);
         expect((await call(e, mod, "/users")).status).toBe(403);
@@ -97,7 +97,8 @@ describe("admin", () => {
         const boss = await signIn(e, LOCAL_SUPERUSER);
         await signIn(e, "a@example.com");
         const db = (await call(e, boss, "/metrics?days=7")).body as { signups: { n: number }[]; people: { n: number }[]; revenue: { paying: number } };
-        expect(db.signups).toHaveLength(7);
+        // Twice the window, to compare with the week before.
+        expect(db.signups).toHaveLength(14);
         expect(db.signups.at(-1)!.n).toBe(2);
         expect(db.people.at(-1)!.n).toBe(2);
         expect(db.revenue.paying).toBe(0);
@@ -107,6 +108,50 @@ describe("admin", () => {
         await call(e, boss, "/admins", { method: "POST", body: { email: "s@example.com", role: "support" } });
         const support = await signIn(e, "s@example.com");
         expect((await call(e, support, "/metrics")).status).toBe(403);
+    });
+
+    it("shows a person, and signs them out, resets their prompts and deletes their account", async () => {
+        const e = env() as Env & { SCENES: ReturnType<typeof testBucket> };
+        const boss = await signIn(e, LOCAL_SUPERUSER);
+        await signIn(e, "kid@school.edu");
+        const id = ((await call(e, boss, "/users?q=kid")).body.users as { id: string }[])[0].id;
+        await e.DB.prepare("INSERT INTO scenes (id, owner_id, title, size, created_at, updated_at, public_slug, listed) VALUES ('s1', ?1, 'Castle', 10, 1, 2, 'abcdefghij', 1)").bind(id).run();
+        await e.SCENES.put(`scenes/${id}/s1.json`, "{}");
+        await e.DB.prepare("INSERT INTO usage (subject, period, prompts, steps) VALUES (?1, ?2, 7, 20)").bind(`user:${id}`, new Date().toISOString().slice(0, 7)).run();
+
+        const person = (await call(e, boss, `/users/${id}`)).body as { email: string; promptsThisMonth: number; activeSessions: number; scenes: { title: string }[] };
+        expect(person).toMatchObject({ email: "kid@school.edu", promptsThisMonth: 7, activeSessions: 1 });
+        expect(person.scenes.map((s) => s.title)).toEqual(["Castle"]);
+
+        await call(e, boss, `/users/${id}/usage/reset`, { method: "POST" });
+        await call(e, boss, `/users/${id}/signout`, { method: "POST" });
+        expect((await call(e, boss, `/users/${id}`)).body).toMatchObject({ promptsThisMonth: 0, activeSessions: 0 });
+
+        expect((await call(e, boss, "/scenes?shared=yes")).body.total).toBe(1);
+        await call(e, boss, "/scenes/s1/unshare", { method: "POST" });
+        expect((await call(e, boss, "/scenes?shared=yes")).body.total).toBe(0);
+
+        expect((await call(e, boss, `/users/${id}`, { method: "DELETE" })).status).toBe(200);
+        expect((await call(e, boss, `/users/${id}`)).status).toBe(404);
+        expect(await e.SCENES.get(`scenes/${id}/s1.json`)).toBeNull();
+        const entries = (await call(e, boss, "/log")).body.entries as { action: string }[];
+        expect(entries.map((x) => x.action).sort()).toEqual(["delete account", "reset prompts", "sign out", "unshare"]);
+    });
+
+    it("lets only superusers delete accounts, and lists the dashboard feed", async () => {
+        const e = env();
+        const boss = await signIn(e, LOCAL_SUPERUSER);
+        await signIn(e, "helper@example.com");
+        await signIn(e, "victim@example.com");
+        await call(e, boss, "/admins", { method: "POST", body: { email: "helper@example.com", role: "admin" } });
+        const helper = await signIn(e, "helper@example.com");
+        const id = ((await call(e, boss, "/users?q=victim")).body.users as { id: string }[])[0].id;
+        expect((await call(e, helper, `/users/${id}`, { method: "DELETE" })).status).toBe(403);
+        expect((await call(e, helper, `/users/${id}/signout`, { method: "POST" })).status).toBe(200);
+        const dash = (await call(e, boss, "/dashboard")).body as { kpis: { people: { now: number } }; feed: { kind: string }[] };
+        expect(dash.kpis.people.now).toBe(3);
+        expect(dash.feed.some((f) => f.kind === "signup")).toBe(true);
+        expect(dash.feed.some((f) => f.kind === "admin")).toBe(true);
     });
 
     it("marks feedback read", async () => {
