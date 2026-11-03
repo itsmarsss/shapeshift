@@ -36,5 +36,7 @@
     "AGENT_EFFORT": "medium"
   },
   "observability": { "enabled": true },
+  // The daily error digest for superusers (src/digest.ts), at 14:00 UTC.
+  "triggers": { "crons": ["0 14 * * *"] },
   "routes": [{ "pattern": "tryshapeshift.com", "custom_domain": true }]
 }

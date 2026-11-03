@@ -97,6 +97,50 @@ async function sql<T>(env: Env, query: string): Promise<T[]> {
     return ((await res.json()) as { data: T[] }).data;
 }
 
+export type ErrorGroup = {
+    place: string;
+    message: string;
+    n: number;
+    visitors: number;
+    first: string;
+    last: string;
+    stack: string;
+    pages: { label: string; n: number }[];
+    browsers: { label: string; n: number }[];
+    recent: string[];
+};
+
+const tally = (values: string[]) =>
+    [...values.reduce((m, v) => m.set(v, (m.get(v) ?? 0) + 1), new Map<string, number>())].map(([label, n]) => ({ label, n })).sort((a, b) => b.n - a.n).slice(0, 5);
+
+// Each different error in the window: how often, how many browsers, where,
+// and the latest stack trace. Reports from before stacks were kept have none.
+export async function errorGroups(env: Env, days: number): Promise<ErrorGroup[]> {
+    const window = `timestamp > NOW() - INTERVAL '${days}' DAY AND blob1 = 'error'`;
+    const [groups, samples] = await Promise.all([
+        sql<{ place: string; message: string; n: number; visitors: number; first: string; last: string }>(
+            env,
+            `SELECT blob2 AS place, blob3 AS message, SUM(_sample_interval) AS n, COUNT(DISTINCT blob7) AS visitors, MIN(timestamp) AS first, MAX(timestamp) AS last FROM ${DATASET} WHERE ${window} GROUP BY place, message ORDER BY n DESC LIMIT 25`,
+        ),
+        sql<{ place: string; message: string; page: string; stack: string; browser: string; at: string }>(
+            env,
+            `SELECT blob2 AS place, blob3 AS message, blob4 AS page, blob5 AS stack, blob6 AS browser, timestamp AS at FROM ${DATASET} WHERE ${window} ORDER BY timestamp DESC LIMIT 300`,
+        ),
+    ]);
+    return groups.map((g) => {
+        const mine = samples.filter((s) => s.place === g.place && s.message === g.message);
+        return {
+            ...g,
+            n: Number(g.n),
+            visitors: Number(g.visitors),
+            stack: mine.find((s) => s.stack)?.stack ?? "",
+            pages: tally(mine.map((s) => s.page).filter(Boolean)),
+            browsers: tally(mine.map((s) => s.browser).filter(Boolean)),
+            recent: mine.slice(0, 5).map((s) => s.at),
+        };
+    });
+}
+
 export async function eventMetrics(env: Env, days: number) {
     if (!env.ANALYTICS_TOKEN) return { configured: false as const };
     const window = `timestamp > NOW() - INTERVAL '${days}' DAY`;

@@ -5,6 +5,7 @@ import { ago, go, useKept, useLoad } from "../nav";
 import { Header, Loading, Panel, Problem, RangePicker, type Days } from "../ui";
 import { AreaLines, Card, DayBars, Donut, NoData, Funnel, GroupBars, Grid, Kpis, Ranked, Stat } from "../charts";
 import { COLORS, split, total, type Point } from "../chartData";
+import { ErrorGroups } from "./Errors";
 
 // The dashboard and the chart sections. Series cover twice the chosen
 // window, so every number can be compared with the period before.
@@ -569,36 +570,6 @@ export function Assistant() {
     );
 }
 
-const ErrorList = styled.ol`
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-
-    li {
-        display: grid;
-        grid-template-columns: 70px 1fr auto;
-        gap: 10px;
-        align-items: baseline;
-        padding: 9px 12px;
-        border-radius: 10px;
-        background: var(--bg);
-        border: 1px solid var(--border);
-        font-size: 13px;
-    }
-    code {
-        overflow-wrap: anywhere;
-        font-size: 12px;
-    }
-    small {
-        color: var(--text-muted);
-    }
-    b {
-        color: ${COLORS.red};
-    }
-`;
 
 export function Health() {
     const [days, setDays] = useKept<Days>("health-days", 7);
@@ -612,7 +583,7 @@ export function Health() {
     return (
         <>
             <Header title="Health" actions={<RangePicker days={days} setDays={setDays} />}>
-                Errors browsers reported. Full stacks are in the Worker's logs.
+                Errors people's browsers reported, with stack traces. Superusers get a daily email when there are any.
             </Header>
             <Kpis>
                 <Stat label="Errors" value={total(errors.now)} before={total(errors.before)} trend={errors.now} color={COLORS.red} goodWhenDown />
@@ -644,23 +615,11 @@ export function Health() {
                 <Card $span={2}>
                     <header>
                         <div>
-                            <h3>Most common</h3>
-                            <p>Grouped by where and what</p>
+                            <h3>Errors</h3>
+                            <p>Most frequent first. Open one for its stack trace</p>
                         </div>
                     </header>
-                    {data.topErrors.length ? (
-                        <ErrorList>
-                            {data.topErrors.map((e, i) => (
-                                <li key={i}>
-                                    <small>{e.place || "app"}</small>
-                                    <code>{e.message || "(no message)"}</code>
-                                    <b>{e.n.toLocaleString()}</b>
-                                </li>
-                            ))}
-                        </ErrorList>
-                    ) : (
-                        <NoData>No errors in this period. Nice.</NoData>
-                    )}
+                    <ErrorGroups days={days} />
                 </Card>
             </Grid>
         </>
