@@ -8,12 +8,14 @@ import { useShallow } from "zustand/react/shallow";
 import { Button, Input } from "../components/ui";
 import { roomLink, useCollab } from "./session";
 import { COMPACT } from "../ui/compact";
+import { RoomChatButton } from "./RoomChat";
 import type { Peer } from "@shapeshift/shared/collab/protocol";
 
 const Wrap = styled.div`
     position: relative;
     display: flex;
     align-items: center;
+    gap: 6px;
     margin-right: 6px;
 `;
 
@@ -296,6 +298,7 @@ export function CollabBar() {
 
     return (
         <Wrap ref={wrap}>
+            {live && <RoomChatButton />}
             <ShareButton
                 $live={live}
                 title={live ? "People in this room" : "Share a live link to this scene"}
