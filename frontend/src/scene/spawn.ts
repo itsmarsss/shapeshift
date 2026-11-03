@@ -3,7 +3,8 @@
 // time: new shapes grow into place a moment apart, and changed ones glow
 // briefly. SceneMesh reads this every frame while something is animating.
 
-const STAGGER_MS = 70;
+// Slow enough to watch a build come together, piece by piece.
+export const STAGGER_MS = 110;
 const GROW_MS = 380;
 const GLOW_MS = 650;
 

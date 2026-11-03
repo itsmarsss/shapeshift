@@ -19,6 +19,13 @@ function env(run: (...args: unknown[]) => unknown, limited = false) {
 const post = (body: unknown) =>
     new Request("https://x/api/agent", { method: "POST", body: typeof body === "string" ? body : JSON.stringify(body) });
 
+// What Workers AI sends with stream: true, as server-sent events.
+function sse(...chunks: object[]) {
+    const body = chunks.map((c) => `data: ${JSON.stringify(c)}\n\n`).join("") + "data: [DONE]\n\n";
+    return new Response(body).body!;
+}
+const delta = (d: object, finish_reason: string | null = null) => ({ choices: [{ delta: d, finish_reason }] });
+
 async function events(res: Response): Promise<AgentEvent[]> {
     return (await res.text())
         .split("\n")
@@ -28,26 +35,42 @@ async function events(res: Response): Promise<AgentEvent[]> {
 
 describe("/api/agent", () => {
     it("streams the model's step back", async () => {
-        const e = env(async () => ({
-            choices: [
-                {
-                    finish_reason: "tool_calls",
-                    message: { content: "On it.", tool_calls: [{ id: "t1", function: { name: "add", arguments: { primitive: "box" } } }] },
-                },
-            ],
-        }));
+        // Thinking, then words, then a tool call whose arguments come in pieces.
+        const e = env(async () =>
+            sse(
+                delta({ reasoning_content: "A box" }),
+                delta({ reasoning_content: " at the origin." }),
+                delta({ content: "On it." }),
+                delta({ tool_calls: [{ index: 0, id: "t1", function: { name: "add", arguments: '{"primi' } }] }),
+                delta({ tool_calls: [{ index: 0, function: { arguments: 'tive":"box"}' } }] }, "tool_calls"),
+            ),
+        );
         const res = await agentStep(post({ messages: [{ role: "user", content: "add a box", scene: "The scene is empty." }] }), e);
         expect(res.headers.get("content-type")).toContain("ndjson");
         const out = await events(res);
-        expect(out[0]).toEqual({ type: "text", text: "On it." });
-        expect(out[1]).toMatchObject({
+        expect(out.slice(0, 4)).toEqual([
+            { type: "thinking", text: "A box" },
+            { type: "thinking", text: " at the origin." },
+            { type: "text", text: "On it." },
+            { type: "tool_start", name: "add" },
+        ]);
+        expect(out[4]).toMatchObject({
             type: "message",
             stop: "tool_use",
-            message: { tool_calls: [{ id: "t1", name: "add", arguments: '{"primitive":"box"}' }] },
+            message: { content: "On it.", tool_calls: [{ id: "t1", name: "add", arguments: '{"primitive":"box"}' }] },
         });
         const sent = (e.AI.run as ReturnType<typeof vi.fn>).mock.calls[0][1] as { messages: { role: string; content: string }[] };
         expect(sent.messages[0].role).toBe("system");
         expect(sent.messages[1].content).toContain("<scene>\nThe scene is empty.\n</scene>");
+    });
+
+    it("reads the older streamed shape too, and stops on a cut-off reply", async () => {
+        const old = await events(await agentStep(post({ messages: [{ role: "user", content: "hi" }] }), env(async () => sse({ response: "Hel" }, { response: "lo" }))));
+        expect(old.filter((o) => o.type === "text").map((o) => (o as { text: string }).text)).toEqual(["Hel", "lo"]);
+        expect(old.at(-1)).toMatchObject({ type: "message", stop: "end", message: { content: "Hello" } });
+
+        const cut = await events(await agentStep(post({ messages: [{ role: "user", content: "hi" }] }), env(async () => sse(delta({ content: "Partial" }, "length")))));
+        expect(cut.at(-1)).toMatchObject({ type: "message", stop: "max_tokens" });
     });
 
     it("rejects bad requests before calling the model", async () => {
@@ -66,7 +89,7 @@ describe("/api/agent", () => {
     });
 
     it("counts prompts and stops visitors at their monthly limit", async () => {
-        const e = env(async () => ({ choices: [{ finish_reason: "stop", message: { content: "Done." } }] }));
+        const e = env(async () => sse(delta({ content: "Done." }, "stop")));
         const prompt = { messages: [{ role: "user", content: "add a box" }] };
         for (let i = 0; i < 10; i++) await events(await agentStep(post(prompt), e));
         const over = await agentStep(post(prompt), e);

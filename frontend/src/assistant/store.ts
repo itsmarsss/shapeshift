@@ -11,6 +11,7 @@ import { onRoomChat, sendChatTurn, useCollab } from "../collab/session";
 import type { SharedTurn } from "@shapeshift/shared/collab/protocol";
 import { track } from "../telemetry";
 import { loadCsg } from "../scene/csg";
+import { STAGGER_MS } from "../scene/spawn";
 
 type HistoryEntry = SceneState["past"][number];
 
@@ -116,15 +117,19 @@ export const useAssistant = create<AssistantState>()((set, get) => {
                             return { items };
                         }),
                     onToolStart: (name) => patchTurn(turnId, () => ({ writing: TOOL_LABELS[name] ?? "Working" })),
+                    // Listed one at a time, in step with the shapes growing in,
+                    // so a build reads as it happens rather than all at once.
                     onActivities: (activities) =>
-                        patchTurn(turnId, (t) => {
-                            const last = t.items[t.items.length - 1];
-                            const items =
-                                last?.kind === "activity"
-                                    ? [...t.items.slice(0, -1), { kind: "activity" as const, activities: [...last.activities, ...activities] }]
-                                    : [...t.items, { kind: "activity" as const, activities }];
-                            return { items, writing: null };
-                        }),
+                        pace(turnId, activities, (one) =>
+                            patchTurn(turnId, (t) => {
+                                const last = t.items[t.items.length - 1];
+                                const items =
+                                    last?.kind === "activity"
+                                        ? [...t.items.slice(0, -1), { kind: "activity" as const, activities: [...last.activities, one] }]
+                                        : [...t.items, { kind: "activity" as const, activities: [one] }];
+                                return { items, writing: null };
+                            }),
+                        ),
                 },
             });
             const note =
@@ -284,6 +289,26 @@ function fromShared(t: SharedTurn): Turn {
 }
 
 const SHARE_MS = 150;
+// Each turn's activities waiting to be listed. A long build speeds up so it
+// still finishes in a few seconds.
+const queues = new Map<string, { waiting: Activity[]; timer: ReturnType<typeof setTimeout> | null }>();
+function pace(turnId: string, activities: Activity[], add: (one: Activity) => void) {
+    const q = queues.get(turnId) ?? { waiting: [], timer: null };
+    q.waiting.push(...activities);
+    queues.set(turnId, q);
+    const next = () => {
+        const one = q.waiting.shift();
+        if (!one) {
+            q.timer = null;
+            queues.delete(turnId);
+            return;
+        }
+        add(one);
+        q.timer = setTimeout(next, Math.min(STAGGER_MS, 4000 / Math.max(1, q.waiting.length + 1)));
+    };
+    if (!q.timer) next();
+}
+
 const shareTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 useAssistant.subscribe((state, prev) => {
