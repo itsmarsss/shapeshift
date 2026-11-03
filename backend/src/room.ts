@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { ClientMessage, PEER_COLORS, ROOM_LIMITS, type Ops, type Peer, type ServerMessage, type SharedTurn, type VersionMeta } from "@shapeshift/shared/collab/protocol";
+import { ClientMessage, PEER_COLORS, ROOM_LIMITS, type Ops, type Peer, type RoomMessage, type ServerMessage, type SharedTurn, type VersionMeta } from "@shapeshift/shared/collab/protocol";
 import type { Animation, Environment, Light, SceneObject } from "@shapeshift/shared/scene/schema";
 import { RoomState, VersionList, type VersionData } from "./roomState";
 
@@ -16,12 +16,14 @@ export class Room extends DurableObject<Env> {
     private versions = new VersionList();
     // The scene version the newest saved version was taken at.
     private versionedAt = 0;
+    // What people in the room have said to each other, newest last.
+    private messages: RoomMessage[] = [];
     private buckets = new Map<string, Bucket>();
 
     constructor(ctx: DurableObjectState, env: Env) {
         super(ctx, env);
         ctx.blockConcurrencyWhile(async () => {
-            const [objects, lights, objectOrder, lightOrder, version, chat, chatOrder, versions, versionedAt, environment, animation] = await Promise.all([
+            const [objects, lights, objectOrder, lightOrder, version, chat, chatOrder, versions, versionedAt, environment, animation, messages] = await Promise.all([
                 ctx.storage.list<SceneObject>({ prefix: "o:" }),
                 ctx.storage.list<Light>({ prefix: "l:" }),
                 ctx.storage.get<string[]>("order:o"),
@@ -33,7 +35,9 @@ export class Room extends DurableObject<Env> {
                 ctx.storage.get<number>("versionedAt"),
                 ctx.storage.get<Environment>("env"),
                 ctx.storage.get<Animation>("anim"),
+                ctx.storage.get<RoomMessage[]>("messages"),
             ]);
+            this.messages = messages ?? [];
             this.versions = new VersionList(versions ?? []);
             this.versionedAt = versionedAt ?? 0;
             const ordered = <T>(map: Map<string, T>, prefix: string, order: string[] = []) =>
@@ -73,6 +77,7 @@ export class Room extends DurableObject<Env> {
             animation: this.state.animation,
             version: this.state.version,
             chat: this.state.chat,
+            messages: this.messages,
         });
         this.broadcast({ type: "peer", peer }, server);
         return new Response(null, { status: 101, webSocket: client });
@@ -134,6 +139,14 @@ export class Room extends DurableObject<Env> {
             }
             case "ping":
                 return this.send(ws, { type: "pong" });
+            case "say": {
+                const message: RoomMessage = { id: crypto.randomUUID().slice(0, 12), at: Date.now(), from: { id: peer.id, name: peer.name, color: peer.color }, text: msg.text };
+                this.messages = [...this.messages, message].slice(-ROOM_LIMITS.messages);
+                await this.ctx.storage.put("messages", this.messages);
+                // To everyone, the sender too, so they get its id and time.
+                for (const socket of this.ctx.getWebSockets()) this.send(socket, { type: "said", message });
+                return;
+            }
         }
     }
 

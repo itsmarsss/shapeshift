@@ -15,6 +15,7 @@ import { HistoryPanel } from "./HistoryPanel";
 import { StartCard } from "./StartCard";
 import { ViewCube } from "./ViewCube";
 import { Tooltips } from "./Tooltip";
+import { RoomChat } from "../collab/RoomChat";
 import { Viewport } from "../viewport/Viewport";
 import { useShortcuts } from "../hooks/useShortcuts";
 import { useUI } from "../ui/store";
@@ -103,6 +104,7 @@ export function Layout() {
             <StartCard />
             <ViewCube />
             <Tooltips />
+            <RoomChat />
             <Suspense fallback={null}>
                 <ChatPanel />
                 {handsOn && <HandUI />}

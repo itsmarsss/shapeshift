@@ -16,7 +16,13 @@ export const ROOM_LIMITS = {
     versionChars: 1_800_000,
     autoVersionMs: 10 * 60_000,
     chatTurnChars: 48_000,
+    // People talking to each other in a live room.
+    messages: 100,
+    messageChars: 500,
 } as const;
+
+// A message from one person in the room to everyone.
+export type RoomMessage = { id: string; at: number; from: { id: string; name: string; color: string }; text: string };
 
 const Upsert = <T extends z.ZodType>(entity: T) => z.object({ entity, index: z.number().int().nonnegative().optional() });
 
@@ -84,13 +90,15 @@ export const ClientMessage = z.discriminatedUnion("type", [
     z.object({ type: z.literal("presence"), presence: Presence }),
     z.object({ type: z.literal("rename"), name: z.string().trim().min(1).max(ROOM_LIMITS.nameChars) }),
     z.object({ type: z.literal("ping") }),
+    z.object({ type: z.literal("say"), text: z.string().trim().min(1).max(ROOM_LIMITS.messageChars) }),
 ]);
 export type ClientMessage = z.infer<typeof ClientMessage>;
 
 export type Peer = { id: string; name: string; color: string; presence: Presence };
 
 export type ServerMessage =
-    | { type: "welcome"; you: Peer; peers: Peer[]; objects: SceneObject[]; lights: Light[]; environment?: Environment; animation?: Animation; version: number; chat: SharedTurn[] }
+    | { type: "welcome"; you: Peer; peers: Peer[]; objects: SceneObject[]; lights: Light[]; environment?: Environment; animation?: Animation; version: number; chat: SharedTurn[]; messages?: RoomMessage[] }
+    | { type: "said"; message: RoomMessage }
     | { type: "chat"; turn: SharedTurn }
     | { type: "versions"; versions: VersionMeta[] }
     | { type: "version"; id: string; objects: SceneObject[]; lights: Light[] }

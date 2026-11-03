@@ -5,7 +5,7 @@ import { useScene } from "../scene/store";
 import { parseSceneFile } from "../scene/io";
 import { emptyAnimation } from "@shapeshift/shared/scene/schema";
 import { diffToOps, opsToDiff, syncDiff } from "./ops";
-import { ROOM_ID, ROOM_LIMITS, type ClientMessage, type Ops, type Peer, type ServerMessage, type SharedTurn, type VersionMeta } from "@shapeshift/shared/collab/protocol";
+import { ROOM_ID, ROOM_LIMITS, type ClientMessage, type Ops, type Peer, type RoomMessage, type ServerMessage, type SharedTurn, type VersionMeta } from "@shapeshift/shared/collab/protocol";
 
 export type CollabStatus = "off" | "connecting" | "live" | "reconnecting" | "error";
 
@@ -18,6 +18,12 @@ type CollabState = {
     name: string;
     versions: VersionMeta[];
     restoring: string | null;
+    // People talking to each other, and how many came in while the chat was closed.
+    messages: RoomMessage[];
+    unread: number;
+    chatOpen: boolean;
+    say: (text: string) => void;
+    setChatOpen: (open: boolean) => void;
     saveVersion: (label?: string) => void;
     listVersions: () => void;
     restoreVersion: (id: string) => void;
@@ -177,8 +183,16 @@ export const useCollab = create<CollabState>()((set, get) => {
                 set({ status: "live", you: msg.you, peers: Object.fromEntries(msg.peers.map((p) => [p.id, p])), error: null });
                 send({ type: "listVersions" });
                 publishChat(msg.chat ?? [], true);
+                set({ messages: msg.messages ?? [] });
                 return;
             }
+            case "said":
+                set((s) => ({
+                    messages: [...s.messages, msg.message].slice(-ROOM_LIMITS.messages),
+                    // Someone else's message while the chat is closed counts as new.
+                    unread: !s.chatOpen && msg.message.from.id !== s.you?.id ? s.unread + 1 : s.unread,
+                }));
+                return;
             case "chat":
                 publishChat([msg.turn], false);
                 return;
@@ -257,6 +271,15 @@ export const useCollab = create<CollabState>()((set, get) => {
         name: storedName(),
         versions: [],
         restoring: null,
+        messages: [],
+        unread: 0,
+        chatOpen: false,
+
+        say: (text) => {
+            const trimmed = text.trim().slice(0, ROOM_LIMITS.messageChars);
+            if (trimmed) send({ type: "say", text: trimmed });
+        },
+        setChatOpen: (open) => set({ chatOpen: open, ...(open ? { unread: 0 } : {}) }),
 
         saveVersion: (label) => send({ type: "saveVersion", ...(label?.trim() ? { label: label.trim().slice(0, 60) } : {}) }),
         listVersions: () => send({ type: "listVersions" }),
@@ -304,7 +327,7 @@ export const useCollab = create<CollabState>()((set, get) => {
             socket = null;
             ws?.close(1000, "Left");
             if (get().roomId) setRoomInUrl(null);
-            set({ status: "off", roomId: null, you: null, peers: {}, error: null, versions: [], restoring: null });
+            set({ status: "off", roomId: null, you: null, peers: {}, error: null, versions: [], restoring: null, messages: [], unread: 0, chatOpen: false });
             publishChat([], true);
             if (options.restore) {
                 try {
