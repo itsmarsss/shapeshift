@@ -4,7 +4,7 @@ import { Check, Sparkle } from "@phosphor-icons/react";
 import { PLANS, PRO_PRICES, type BillingInterval } from "@shapeshift/shared/billing/plans";
 import { Segment, Segmented } from "../components/ui";
 import { SiteShell } from "../site/SiteShell";
-import { entering } from "../site/parts";
+import { Action, entering } from "../site/parts";
 import { useAccount } from "../account/store";
 import { api, ApiError } from "../account/api";
 import { track } from "../telemetry";
@@ -104,19 +104,7 @@ const Price = styled.div`
     }
 `;
 
-const Cta = styled.button<{ $primary?: boolean }>`
-    height: 42px;
-    border-radius: var(--radius);
-    border: 1px solid ${(p) => (p.$primary ? "var(--accent)" : "var(--border-strong)")};
-    background: ${(p) => (p.$primary ? "var(--accent)" : "transparent")};
-    color: ${(p) => (p.$primary ? "var(--accent-text)" : "var(--text)")};
-    font-weight: 600;
-    font-size: 14px;
-
-    &:disabled {
-        opacity: 0.6;
-    }
-`;
+const Cta = styled(Action).attrs({ as: "button", type: "button" })``;
 
 const Small = styled.p`
     margin: 0;

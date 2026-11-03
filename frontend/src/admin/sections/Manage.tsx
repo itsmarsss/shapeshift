@@ -9,7 +9,7 @@ import { api } from "../api";
 import { EASE_OUT, rowIn } from "../../ui/motion";
 import { ago, go, run, toast, useDebounced, useKept, useLoad, when } from "../nav";
 import { Avatar, Badge, Confirm, Header, Loading, Note, Problem, SearchBox, TableBox, Toolbar } from "../ui";
-import { Empty } from "../charts";
+import { NoData } from "../charts";
 
 // Feedback, Explore moderation, admins and the activity log.
 
@@ -118,7 +118,7 @@ export function FeedbackSection({ canManage, onChange }: { canManage: boolean; o
             </Toolbar>
             {error && <Problem>{error}</Problem>}
             {!items && !error && <Loading kind="list" />}
-            {items && !items.length && <Empty>{unread ? "All caught up." : "No feedback yet."}</Empty>}
+            {items && !items.length && <NoData>{unread ? "All caught up." : "No feedback yet."}</NoData>}
             <Items>
                 <AnimatePresence initial={false}>
                 {(items ?? []).map((f, i) => (
@@ -173,7 +173,7 @@ export function ExploreSection() {
             <Header title="Explore">Community scenes listed in the public gallery. Taking one off keeps its link working.</Header>
             {error && <Problem>{error}</Problem>}
             {!data && !error && <Loading kind="list" />}
-            {data && !data.scenes.length && <Empty>Nothing from the community on Explore yet.</Empty>}
+            {data && !data.scenes.length && <NoData>Nothing from the community on Explore yet.</NoData>}
             {data && data.scenes.length > 0 && (
                 <TableBox>
                     <table>
@@ -326,7 +326,7 @@ export function ActivitySection() {
             </Toolbar>
             {error && <Problem>{error}</Problem>}
             {!data && !error && <Loading kind="list" />}
-            {data && !entries.length && <Empty>Nothing here.</Empty>}
+            {data && !entries.length && <NoData>Nothing here.</NoData>}
             {entries.length > 0 && (
                 <TableBox>
                     <table>

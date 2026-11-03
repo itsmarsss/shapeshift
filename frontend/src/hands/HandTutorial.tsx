@@ -1,4 +1,5 @@
 import { useEffect, useState, type ComponentType } from "react";
+import { Action as SiteAction } from "../site/parts";
 import styled, { css, keyframes } from "styled-components";
 import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-m";
@@ -215,15 +216,7 @@ const Dots = styled.div`
     }
 `;
 
-const Action = styled.button<{ $primary?: boolean }>`
-    height: 36px;
-    padding: 0 14px;
-    border-radius: 10px;
-    border: 1px solid ${(p) => (p.$primary ? "var(--accent)" : "var(--border-strong)")};
-    background: ${(p) => (p.$primary ? "var(--accent)" : "transparent")};
-    color: ${(p) => (p.$primary ? "var(--accent-text)" : "var(--text)")};
-    font-weight: 600;
-`;
+const Action = styled(SiteAction).attrs({ as: "button", type: "button" })``;
 
 // Long enough to see the tick before the next step.
 const CELEBRATE_MS = 900;

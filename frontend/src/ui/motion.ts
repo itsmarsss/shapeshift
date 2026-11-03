@@ -2,6 +2,7 @@ import type { TargetAndTransition, Transition, Variants } from "motion/react";
 
 // Quick to start and soft to land, so things feel responsive rather than floaty.
 export const EASE_OUT: [number, number, number, number] = [0.22, 1, 0.36, 1];
+export const EASE_OUT_CSS = `cubic-bezier(${EASE_OUT.join(", ")})`;
 
 // Spread onto an `m` component: `<m.div {...fade}>`.
 type Pose = TargetAndTransition;

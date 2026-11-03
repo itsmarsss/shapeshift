@@ -9,7 +9,7 @@ import { keyTimes } from "../../scene/animation";
 import type { Command } from "@shapeshift/shared/scene/schema";
 import { useScene } from "../../scene/store";
 import { useTimeline } from "../../scene/timeline";
-import { IconButton, Panel } from "../ui";
+import { Button, IconButton, Input, Panel } from "../ui";
 import { COMPACT } from "../../ui/compact";
 
 export const TIMELINE_HEIGHT = 92;
@@ -155,25 +155,9 @@ const Side = styled.div`
     align-items: stretch;
 `;
 
-const KeyButton = styled.button`
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+const KeyButton = styled(Button).attrs({ $variant: "outline" })`
     height: 28px;
-    padding: 0 10px;
-    border-radius: var(--radius);
-    border: 1px solid var(--border-strong);
     background: var(--surface-raised);
-    color: var(--text);
-    font-weight: 500;
-    white-space: nowrap;
-
-    &:hover:not(:disabled) {
-        background: var(--surface-hover);
-    }
-    &:disabled {
-        color: var(--text-faint);
-    }
 `;
 
 const Length = styled.label`
@@ -187,10 +171,6 @@ const Length = styled.label`
         width: 44px;
         height: 24px;
         padding: 0 6px;
-        border-radius: var(--radius);
-        border: 1px solid var(--border);
-        background: var(--bg);
-        font-variant-numeric: tabular-nums;
     }
 `;
 
@@ -324,7 +304,7 @@ export function Timeline() {
                         </KeyButton>
                         <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
                             <Length title="Animation length">
-                                <input
+                                <Input
                                     type="number"
                                     min={0.5}
                                     max={600}

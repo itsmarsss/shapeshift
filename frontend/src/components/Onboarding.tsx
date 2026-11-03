@@ -1,30 +1,13 @@
 import { useEffect, useState } from "react";
 import styled from "styled-components";
-import * as m from "motion/react-m";
-import { fade, pop } from "../ui/motion";
+import { Modal } from "./Modal";
 import { Button } from "./ui";
 import { useUI } from "../ui/store";
 import { useResolvedTheme } from "../settings/theme";
 
-const Backdrop = styled(m.div)`
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.45);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 16px;
-    z-index: 1000;
-`;
 
-const Dialog = styled(m.div)`
+const Dialog = styled(Modal)`
     width: min(560px, 100%);
-    display: flex;
-    flex-direction: column;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
 `;
 
 const Stage = styled.div`
@@ -122,36 +105,34 @@ export function Onboarding() {
     const current = STEPS[step];
 
     return (
-        <Backdrop {...fade}>
-            <Dialog {...pop} role="dialog" aria-modal="true" aria-label="Welcome to ShapeShift">
-                <Stage>
-                    <Shot src={src(current.image, theme)} alt="" />
-                </Stage>
-                <Body>
-                    <Title>{current.title}</Title>
-                    <Text>{current.text}</Text>
-                </Body>
-                <Footer>
-                    <Count>
-                        {step + 1} of {STEPS.length}
-                    </Count>
-                    <Actions>
-                        {step > 0 ? (
-                            <Button type="button" onClick={() => setStep(step - 1)}>
-                                Back
-                            </Button>
-                        ) : (
-                            <Button type="button" onClick={() => setOpen(false)}>
-                                Skip
-                            </Button>
-                        )}
-                        <Button type="button" $variant="primary" onClick={() => (last ? setOpen(false) : setStep(step + 1))}>
-                            {last ? "Done" : "Next"}
+        <Dialog label="Welcome to ShapeShift">
+            <Stage>
+                <Shot src={src(current.image, theme)} alt="" />
+            </Stage>
+            <Body>
+                <Title>{current.title}</Title>
+                <Text>{current.text}</Text>
+            </Body>
+            <Footer>
+                <Count>
+                    {step + 1} of {STEPS.length}
+                </Count>
+                <Actions>
+                    {step > 0 ? (
+                        <Button type="button" onClick={() => setStep(step - 1)}>
+                            Back
                         </Button>
-                    </Actions>
-                </Footer>
-            </Dialog>
-        </Backdrop>
+                    ) : (
+                        <Button type="button" onClick={() => setOpen(false)}>
+                            Skip
+                        </Button>
+                    )}
+                    <Button type="button" $variant="primary" onClick={() => (last ? setOpen(false) : setStep(step + 1))}>
+                        {last ? "Done" : "Next"}
+                    </Button>
+                </Actions>
+            </Footer>
+        </Dialog>
     );
 }
 

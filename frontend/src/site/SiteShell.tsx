@@ -1,9 +1,10 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { initials } from "../ui/format";
+import { useDismiss } from "../ui/hooks";
 import styled from "styled-components";
 import { AnimatePresence } from "motion/react";
-import * as m from "motion/react-m";
 import { PencilSimple, SignOut, Sparkle } from "@phosphor-icons/react";
-import { GlobalStyle } from "../components/ui";
+import { Avatar, GlobalStyle, Menu } from "../components/ui";
 import { useResolvedTheme } from "../settings/theme";
 import { seemsSignedIn, useAccount } from "../account/store";
 import { PLANS } from "@shapeshift/shared/billing/plans";
@@ -153,15 +154,11 @@ const Account = styled.div`
     position: relative;
 `;
 
-const Avatar = styled.button`
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
+// Quieter than the editor's, so the Open editor button leads.
+const Face = styled(Avatar).attrs({ $size: 36 })`
     border: 1px solid var(--border-strong);
     background: var(--surface-raised);
     color: var(--text);
-    font-weight: 700;
-    font-size: 13px;
 
     &:hover,
     &[aria-expanded="true"] {
@@ -169,54 +166,12 @@ const Avatar = styled.button`
     }
 `;
 
-const Menu = styled(m.div)`
-    position: absolute;
-    top: calc(100% + 8px);
+const SiteMenu = styled(Menu)`
     right: 0;
     width: 250px;
-    padding: 6px;
-    background: var(--surface);
-    border: 1px solid var(--border-strong);
     border-radius: 14px;
     box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
     transform-origin: top right;
-
-    header {
-        padding: 10px 10px 12px;
-        margin-bottom: 4px;
-        border-bottom: 1px solid var(--border);
-        min-width: 0;
-    }
-    header b,
-    header small {
-        display: block;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    header small {
-        color: var(--text-muted);
-        margin-top: 2px;
-    }
-    a,
-    button {
-        width: 100%;
-        height: 38px;
-        padding: 0 10px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        border: 0;
-        border-radius: 8px;
-        background: transparent;
-        color: var(--text);
-        text-decoration: none;
-        font-size: 13px;
-    }
-    a:hover,
-    button:hover {
-        background: var(--surface-hover);
-    }
 `;
 
 const Footer = styled.footer<{ $wide?: boolean }>`
@@ -246,36 +201,21 @@ const Footer = styled.footer<{ $wide?: boolean }>`
     }
 `;
 
-function initials(label: string) {
-    const parts = label.split(/[\s@._-]+/).filter(Boolean);
-    return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
-}
-
 function AccountMenu() {
     const user = useAccount((s) => s.user)!;
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
-    useEffect(() => {
-        if (!open) return;
-        const close = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-        const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-        window.addEventListener("pointerdown", close);
-        window.addEventListener("keydown", onKey);
-        return () => {
-            window.removeEventListener("pointerdown", close);
-            window.removeEventListener("keydown", onKey);
-        };
-    }, [open]);
+    useDismiss(ref, open, () => setOpen(false));
     const label = user.name || user.email;
     const pro = user.plan === "pro";
     return (
         <Account ref={ref}>
-            <Avatar title={label} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+            <Face as="button" title={label} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
                 {initials(label)}
-            </Avatar>
+            </Face>
             <AnimatePresence>
                 {open && (
-                    <Menu {...drop} role="menu">
+                    <SiteMenu {...drop} role="menu">
                         <header>
                             <b>{user.name || "Signed in"}</b>
                             <small>
@@ -290,7 +230,7 @@ function AccountMenu() {
                             <SignOut size={16} />
                             Sign out
                         </button>
-                    </Menu>
+                    </SiteMenu>
                 )}
             </AnimatePresence>
         </Account>

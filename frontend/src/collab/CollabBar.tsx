@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { pulse } from "../ui/keyframes";
+import { ago, initials } from "../ui/format";
+import { useCopy, useDismiss } from "../ui/hooks";
 import { AnimatePresence } from "motion/react";
-import * as m from "motion/react-m";
 import { drop } from "../ui/motion";
-import styled, { keyframes } from "styled-components";
+import styled from "styled-components";
 import { ArrowCounterClockwise, Check, ClockCounterClockwise, Copy, FloppyDisk, SignOut, UsersThree } from "@phosphor-icons/react";
 import { useShallow } from "zustand/react/shallow";
-import { Button, Input } from "../components/ui";
+import { Avatar, Button, Input, Popover } from "../components/ui";
 import { roomLink, useCollab } from "./session";
 import { COMPACT } from "../ui/compact";
 import { RoomChatButton } from "./RoomChat";
@@ -46,17 +48,8 @@ const Faces = styled.span`
     display: inline-flex;
 `;
 
-const Face = styled.span<{ $color: string }>`
-    width: 22px;
-    height: 22px;
+const Face = styled(Avatar).attrs({ $size: 22 })`
     margin-left: -6px;
-    border-radius: 50%;
-    display: grid;
-    place-items: center;
-    background: ${(p) => p.$color};
-    color: #fff;
-    font-size: 10px;
-    font-weight: 700;
     box-shadow: 0 0 0 2px var(--surface);
 
     &:first-child {
@@ -64,7 +57,6 @@ const Face = styled.span<{ $color: string }>`
     }
 `;
 
-const pulse = keyframes`50% { opacity: 0.35; }`;
 
 const Dot = styled.span<{ $status: string }>`
     width: 7px;
@@ -74,21 +66,13 @@ const Dot = styled.span<{ $status: string }>`
     animation: ${(p) => (p.$status === "live" || p.$status === "error" ? "none" : pulse)} 1s ease-in-out infinite;
 `;
 
-const Popover = styled(m.div)`
-    position: absolute;
-    top: calc(100% + 8px);
+const Panel = styled(Popover)`
     right: 0;
     width: 300px;
-    max-width: calc(100vw - 24px);
     padding: 12px;
     display: flex;
     flex-direction: column;
     gap: 12px;
-    background: var(--surface);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-lg);
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
-    z-index: 200;
 `;
 
 const Label = styled.div`
@@ -151,31 +135,9 @@ const Versions = styled.ul`
     }
 `;
 
-const Small = styled.button<{ $confirm?: boolean }>`
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    height: 24px;
-    padding: 0 8px;
-    border-radius: 6px;
-    border: 1px solid ${(p) => (p.$confirm ? "var(--danger)" : "var(--border)")};
-    background: ${(p) => (p.$confirm ? "color-mix(in srgb, var(--danger) 18%, transparent)" : "transparent")};
-    color: ${(p) => (p.$confirm ? "var(--text)" : "var(--text-muted)")};
-    font-size: 12px;
-
-    &:hover:not(:disabled) {
-        color: var(--text);
-        border-color: var(--border-strong);
-    }
+const Small = styled(Button).attrs({ $size: "sm", $variant: "outline" })<{ $confirm?: boolean }>`
+    ${(p) => p.$confirm && "border-color: var(--danger); background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--text);"}
 `;
-
-function ago(at: number) {
-    const s = Math.max(0, (Date.now() - at) / 1000);
-    if (s < 60) return "just now";
-    if (s < 3600) return `${Math.floor(s / 60)} min ago`;
-    if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
-    return new Date(at).toLocaleDateString();
-}
 
 function History() {
     const versions = useCollab((s) => s.versions);
@@ -243,14 +205,6 @@ const Note = styled.div<{ $error?: boolean }>`
     color: ${(p) => (p.$error ? "var(--danger)" : "var(--text-muted)")};
 `;
 
-const initials = (name: string) =>
-    name
-        .split(/\s+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((w) => w[0]!.toUpperCase())
-        .join("") || "?";
-
 const STATUS_TEXT: Record<string, string> = {
     connecting: "Connecting…",
     reconnecting: "Reconnecting…",
@@ -269,32 +223,18 @@ export function CollabBar() {
     const leave = useCollab((s) => s.leave);
     const rename = useCollab((s) => s.rename);
     const [open, setOpen] = useState(false);
-    const [copied, setCopied] = useState(false);
+    const { copied, copy: copyText } = useCopy(1500);
     const [draftName, setDraftName] = useState(name);
     const wrap = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        if (!open) return;
-        const close = (e: PointerEvent) => {
-            if (!wrap.current?.contains(e.target as Node)) setOpen(false);
-        };
-        window.addEventListener("pointerdown", close);
-        return () => window.removeEventListener("pointerdown", close);
-    }, [open]);
+    useDismiss(wrap, open, () => setOpen(false));
 
     const live = status !== "off";
     const everyone: Peer[] = [...(you ? [{ ...you, name }] : []), ...peers];
     const link = roomId ? roomLink(roomId) : "";
 
-    async function copy() {
-        try {
-            await navigator.clipboard.writeText(link);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
-        } catch {
-            // Clipboard can be blocked; the link is still selectable.
-        }
-    }
+    // Clipboard can be blocked; the link is still selectable.
+    const copy = () => copyText(link);
 
     return (
         <Wrap ref={wrap}>
@@ -332,7 +272,7 @@ export function CollabBar() {
 
             <AnimatePresence>
                 {open && live && (
-                    <Popover {...drop} style={{ transformOrigin: "top right" }} role="dialog" aria-label="Live session">
+                    <Panel {...drop} style={{ transformOrigin: "top right" }} role="dialog" aria-label="Live session">
                         <div>
                             <Label>Anyone with this link can edit the scene with you</Label>
                             <Row>
@@ -377,7 +317,7 @@ export function CollabBar() {
                             <SignOut size={16} />
                             Leave room
                         </Button>
-                    </Popover>
+                    </Panel>
                 )}
             </AnimatePresence>
         </Wrap>

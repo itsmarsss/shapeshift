@@ -3,7 +3,7 @@ import { ChatCircleText, Compass, CreditCard, ShieldCheck, UserPlus, Warning } f
 import type { Permission } from "@shapeshift/shared/admin/roles";
 import { ago, go, useKept, useLoad } from "../nav";
 import { Header, Loading, Panel, Problem, RangePicker, type Days } from "../ui";
-import { AreaLines, Card, DayBars, Donut, Empty, Funnel, GroupBars, Grid, Kpis, Ranked, Stat } from "../charts";
+import { AreaLines, Card, DayBars, Donut, NoData, Funnel, GroupBars, Grid, Kpis, Ranked, Stat } from "../charts";
 import { COLORS, split, total, type Point } from "../chartData";
 
 // The dashboard and the chart sections. Series cover twice the chosen
@@ -213,7 +213,7 @@ export function Dashboard({ can }: { can: (p: Permission) => boolean }) {
                             ]}
                         />
                     ) : (
-                        <Empty>Charts need the metrics permission.</Empty>
+                        <NoData>Charts need the metrics permission.</NoData>
                     )}
                 </Card>
                 <Card>
@@ -279,7 +279,7 @@ export function Dashboard({ can }: { can: (p: Permission) => boolean }) {
                         })}
                     </Feed>
                 ) : (
-                    <Empty>Nothing yet.</Empty>
+                    <NoData>Nothing yet.</NoData>
                 )}
             </Card>
         </>
@@ -550,7 +550,7 @@ export function Assistant() {
                             <p>The last 30 days</p>
                         </div>
                     </header>
-                    {daily ? <AreaLines series={[{ key: "prompts", label: "Prompts", color: COLORS.purple, data: daily.now }]} /> : <Empty>Needs the usage numbers connected.</Empty>}
+                    {daily ? <AreaLines series={[{ key: "prompts", label: "Prompts", color: COLORS.purple, data: daily.now }]} /> : <NoData>Needs the usage numbers connected.</NoData>}
                 </Card>
                 <Card $span={2}>
                     <header>
@@ -659,7 +659,7 @@ export function Health() {
                             ))}
                         </ErrorList>
                     ) : (
-                        <Empty>No errors in this period. Nice.</Empty>
+                        <NoData>No errors in this period. Nice.</NoData>
                     )}
                 </Card>
             </Grid>

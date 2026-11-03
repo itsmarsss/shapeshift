@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import styled from "styled-components";
 import { Eyedropper } from "@phosphor-icons/react";
 import { SWATCHES, hexToHsv, hsvToHex, normalizeHex, recentColors, rememberColor, type Hsv } from "../ui/color";
+import { Input } from "./ui";
 
 const Trigger = styled.button`
     width: 100%;
@@ -102,13 +103,6 @@ const Row = styled.div`
 
     input {
         flex: 1;
-        min-width: 0;
-        height: 30px;
-        padding: 0 8px;
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        background: var(--bg);
-        color: var(--text);
         font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
     }
     button {
@@ -290,7 +284,7 @@ export function ColorPicker({ value, onChange, onCommit, label = "Color" }: Prop
                             <Knob style={{ left: `${(hsv.h / 360) * 100}%`, top: "50%", background: hueColor }} />
                         </Hue>
                         <Row>
-                            <input
+                            <Input
                                 aria-label="Hex color"
                                 value={text}
                                 spellCheck={false}

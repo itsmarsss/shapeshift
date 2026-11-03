@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import styled, { keyframes } from "styled-components";
+import styled from "styled-components";
+import { shimmer } from "../ui/keyframes";
 import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-m";
 import { CaretLeft, CaretRight, CheckCircle, MagnifyingGlass, WarningCircle, X } from "@phosphor-icons/react";
-import { Button, Segment, Segmented } from "../components/ui";
+import { Avatar as Circle, Button, Segment, Segmented } from "../components/ui";
 import { drop, EASE_OUT, rise } from "../ui/motion";
 import { hue, initials, useToasts } from "./nav";
 
@@ -149,23 +150,11 @@ export function PlanBadge({ plan, status }: { plan: string; status: string | nul
     return <Badge $tone="green">Pro</Badge>;
 }
 
-const AvatarBox = styled.span<{ $size: number }>`
-    width: ${(p) => p.$size}px;
-    height: ${(p) => p.$size}px;
-    border-radius: 50%;
-    display: inline-grid;
-    place-items: center;
-    color: #fff;
-    font-weight: 700;
-    font-size: ${(p) => Math.round(p.$size * 0.38)}px;
-    flex-shrink: 0;
-`;
-
 export function Avatar({ email, size = 28 }: { email: string; size?: number }) {
     return (
-        <AvatarBox $size={size} style={{ background: hue(email) }} aria-hidden>
+        <Circle $size={size} $color={hue(email)} aria-hidden>
             {initials(email)}
-        </AvatarBox>
+        </Circle>
     );
 }
 
@@ -390,11 +379,6 @@ export function SearchBox({ value, onChange, placeholder, label }: { value: stri
         </SearchField>
     );
 }
-
-const shimmer = keyframes`
-    from { background-position: 200% 0; }
-    to { background-position: -200% 0; }
-`;
 
 export const Bone = styled.div<{ $h?: number; $w?: string }>`
     height: ${(p) => p.$h ?? 14}px;
