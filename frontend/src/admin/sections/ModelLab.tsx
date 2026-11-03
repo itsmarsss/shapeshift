@@ -34,6 +34,7 @@ const PRESET_PROMPTS = {
 const Setup = styled.div`
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
     gap: 12px;
     margin-bottom: 12px;
 
@@ -43,28 +44,50 @@ const Setup = styled.div`
     textarea {
         min-height: 92px;
     }
-    .presets,
-    .models {
+    .presets {
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
         margin-top: 8px;
     }
-    .models label {
-        display: inline-flex;
-        align-items: center;
+    // One even list of models: a row each, the same height, name then note.
+    .models {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
         gap: 6px;
-        padding: 4px 8px;
+    }
+    .models label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 34px;
+        min-width: 0;
+        padding: 0 10px;
         border: 1px solid var(--border);
-        border-radius: 8px;
+        border-radius: var(--radius);
         font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
         cursor: pointer;
+    }
+    .models label > span {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .models input {
+        margin: 0;
+        accent-color: var(--accent);
+    }
+    .models label:hover {
+        border-color: var(--border-strong);
     }
     .models label:has(input:checked) {
         border-color: var(--accent);
         background: var(--accent-soft);
     }
     .models small {
+        flex-shrink: 0;
         font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
         color: var(--text-muted);
     }
@@ -116,7 +139,7 @@ const Past = styled.div`
     }
     article header {
         display: flex;
-        align-items: baseline;
+        align-items: center;
         gap: 10px;
         margin-bottom: 10px;
     }
@@ -241,7 +264,7 @@ export function ModelLab() {
                         {all.map((m) => (
                             <label key={m.id}>
                                 <input type="checkbox" checked={models.includes(m.id)} onChange={() => toggle(m.id)} />
-                                {m.id.replace("@cf/", "")}
+                                <span title={m.id}>{m.id.replace("@cf/", "")}</span>
                                 {m.note && <small>{m.note}</small>}
                                 {custom.includes(m.id) && (
                                     <X size={12} aria-label={`Remove ${m.id}`} onClick={(e) => (e.preventDefault(), setCustom(custom.filter((c) => c !== m.id)), setModels(models.filter((x) => x !== m.id)))} />
@@ -346,7 +369,7 @@ export function ModelLab() {
                             <Button $size="sm" $variant="outline" title="Run these models on this prompt again" onClick={() => (setPrompt(r.prompt), setModels(r.results.map((x) => x.model)))}>
                                 <ArrowCounterClockwise size={12} /> Use again
                             </Button>
-                            <Confirm label="Delete" sure="Delete it" variant="danger" size="sm" onConfirm={() => void act(`/lab/runs/${r.run}`, "Run deleted", { method: "DELETE" }).then(kept.reload)} />
+                            <Confirm label="Delete" sure="Delete it" variant="danger" size="sm" outline onConfirm={() => void act(`/lab/runs/${r.run}`, "Run deleted", { method: "DELETE" }).then(kept.reload)} />
                         </header>
                         <div className="results">
                             {r.results.map((x) => (

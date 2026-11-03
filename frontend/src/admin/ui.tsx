@@ -158,8 +158,26 @@ export function Avatar({ email, size = 28 }: { email: string; size?: number }) {
     );
 }
 
-// A button that asks once more before it acts.
-export function Confirm({ label, sure, onConfirm, variant = "primary", disabled, size }: { label: string; sure: string; onConfirm: () => void; variant?: "primary" | "danger"; disabled?: boolean; size?: "sm" }) {
+// A button that asks once more before it acts. `outline` gives it a border,
+// to sit beside other outlined buttons.
+export function Confirm({
+    label,
+    sure,
+    onConfirm,
+    variant = "primary",
+    disabled,
+    size,
+    outline = true,
+}: {
+    label: string;
+    sure: string;
+    onConfirm: () => void;
+    variant?: "primary" | "danger";
+    disabled?: boolean;
+    size?: "sm";
+    outline?: boolean;
+}) {
+    const red = variant === "danger" ? { color: "var(--danger)" } : undefined;
     const [asking, setAsking] = useState(false);
     // Asking again goes away by itself if they look elsewhere.
     useEffect(() => {
@@ -184,6 +202,7 @@ export function Confirm({ label, sure, onConfirm, variant = "primary", disabled,
             </Button>
             <Button
                 $size={size}
+                $variant={outline ? "outline" : undefined}
                 onClick={(e) => {
                     e.stopPropagation();
                     setAsking(false);
@@ -196,7 +215,8 @@ export function Confirm({ label, sure, onConfirm, variant = "primary", disabled,
                 <m.span key="ask-not" {...drop} style={{ display: "inline-flex" }}>
                     <Button
                         $size={size}
-                        $variant={variant === "danger" ? "danger" : undefined}
+                        $variant={outline ? "outline" : variant === "danger" ? "danger" : undefined}
+                        style={outline ? red : undefined}
                         disabled={disabled}
                         onClick={(e) => {
                             e.stopPropagation();

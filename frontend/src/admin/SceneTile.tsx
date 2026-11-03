@@ -11,8 +11,22 @@ import { Badge, Confirm } from "./ui";
 
 export type AdminScene = { id: string; title: string; size: number; updated_at: number; public_slug: string | null; listed: number; owner?: string; owner_id?: string };
 
+// Tiles in a row are the same height, with their buttons along the bottom.
 const Box = styled.div`
     ${tile}
+
+    > div:last-child {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+    .badges {
+        min-height: 20px;
+    }
+    .actions {
+        margin-top: auto;
+        padding-top: 10px;
+    }
 
     &:hover {
         transform: none;
@@ -67,16 +81,14 @@ export function SceneTile({
                 <small>
                     {ago(s.updated_at)} · {bytes(s.size)}
                 </small>
-                {s.public_slug && (
-                    <div className="row">
-                        <Badge $tone="green">Shared</Badge>
-                        {s.listed ? <Badge $tone="accent">On Explore</Badge> : null}
-                    </div>
-                )}
+                <div className="row badges">
+                    {s.public_slug && <Badge $tone="green">Shared</Badge>}
+                    {s.public_slug && s.listed ? <Badge $tone="accent">On Explore</Badge> : null}
+                </div>
                 {moderate && (
-                    <div className="row" style={{ marginTop: 10 }}>
+                    <div className="row actions">
                         {s.public_slug && (
-                            <Button $size="sm" as="a" href={`/s/${s.public_slug}`} target="_blank" rel="noopener">
+                            <Button $size="sm" $variant="outline" as="a" href={`/s/${s.public_slug}`} target="_blank" rel="noopener">
                                 View
                             </Button>
                         )}
