@@ -92,6 +92,23 @@ describe("admin", () => {
         expect((await call(e, helper, "/me")).status).toBe(404);
     });
 
+    it("charts sign-ups and plans, and says when usage numbers aren't set up", async () => {
+        const e = env();
+        const boss = await signIn(e, LOCAL_SUPERUSER);
+        await signIn(e, "a@example.com");
+        const db = (await call(e, boss, "/metrics?days=7")).body as { signups: { n: number }[]; people: { n: number }[]; revenue: { paying: number } };
+        expect(db.signups).toHaveLength(7);
+        expect(db.signups.at(-1)!.n).toBe(2);
+        expect(db.people.at(-1)!.n).toBe(2);
+        expect(db.revenue.paying).toBe(0);
+        expect((await call(e, boss, "/metrics/events")).body).toEqual({ configured: false });
+        // Support can't see charts.
+        await signIn(e, "s@example.com");
+        await call(e, boss, "/admins", { method: "POST", body: { email: "s@example.com", role: "support" } });
+        const support = await signIn(e, "s@example.com");
+        expect((await call(e, support, "/metrics")).status).toBe(403);
+    });
+
     it("marks feedback read", async () => {
         const e = env();
         const boss = await signIn(e, LOCAL_SUPERUSER);

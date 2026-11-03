@@ -1,26 +1,17 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import styled from "styled-components";
-import { ChartBar, ChatCircleText, Compass, ListChecks, ShieldCheck, Users } from "@phosphor-icons/react";
+import { ChartBar, ChartLineUp, ChatCircleText, Compass, Heartbeat, ListChecks, ShieldCheck, TrendUp, Users } from "@phosphor-icons/react";
 import { ROLE_IDS, ROLES, type Permission, type Role } from "@shapeshift/shared/admin/roles";
 import { SiteShell } from "../site/SiteShell";
 import { Container, Empty, PageHead } from "../site/parts";
 import { Button, Input, Select } from "../components/ui";
+import { api } from "./api";
+import { GrowthSection, HealthSection, UsageSection } from "./MetricsSections";
 
 // The team's admin page at /admin. The server decides who gets in and what
 // each role may do; this only shows the sections the signed-in admin can use.
 
 type Me = { email: string; role: Role; permissions: Permission[] };
-
-async function api<T>(path: string, init?: { method?: string; body?: unknown }): Promise<T> {
-    const res = await fetch(`/api/admin${path}`, {
-        method: init?.method ?? "GET",
-        headers: init?.body ? { "content-type": "application/json" } : undefined,
-        body: init?.body ? JSON.stringify(init.body) : undefined,
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error((data as { error?: string }).error ?? "Something went wrong.");
-    return data as T;
-}
 
 const when = (at: number | null) => (at ? new Date(at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—");
 
@@ -568,6 +559,9 @@ export default function AdminPage() {
 
     const tabs: Tab[] = [
         { id: "overview", label: "Overview", Icon: ChartBar, needs: "overview", render: () => <OverviewSection /> },
+        { id: "growth", label: "Growth", Icon: TrendUp, needs: "metrics", render: () => <GrowthSection /> },
+        { id: "usage", label: "Usage", Icon: ChartLineUp, needs: "metrics", render: () => <UsageSection /> },
+        { id: "health", label: "Health", Icon: Heartbeat, needs: "metrics", render: () => <HealthSection /> },
         {
             id: "feedback",
             label: "Feedback",

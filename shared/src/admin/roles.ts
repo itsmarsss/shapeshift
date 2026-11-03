@@ -4,6 +4,7 @@
 
 export const PERMISSIONS = {
     "overview": "See the overview numbers",
+    "metrics": "See charts of growth, use and health",
     "feedback.read": "Read feedback",
     "feedback.manage": "Mark feedback as read",
     "users.read": "Look people up",
