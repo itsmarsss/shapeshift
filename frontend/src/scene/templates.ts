@@ -72,7 +72,8 @@ const solarSystem: Command[] = [
 const house: Command[] = [
     { type: "add", primitive: "plane", name: "Lawn", geometry: { type: "plane", width: 10, height: 10 }, position: [0, 0, 0], color: "#6fae4f" },
     { type: "add", primitive: "box", name: "Walls", geometry: { type: "box", width: 2.4, height: 1.8, depth: 2 }, position: [0, 0.9, 0], color: "#f1e3c8" },
-    { type: "add", primitive: "box", name: "Roof", geometry: { type: "box", width: 2, height: 2, depth: 2.3 }, position: [0, 1.8, 0], rotation: [0, 0, Math.PI / 4], scale: [0.95, 0.95, 1], color: "#b5483a" },
+    // Sits on the walls, hanging a little past them on every side.
+    { type: "add", primitive: "roof", name: "Roof", geometry: { type: "roof", width: 2.8, height: 1.1, depth: 2.3 }, position: [0, 2.35, 0], color: "#b5483a" },
     { type: "add", primitive: "box", name: "Door", geometry: { type: "box", width: 0.5, height: 0.9, depth: 0.05 }, position: [0, 0.45, 1.01], color: "#6b4226" },
     { type: "add", primitive: "box", name: "Window", geometry: { type: "box", width: 0.45, height: 0.45, depth: 0.05 }, position: [0.75, 1.1, 1.01], color: "#a8d8ff" },
     { type: "add", primitive: "box", name: "Chimney", geometry: { type: "box", width: 0.3, height: 0.8, depth: 0.3 }, position: [0.7, 2.6, -0.4], color: "#8a8f99" },
