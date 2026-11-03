@@ -1,23 +1,29 @@
 import { useState } from "react";
 import styled from "styled-components";
+import * as m from "motion/react-m";
 import { Cube } from "@phosphor-icons/react";
 import type { Permission } from "@shapeshift/shared/admin/roles";
-import { Button, Input, Select } from "../../components/ui";
-import { api } from "../api";
-import { ago, bytes, go, useLoad } from "../nav";
-import { Badge, Confirm, Header, Pager, Problem, Toolbar } from "../ui";
+import { Button, Select } from "../../components/ui";
+import { item, list } from "../../ui/motion";
+import { ago, bytes, go, run, useDebounced, useKept, useLoad } from "../nav";
+import { Badge, Confirm, Dim, Header, Loading, Pager, Problem, SearchBox, Toolbar } from "../ui";
 import { Empty } from "../charts";
 
 type Scene = { id: string; title: string; size: number; created_at: number; updated_at: number; public_slug: string | null; listed: number; owner_id: string; owner: string };
 type List = { total: number; page: number; pageSize: number; scenes: Scene[] };
 
-const Cards = styled.div`
+const Cards = styled(m.div).attrs({ variants: list, initial: "hidden", animate: "shown" })`
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 12px;
 `;
 
-const Card = styled.div`
+const Card = styled(m.div).attrs({ variants: item, whileHover: { y: -3 } })`
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    &:hover {
+        border-color: var(--border-strong);
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.1);
+    }
     border: 1px solid var(--border);
     border-radius: 14px;
     overflow: hidden;
@@ -79,55 +85,39 @@ function Thumb({ id }: { id: string }) {
 }
 
 export function Scenes({ can }: { can: (p: Permission) => boolean }) {
-    const [draft, setDraft] = useState("");
-    const [q, setQ] = useState("");
-    const [shared, setShared] = useState("");
-    const [sort, setSort] = useState("updated");
-    const [page, setPage] = useState(0);
-    const [problem, setProblem] = useState<string | null>(null);
+    const [v, setV] = useKept("scenes", { q: "", shared: "", sort: "updated", page: 0 });
+    const set = (change: Partial<typeof v>) => setV({ ...v, page: 0, ...change });
+    const q = useDebounced(v.q);
+    const { shared, sort, page } = v;
     const params = new URLSearchParams({ q, shared: shared === "shared" ? "yes" : "", listed: shared === "listed" ? "yes" : "", sort, dir: "desc", page: String(page) });
-    const { data, error, reload } = useLoad<List>(`/scenes?${params}`);
+    const { data, error, loading, reload } = useLoad<List>(`/scenes?${params}`);
     const moderate = can("scenes.moderate");
 
-    async function act(path: string, method = "POST") {
-        setProblem(null);
-        try {
-            await api(path, { method });
-            reload();
-        } catch (e) {
-            setProblem(e instanceof Error ? e.message : "That didn't work.");
-        }
+    async function act(path: string, done: string, method = "POST") {
+        if (await run(path, done, { method })) reload();
     }
 
     return (
         <>
             <Header title="Scenes">{data ? `${data.total.toLocaleString()} saved to the cloud` : "Every scene saved to the cloud"}</Header>
-            <Toolbar
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    setQ(draft);
-                    setPage(0);
-                }}
-            >
-                <Input type="search" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Search by title or owner" aria-label="Search scenes" />
-                <Select value={shared} onChange={(e) => (setShared(e.target.value), setPage(0))} aria-label="Sharing">
+            <Toolbar onSubmit={(e) => e.preventDefault()}>
+                <SearchBox value={v.q} onChange={(q) => set({ q })} placeholder="Search by title or owner" label="Search scenes" />
+                <Select value={shared} onChange={(e) => set({ shared: e.target.value })} aria-label="Sharing">
                     <option value="">All scenes</option>
                     <option value="shared">Shared by link</option>
                     <option value="listed">On Explore</option>
                 </Select>
-                <Select value={sort} onChange={(e) => (setSort(e.target.value), setPage(0))} aria-label="Sort">
+                <Select value={sort} onChange={(e) => set({ sort: e.target.value })} aria-label="Sort">
                     <option value="updated">Recently changed</option>
                     <option value="created">Newest</option>
                     <option value="size">Largest</option>
                 </Select>
-                <Button type="submit" $variant="primary">
-                    Search
-                </Button>
             </Toolbar>
-            {(problem || error) && <Problem>{problem ?? error}</Problem>}
+            {error && <Problem>{error}</Problem>}
+            {!data && !error && <Loading kind="cards" />}
             {data && !data.scenes.length && <Empty>No scenes match.</Empty>}
             {data && data.scenes.length > 0 && (
-                <>
+                <Dim $busy={loading}>
                     <Cards>
                         {data.scenes.map((s) => (
                             <Card key={s.id}>
@@ -151,17 +141,17 @@ export function Scenes({ can }: { can: (p: Permission) => boolean }) {
                                                     View
                                                 </Button>
                                             )}
-                                            {s.public_slug && s.listed ? <Confirm label="Unlist" sure="Unlist" onConfirm={() => void act(`/scenes/${s.id}/unlist`)} /> : null}
-                                            {s.public_slug && <Confirm label="Unshare" sure="Unshare" variant="danger" onConfirm={() => void act(`/scenes/${s.id}/unshare`)} />}
-                                            <Confirm label="Delete" sure="Delete it" variant="danger" onConfirm={() => void act(`/scenes/${s.id}`, "DELETE")} />
+                                            {s.public_slug && s.listed ? <Confirm label="Unlist" sure="Unlist" onConfirm={() => void act(`/scenes/${s.id}/unlist`, "Taken off Explore")} /> : null}
+                                            {s.public_slug && <Confirm label="Unshare" sure="Unshare" variant="danger" onConfirm={() => void act(`/scenes/${s.id}/unshare`, "Link turned off")} />}
+                                            <Confirm label="Delete" sure="Delete it" variant="danger" onConfirm={() => void act(`/scenes/${s.id}`, "Scene deleted", "DELETE")} />
                                         </div>
                                     )}
                                 </div>
                             </Card>
                         ))}
                     </Cards>
-                    <Pager page={data.page} pageSize={data.pageSize} total={data.total} onPage={setPage} />
-                </>
+                    <Pager page={data.page} pageSize={data.pageSize} total={data.total} onPage={(page) => setV({ ...v, page })} />
+                </Dim>
             )}
         </>
     );

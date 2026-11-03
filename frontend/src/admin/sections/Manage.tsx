@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import styled from "styled-components";
+import { AnimatePresence } from "motion/react";
+import * as m from "motion/react-m";
 import { Envelope } from "@phosphor-icons/react";
 import { ROLE_IDS, ROLES, type Role } from "@shapeshift/shared/admin/roles";
 import { Button, Input, Select } from "../../components/ui";
 import { api } from "../api";
-import { ago, go, useLoad, when } from "../nav";
-import { Avatar, Badge, Confirm, Header, Note, Problem, TableBox, Toolbar } from "../ui";
+import { EASE_OUT, rowIn } from "../../ui/motion";
+import { ago, go, run, toast, useDebounced, useKept, useLoad, when } from "../nav";
+import { Avatar, Badge, Confirm, Header, Loading, Note, Problem, SearchBox, TableBox, Toolbar } from "../ui";
 import { Empty } from "../charts";
 
 // Feedback, Explore moderation, admins and the activity log.
@@ -18,7 +21,8 @@ const Items = styled.div`
     gap: 10px;
 `;
 
-const Item = styled.article<{ $read: boolean }>`
+const Item = styled(m.article)<{ $read: boolean }>`
+    transition: border-color 0.2s ease;
     display: flex;
     gap: 16px;
     padding: 16px;
@@ -76,18 +80,18 @@ const Item = styled.article<{ $read: boolean }>`
 `;
 
 export function FeedbackSection({ canManage, onChange }: { canManage: boolean; onChange: () => void }) {
-    const [items, setItems] = useState<Feedback[]>([]);
+    const [items, setItems] = useState<Feedback[] | null>(null);
     const [next, setNext] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [unread, setUnread] = useState(true);
-    const [draft, setDraft] = useState("");
-    const [q, setQ] = useState("");
+    const [v, setV] = useKept("feedback", { unread: true, q: "" });
+    const { unread } = v;
+    const q = useDebounced(v.q);
     const load = useCallback(
         (before?: number) => {
             const params = new URLSearchParams({ unread: unread ? "1" : "0", q, ...(before ? { before: String(before) } : {}) });
             api<{ items: Feedback[]; next: number | null }>(`/feedback?${params}`)
                 .then((d) => {
-                    setItems((prev) => (before ? [...prev, ...d.items] : d.items));
+                    setItems((prev) => (before ? [...(prev ?? []), ...d.items] : d.items));
                     setNext(d.next);
                 })
                 .catch((e: unknown) => setError(e instanceof Error ? e.message : "Couldn't load feedback."));
@@ -97,34 +101,28 @@ export function FeedbackSection({ canManage, onChange }: { canManage: boolean; o
     useEffect(() => load(), [load]);
 
     async function mark(item: Feedback, read: boolean) {
-        await api(`/feedback/${item.id}/read`, { method: "POST", body: { read } });
-        setItems((prev) => (unread && read ? prev.filter((f) => f.id !== item.id) : prev.map((f) => (f.id === item.id ? { ...f, read } : f))));
+        if (!(await run(`/feedback/${item.id}/read`, read ? "Marked read" : "Marked unread", { body: { read } }))) return;
+        setItems((prev) => (prev ?? []).flatMap((f) => (f.id !== item.id ? [f] : unread && read ? [] : [{ ...f, read }])));
         onChange();
     }
 
     return (
         <>
             <Header title="Feedback">What people sent from the feedback box, with the scene they were looking at.</Header>
-            <Toolbar
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    setQ(draft);
-                }}
-            >
-                <Input type="search" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Search messages" aria-label="Search feedback" />
-                <Select value={unread ? "unread" : "all"} onChange={(e) => setUnread(e.target.value === "unread")} aria-label="Which">
+            <Toolbar onSubmit={(e) => e.preventDefault()}>
+                <SearchBox value={v.q} onChange={(q) => setV({ ...v, q })} placeholder="Search messages" label="Search feedback" />
+                <Select value={unread ? "unread" : "all"} onChange={(e) => setV({ ...v, unread: e.target.value === "unread" })} aria-label="Which">
                     <option value="unread">Unread</option>
                     <option value="all">All</option>
                 </Select>
-                <Button type="submit" $variant="primary">
-                    Search
-                </Button>
             </Toolbar>
             {error && <Problem>{error}</Problem>}
-            {!items.length && <Empty>{unread ? "All caught up." : "No feedback yet."}</Empty>}
+            {!items && !error && <Loading kind="list" />}
+            {items && !items.length && <Empty>{unread ? "All caught up." : "No feedback yet."}</Empty>}
             <Items>
-                {items.map((f) => (
-                    <Item key={f.id} $read={f.read}>
+                <AnimatePresence initial={false}>
+                {(items ?? []).map((f, i) => (
+                    <Item key={f.id} $read={f.read} {...rowIn(i)} exit={{ opacity: 0, x: 24, transition: { duration: 0.2, ease: EASE_OUT } }}>
                         {f.picture && <img src={`/api/admin/feedback/${f.id}/picture`} alt="What they were looking at" loading="lazy" />}
                         <div className="main">
                             <div className="meta">
@@ -152,6 +150,7 @@ export function FeedbackSection({ canManage, onChange }: { canManage: boolean; o
                         </div>
                     </Item>
                 ))}
+                </AnimatePresence>
             </Items>
             {next && (
                 <Button style={{ marginTop: 12 }} onClick={() => load(next)}>
@@ -167,13 +166,13 @@ type Listed = { slug: string; title: string; published_at: number | null; owner:
 export function ExploreSection() {
     const { data, error, reload } = useLoad<{ scenes: Listed[] }>("/explore");
     async function unlist(slug: string) {
-        await api(`/explore/${slug}/unlist`, { method: "POST" });
-        reload();
+        if (await run(`/explore/${slug}/unlist`, "Taken off Explore")) reload();
     }
     return (
         <>
             <Header title="Explore">Community scenes listed in the public gallery. Taking one off keeps its link working.</Header>
             {error && <Problem>{error}</Problem>}
+            {!data && !error && <Loading kind="list" />}
             {data && !data.scenes.length && <Empty>Nothing from the community on Explore yet.</Empty>}
             {data && data.scenes.length > 0 && (
                 <TableBox>
@@ -187,15 +186,15 @@ export function ExploreSection() {
                             </tr>
                         </thead>
                         <tbody>
-                            {data.scenes.map((s) => (
-                                <tr key={s.slug} onClick={() => window.open(`/s/${s.slug}`, "_blank", "noopener")}>
+                            {data.scenes.map((s, i) => (
+                                <m.tr key={s.slug} {...rowIn(i)} onClick={() => window.open(`/s/${s.slug}`, "_blank", "noopener")}>
                                     <td style={{ fontWeight: 600 }}>{s.title}</td>
                                     <td className="muted">{s.owner}</td>
                                     <td className="muted">{ago(s.published_at)}</td>
                                     <td onClick={(e) => e.stopPropagation()}>
                                         <Confirm label="Take off Explore" sure="Take it off" variant="danger" onConfirm={() => void unlist(s.slug)} />
                                     </td>
-                                </tr>
+                                </m.tr>
                             ))}
                         </tbody>
                     </table>
@@ -239,6 +238,7 @@ export function AdminsSection({ me }: { me: string }) {
         setProblem(null);
         try {
             await api("/admins", { method: "POST", body: { email, role } });
+            toast(`${email} is now ${ROLES[role].label.toLowerCase()}`);
             setEmail("");
             reload();
         } catch (e) {
@@ -289,8 +289,8 @@ export function AdminsSection({ me }: { me: string }) {
                             </tr>
                         </thead>
                         <tbody>
-                            {data.admins.map((a) => (
-                                <tr key={a.email} onClick={() => a.id && go("people", a.id)}>
+                            {data.admins.map((a, i) => (
+                                <m.tr key={a.email} {...rowIn(i)} onClick={() => a.id && go("people", a.id)}>
                                     <td>
                                         <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
                                             <Avatar email={a.email} />
@@ -302,9 +302,9 @@ export function AdminsSection({ me }: { me: string }) {
                                     </td>
                                     <td className="muted">{a.fixed ? "From server settings" : `${ago(a.added_at)} by ${a.added_by ?? "—"}`}</td>
                                     <td onClick={(e) => e.stopPropagation()}>
-                                        {!a.fixed && a.id && a.email !== me && <Confirm label="Remove" sure="Remove" variant="danger" onConfirm={() => void api(`/admins/${a.id}`, { method: "DELETE" }).then(reload)} />}
+                                        {!a.fixed && a.id && a.email !== me && <Confirm label="Remove" sure="Remove" variant="danger" onConfirm={() => void run(`/admins/${a.id}`, `Removed ${a.email}`, { method: "DELETE" }).then((ok) => ok && reload())} />}
                                     </td>
-                                </tr>
+                                </m.tr>
                             ))}
                         </tbody>
                     </table>
@@ -322,9 +322,10 @@ export function ActivitySection() {
         <>
             <Header title="Activity">Everything done on this page, newest first.</Header>
             <Toolbar onSubmit={(e) => e.preventDefault()}>
-                <Input type="search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter by who, what or whom" aria-label="Filter activity" />
+                <SearchBox value={filter} onChange={setFilter} placeholder="Filter by who, what or whom" label="Filter activity" />
             </Toolbar>
             {error && <Problem>{error}</Problem>}
+            {!data && !error && <Loading kind="list" />}
             {data && !entries.length && <Empty>Nothing here.</Empty>}
             {entries.length > 0 && (
                 <TableBox>
@@ -339,7 +340,7 @@ export function ActivitySection() {
                         </thead>
                         <tbody>
                             {entries.map((e, i) => (
-                                <tr key={i} style={{ cursor: "default" }}>
+                                <m.tr key={`${e.at}:${i}`} {...rowIn(i)} style={{ cursor: "default" }}>
                                     <td className="muted" title={when(e.at)}>
                                         {ago(e.at)}
                                     </td>
@@ -348,7 +349,7 @@ export function ActivitySection() {
                                         <Badge>{e.action}</Badge>
                                     </td>
                                     <td>{e.detail}</td>
-                                </tr>
+                                </m.tr>
                             ))}
                         </tbody>
                     </table>

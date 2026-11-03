@@ -27,7 +27,6 @@ test('keeps the admin page hidden and gives each role only its sections', async 
   const nav = (page: typeof boss) => page.getByRole('navigation', { name: 'Admin sections' })
   await nav(boss).getByRole('button', { name: 'People' }).click()
   await boss.getByLabel('Search people').fill(helper)
-  await boss.getByRole('button', { name: 'Search' }).click()
   await boss.getByRole('cell', { name: helper }).click()
   await expect(boss).toHaveURL(/s=people&id=/)
   await expect(boss.getByRole('heading', { name: 'Account', exact: true })).toBeVisible()

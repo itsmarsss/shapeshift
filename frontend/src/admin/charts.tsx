@@ -1,11 +1,20 @@
+import { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
+import { animate } from "motion/react";
+import * as m from "motion/react-m";
+import { item, list } from "../ui/motion";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 // Charts for the admin page, on recharts, styled to match the app.
 
 import { COLORS, PALETTE, compact, shortDay, type Point, type Series } from "./chartData";
 
-export const Card = styled.section<{ $span?: number }>`
+export const Card = styled(m.section).attrs({ variants: item })<{ $span?: number }>`
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    &:hover {
+        border-color: var(--border-strong);
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.06);
+    }
     grid-column: span ${(p) => p.$span ?? 1};
     padding: 18px 18px 14px;
     border-radius: 16px;
@@ -36,7 +45,7 @@ export const Card = styled.section<{ $span?: number }>`
     }
 `;
 
-export const Grid = styled.div<{ $cols?: number }>`
+export const Grid = styled(m.div).attrs({ variants: list, initial: "hidden", animate: "shown" })<{ $cols?: number }>`
     display: grid;
     grid-template-columns: repeat(${(p) => p.$cols ?? 2}, minmax(0, 1fr));
     gap: 12px;
@@ -47,7 +56,7 @@ export const Grid = styled.div<{ $cols?: number }>`
     }
 `;
 
-export const Kpis = styled.div`
+export const Kpis = styled(m.div).attrs({ variants: list, initial: "hidden", animate: "shown" })`
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
     gap: 12px;
@@ -419,7 +428,7 @@ export function Funnel({ steps }: { steps: { label: string; n: number }[] }) {
     );
 }
 
-const StatBox = styled.div`
+const StatBox = styled(m.div).attrs({ variants: item })`
     padding: 16px 18px 10px;
     border-radius: 16px;
     border: 1px solid var(--border);
@@ -450,6 +459,21 @@ const StatBox = styled.div`
 `;
 
 // A headline number, how it changed since the period before, and a small trend.
+// A number that counts up to its value, and glides when it changes.
+function CountUp({ to }: { to: number }) {
+    const [shown, setShown] = useState(0);
+    const from = useRef(0);
+    useEffect(() => {
+        if (matchMedia("(prefers-reduced-motion: reduce)").matches || navigator.webdriver) {
+            setShown(to);
+            return;
+        }
+        const c = animate(from.current, to, { duration: 0.7, ease: [0.22, 1, 0.36, 1], onUpdate: (v) => ((from.current = v), setShown(v)) });
+        return () => c.stop();
+    }, [to]);
+    return <>{Math.round(shown).toLocaleString()}</>;
+}
+
 export function Stat({
     label,
     value,
@@ -472,7 +496,7 @@ export function Stat({
     return (
         <StatBox>
             <div className="top">
-                <b>{typeof value === "number" ? value.toLocaleString() : value}</b>
+                <b>{typeof value === "number" ? <CountUp to={value} /> : value}</b>
                 {change !== undefined && (
                     <span
                         className="delta"
