@@ -1,11 +1,16 @@
 import { FilesetResolver, HandLandmarker } from "@mediapipe/tasks-vision";
 
 const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.0/wasm";
-const MODEL_URL =
-    "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+// Served from the app itself: Google's copy can take a minute to download.
+// The name has a version, so it can be cached for good; a new model gets a new name.
+const MODEL_URL = "/mediapipe/hand_landmarker-float16-v1.task";
 
 export type WorkerHand = { handedness: "Left" | "Right"; score: number; landmarks: number[]; world?: number[] };
-export type WorkerMessage = { type: "ready"; delegate: string } | { type: "hands"; time: number; hands: WorkerHand[] } | { type: "error"; message: string };
+export type WorkerMessage =
+    | { type: "progress"; loaded: number; total: number }
+    | { type: "ready"; delegate: string }
+    | { type: "hands"; time: number; hands: WorkerHand[] }
+    | { type: "error"; message: string };
 
 let landmarker: HandLandmarker | null = null;
 
@@ -20,10 +25,39 @@ Object.assign(self, {
     },
 });
 
-async function create(delegate: "GPU" | "CPU") {
-    const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
+// The model, fetched here rather than by MediaPipe so its download can show
+// progress. It's the biggest part of starting up.
+async function fetchModel(): Promise<Uint8Array> {
+    const res = await fetch(MODEL_URL);
+    if (!res.ok || !res.body) throw new Error(`Model download failed (${res.status})`);
+    const total = Number(res.headers.get("content-length")) || 7_800_000;
+    const reader = res.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let loaded = 0;
+    let lastSent = 0;
+    for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        loaded += value.length;
+        if (loaded - lastSent > total / 50) {
+            lastSent = loaded;
+            post({ type: "progress", loaded, total });
+        }
+    }
+    const model = new Uint8Array(loaded);
+    let at = 0;
+    for (const c of chunks) {
+        model.set(c, at);
+        at += c.length;
+    }
+    post({ type: "progress", loaded, total: loaded });
+    return model;
+}
+
+async function create(fileset: Awaited<ReturnType<typeof FilesetResolver.forVisionTasks>>, model: Uint8Array, delegate: "GPU" | "CPU") {
     return HandLandmarker.createFromOptions(fileset, {
-        baseOptions: { modelAssetPath: MODEL_URL, delegate },
+        baseOptions: { modelAssetBuffer: model, delegate },
         runningMode: "VIDEO",
         numHands: 2,
         minHandDetectionConfidence: 0.6,
@@ -36,15 +70,18 @@ const post = (msg: WorkerMessage, transfer: Transferable[] = []) => self.postMes
 
 (async () => {
     try {
-        landmarker = await create("GPU");
-        post({ type: "ready", delegate: "GPU" });
-    } catch {
+        // The engine and the model download side by side.
+        const [fileset, model] = await Promise.all([FilesetResolver.forVisionTasks(WASM_URL), fetchModel()]);
         try {
-            landmarker = await create("CPU");
+            landmarker = await create(fileset, model, "GPU");
+            post({ type: "ready", delegate: "GPU" });
+        } catch {
+            // No usable graphics: the same files, run on the processor.
+            landmarker = await create(fileset, model, "CPU");
             post({ type: "ready", delegate: "CPU" });
-        } catch (error) {
-            post({ type: "error", message: String(error) });
         }
+    } catch (error) {
+        post({ type: "error", message: String(error) });
     }
 })();
 
