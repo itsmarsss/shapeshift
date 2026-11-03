@@ -14,6 +14,7 @@ import { GridScale } from "./GridScale";
 import { HistoryPanel } from "./HistoryPanel";
 import { StartCard } from "./StartCard";
 import { ViewCube } from "./ViewCube";
+import { Tooltips } from "./Tooltip";
 import { Viewport } from "../viewport/Viewport";
 import { useShortcuts } from "../hooks/useShortcuts";
 import { useUI } from "../ui/store";
@@ -101,6 +102,7 @@ export function Layout() {
             <OfflineNote />
             <StartCard />
             <ViewCube />
+            <Tooltips />
             <Suspense fallback={null}>
                 <ChatPanel />
                 {handsOn && <HandUI />}

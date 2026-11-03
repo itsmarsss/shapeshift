@@ -115,9 +115,16 @@ export function magnetAt(handedness: Handedness, x: number, y: number): HTMLElem
     return best;
 }
 
-// Where to draw a hand's cursor in pixels, when a control has pulled it.
+// A shape the hand is near but not on pulls the cursor too; HandControls
+// sets where (in window pixels) it should be drawn.
+const shapePull: Record<Handedness, [number, number] | null> = { Left: null, Right: null };
+export function pullToShape(handedness: Handedness, at: [number, number] | null) {
+    shapePull[handedness] = at;
+}
+
+// Where to draw a hand's cursor in pixels, when a control or shape has pulled it.
 export function cursorPull(handedness: Handedness): [number, number] | null {
-    return drawn[handedness];
+    return drawn[handedness] ?? shapePull[handedness];
 }
 
 export function hoveredControl(handedness: Handedness): HTMLElement | null {
@@ -131,6 +138,9 @@ function mark(el: HTMLElement | null, on: boolean) {
     else delete el.dataset.handHover;
 }
 
+// Sent when a hand moves onto a control (or off, with null), for its tooltip.
+export const HAND_HOVER_EVENT = "shapeshift:hand-hover";
+
 // Highlights the control a hand is over, or clears it with null.
 export function hoverControl(handedness: Handedness, el: HTMLElement | null) {
     if (!el) drawn[handedness] = null;
@@ -139,6 +149,7 @@ export function hoverControl(handedness: Handedness, el: HTMLElement | null) {
     hovered[handedness] = el;
     mark(before, false);
     mark(el, true);
+    window.dispatchEvent(new CustomEvent(HAND_HOVER_EVENT, { detail: el }));
 }
 
 export function isOverControl(handedness: Handedness) {

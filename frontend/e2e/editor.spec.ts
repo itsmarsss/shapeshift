@@ -106,6 +106,16 @@ test('drags a shape across the floor, and orbits when dragging empty space', asy
   // Press on the box, left of the gizmo in the middle, and pull it right.
   await drag(canvas.x + canvas.width / 2 - 60, canvas.y + canvas.height / 2, 160, 0)
   await expect.poll(async () => (await position())?.[0] ?? 0).toBeGreaterThan(0.3)
+  // The scene saves a moment after the drag ends; wait until it has settled.
+  let last = ''
+  await expect
+    .poll(async () => {
+      const now = JSON.stringify(await position())
+      const same = now === last
+      last = now
+      return same
+    }, { intervals: [400] })
+    .toBe(true)
   const moved = await position()
   expect(moved?.[1]).toBeCloseTo(0.5)
 
