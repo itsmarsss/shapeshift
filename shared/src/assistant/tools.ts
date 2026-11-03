@@ -65,10 +65,43 @@ function issues(error: z.ZodError) {
         .join("; ");
 }
 
+// Arguments as JSON, forgiving the slips smaller models make: a code fence
+// around it, trailing commas, or text before or after the object.
+export function looseJson(raw: string): unknown {
+    const text = raw.trim();
+    if (!text) return {};
+    try {
+        return JSON.parse(text);
+    } catch {
+        // Keep going with the repairs below.
+    }
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    if (start < 0 || end <= start) throw new SyntaxError("Not JSON");
+    return JSON.parse(text.slice(start, end + 1).replace(/,\s*([}\]])/g, "$1"));
+}
+
+// Text fields stay text even when they look like numbers ("1" as a name).
+const TEXT_KEYS = new Set(["name", "target", "text", "group", "label", "preset", "color", "emissive", "primitive", "type", "property", "axis"]);
+
+// Numbers sent as text ("0.5") become numbers, and a shape's size gets its
+// type from the primitive when it's left out. Both are common slips.
+function tidyArgs(value: unknown, key = ""): unknown {
+    if (typeof value === "string" && !TEXT_KEYS.has(key) && /^-?\d+(\.\d+)?(e-?\d+)?$/i.test(value.trim())) return Number(value);
+    if (Array.isArray(value)) return value.map((v) => tidyArgs(v, key));
+    if (value && typeof value === "object") {
+        const out = Object.fromEntries(Object.entries(value).map(([k, v]) => [k, tidyArgs(v, k)]));
+        const o = out as { primitive?: unknown; geometry?: Record<string, unknown> };
+        if (o.geometry && typeof o.geometry === "object" && !o.geometry.type && typeof o.primitive === "string") o.geometry = { type: o.primitive, ...o.geometry };
+        return out;
+    }
+    return value;
+}
+
 export function parseToolCall(name: string, rawArgs: string): ParsedTool {
     let args: unknown;
     try {
-        args = rawArgs.trim() ? JSON.parse(rawArgs) : {};
+        args = tidyArgs(looseJson(rawArgs));
     } catch {
         return { ok: false, error: "The arguments were not valid JSON" };
     }

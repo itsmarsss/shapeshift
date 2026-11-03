@@ -10,6 +10,7 @@ interface __BaseEnv_Env {
 	AGENT_MODEL: string;
 	AGENT_MODEL_PRO: string;
 	AGENT_EFFORT: string;
+	FREE_MODEL: string;
 	ROOMS: DurableObjectNamespace<import("./src/index").Room>;
 }
 declare namespace Cloudflare {
