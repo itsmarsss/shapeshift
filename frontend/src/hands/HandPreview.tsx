@@ -5,16 +5,19 @@ import styled from "styled-components";
 import { CameraSlash, CircleNotch, Play, Record, Stop } from "@phosphor-icons/react";
 import { download } from "../scene/io";
 import { live, recording, replay, useHands, type Recording } from "./tracker";
-import { IconButton } from "../components/ui";
+import { IconButton, TextButton } from "../components/ui";
+import { useDraggable } from "../ui/hooks";
 import { useSettings } from "../settings/store";
 
+// Small, beside the toolbar, and it stays put when panels open; drag it
+// anywhere by the picture.
 const Box = styled.div`
     position: absolute;
-    bottom: calc(var(--gap) + var(--bottom-offset, 0px));
-    // Beside the toolbar and inspector, not under them.
-    left: max(var(--gap), var(--left-inset, 0px));
-    width: 220px;
+    bottom: calc(var(--gap) + 28px + var(--bottom-offset, 0px));
+    left: calc(70px + var(--gap));
+    width: 176px;
     padding: 4px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
@@ -59,11 +62,48 @@ const Overlay = styled.div`
     }
 `;
 
+const Bar = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 4px 4px 0;
+    font-size: 11px;
+    color: var(--text-muted);
+
+    .live {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .live i {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--success);
+    }
+`;
+
+// Opens beside the preview, wide enough to read in a line each.
 const Legend = styled.div`
+    position: absolute;
+    left: calc(100% + 8px);
+    bottom: 0;
+    width: 270px;
     display: grid;
     grid-template-columns: auto 1fr;
-    gap: 2px 8px;
-    padding: 6px 6px 2px;
+    gap: 4px 10px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    @media ${COMPACT} {
+        left: 0;
+        bottom: auto;
+        top: calc(100% + 8px);
+        width: min(270px, calc(100vw - 24px));
+    }
     color: var(--text-faint);
     font-size: 11px;
 
@@ -99,6 +139,8 @@ export function HandPreview() {
     const [rec, setRec] = useState(false);
     const showPreview = useSettings((s) => s.showHandPreview);
     const fileRef = useRef<HTMLInputElement>(null);
+    const [showGestures, setShowGestures] = useState(false);
+    const drag = useDraggable<HTMLDivElement>("hand-preview");
 
     useEffect(() => {
         let raf = 0;
@@ -144,8 +186,8 @@ export function HandPreview() {
     }
 
     return (
-        <Box>
-            <Frame>
+        <Box ref={drag.ref} style={drag.style}>
+            <Frame {...drag.handle} title="Drag to move">
                 <canvas ref={canvas} />
                 {status === "starting" && (
                     <Overlay>
@@ -182,6 +224,16 @@ export function HandPreview() {
                 )}
             </Frame>
             {status === "running" && (
+                <Bar>
+                    <span className="live">
+                        <i /> Tracking
+                    </span>
+                    <TextButton $size="sm" aria-expanded={showGestures} onClick={() => setShowGestures(!showGestures)}>
+                        {showGestures ? "Hide gestures" : "Gestures"}
+                    </TextButton>
+                </Bar>
+            )}
+            {status === "running" && showGestures && (
                 <Legend>
                     <b>Pinch an object</b>
                     <span>Grab and move it</span>

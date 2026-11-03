@@ -9,7 +9,7 @@ import { useSettings } from "../settings/store";
 import { useUI } from "../ui/store";
 import { frameSelection } from "../viewport/frame";
 import { pop } from "../ui/motion";
-import { useHandActivity, useHandMenu } from "./menu";
+import { useHandActivity, useHandMenu, useHandToast } from "./menu";
 import { live, useHands } from "./tracker";
 
 // A walk through the gestures the first time hand control is on. Each step
@@ -35,13 +35,20 @@ const activity = () => useHandActivity.getState().activity;
 
 // The furthest a held shape has been pushed and pulled since the push step
 // began. Both count once they pass a few centimetres, past the dead zone.
-const REACH_GOAL = 0.04;
+const REACH_GOAL = 0.02;
 const reached = { push: 0, pull: 0 };
-useHandActivity.subscribe(({ activity, reach }) => {
+// Things that happen once and are gone by the next frame: a two-hand trick
+// (each shows a note) and a button pressed by hand.
+const happened = { toasts: 0, presses: 0 };
+useHandActivity.subscribe(({ activity, reach }, prev) => {
+    if (prev.activity === "press" && activity !== "press") happened.presses++;
     if (activity !== "object") return;
     reached.push = Math.max(reached.push, reach);
     reached.pull = Math.max(reached.pull, -reach);
 });
+useHandToast.subscribe(() => happened.toasts++);
+let since = { toasts: 0, presses: 0 };
+const mark = () => (since = { ...happened });
 
 // Puts a shape in view to work with, if there isn't one.
 function ensureShape() {
@@ -101,6 +108,8 @@ const STEPS: Step[] = [
         text: "While one hand holds a shape, tap with the other: on empty space it leaves a copy, on another shape it selects that too. Open the other palm for a menu for the shape you're holding.",
         Icon: HandGrabbing,
         motion: "pinch",
+        done: () => happened.toasts > since.toasts,
+        setup: () => (ensureShape(), mark()),
     },
     {
         title: "Open your palm",
@@ -114,6 +123,8 @@ const STEPS: Step[] = [
         text: "Point at a button until it's outlined, then pinch and let go to press it. Pinch and move to scroll a panel or drag a slider. Try it on Finish.",
         Icon: CursorClick,
         motion: "tap",
+        done: () => happened.presses > since.presses,
+        setup: mark,
     },
 ];
 
@@ -280,6 +291,9 @@ const MeterBox = styled.div`
     }
 `;
 
+// The best so far, against the goal, so it's clear the camera sees the reach.
+const cm = (m: number) => `${(Math.max(0, m) * 100).toFixed(1)} of ${REACH_GOAL * 100} cm`;
+
 // How far the held shape is pushed or pulled right now, with both goals.
 function ReachMeter() {
     const holding = useHandActivity((s) => s.activity === "object");
@@ -293,8 +307,8 @@ function ReachMeter() {
                 <span className="fill" style={share >= 0 ? { left: "50%", width: `${share * 50}%` } : { left: `${50 + share * 50}%`, width: `${-share * 50}%` }} />
             </div>
             <div className="ends">
-                <span data-done={reached.pull >= REACH_GOAL}>{reached.pull >= REACH_GOAL ? "✓ Pulled closer" : "← Pull back"}</span>
-                <span data-done={reached.push >= REACH_GOAL}>{reached.push >= REACH_GOAL ? "Pushed away ✓" : "Reach in →"}</span>
+                <span data-done={reached.pull >= REACH_GOAL}>{reached.pull >= REACH_GOAL ? "✓ Pulled closer" : `← Pull back · ${cm(reached.pull)}`}</span>
+                <span data-done={reached.push >= REACH_GOAL}>{reached.push >= REACH_GOAL ? "Pushed away ✓" : `Reach in · ${cm(reached.push)} →`}</span>
             </div>
         </MeterBox>
     );
@@ -342,10 +356,11 @@ export function HandTutorial() {
         if (!ticked) return;
         const timer = setTimeout(() => {
             setTicked(false);
-            setIndex((i) => Math.min(i + 1, STEPS.length - 1));
+            if (index === STEPS.length - 1) finish();
+            else setIndex(index + 1);
         }, CELEBRATE_MS);
         return () => clearTimeout(timer);
-    }, [ticked]);
+    }, [ticked, index]);
 
     return (
         <AnimatePresence>

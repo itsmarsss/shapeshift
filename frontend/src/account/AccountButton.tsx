@@ -80,7 +80,7 @@ export function AccountButton() {
     if (!user)
         return (
             <Wrap>
-                <SignIn title="Sign in to save scenes to the cloud" onClick={() => useAccount.getState().setShowSignIn(true)}>
+                <SignIn data-guide="account" title="Sign in to save scenes to the cloud" onClick={() => useAccount.getState().setShowSignIn(true)}>
                     <UserCircle size={18} />
                     <span>Sign in</span>
                 </SignIn>
@@ -90,7 +90,7 @@ export function AccountButton() {
     const label = user.name || user.email;
     return (
         <Wrap ref={ref}>
-            <Avatar as="button" title={label} onClick={() => setOpen((v) => !v)}>
+            <Avatar as="button" data-guide="account" title={label} onClick={() => setOpen((v) => !v)}>
                 {initials(label)}
                 {cloudId && <Dot $state={save} />}
             </Avatar>

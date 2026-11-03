@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import type React from "react";
 
 // Closes a menu or popover on a press outside it, or on Escape.
 export function useDismiss(ref: RefObject<HTMLElement | null>, open: boolean, close: () => void) {
@@ -63,4 +64,77 @@ export function useScrollEdges(ref: RefObject<HTMLElement | null>, key?: unknown
             ro.disconnect();
         };
     }, [ref, key]);
+}
+
+// Lets a floating card be dragged anywhere and remembers where, per `key`.
+// Until it's moved it stays where its CSS puts it. Spread `handle` on the part
+// to drag by; a press that moves less than a few pixels is still a click.
+export function useDraggable<T extends HTMLElement>(key: string) {
+    const ref = useRef<T>(null);
+    const storageKey = `shapeshift-place-${key}`;
+    const [place, setPlace] = useState<{ x: number; y: number } | null>(() => {
+        try {
+            const saved = localStorage.getItem(storageKey);
+            return saved ? (JSON.parse(saved) as { x: number; y: number }) : null;
+        } catch {
+            return null;
+        }
+    });
+    const moved = useRef(false);
+
+    // Kept on screen when the window shrinks.
+    const clamp = useCallback((p: { x: number; y: number }) => {
+        const el = ref.current;
+        const w = el?.offsetWidth ?? 0;
+        const h = el?.offsetHeight ?? 0;
+        return { x: Math.min(Math.max(8, p.x), window.innerWidth - w - 8), y: Math.min(Math.max(8, p.y), window.innerHeight - h - 8) };
+    }, []);
+    useEffect(() => {
+        if (!place) return;
+        const fit = () => setPlace((p) => (p ? clamp(p) : p));
+        fit();
+        window.addEventListener("resize", fit);
+        return () => window.removeEventListener("resize", fit);
+    }, [place === null, clamp]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const onPointerDown = useCallback(
+        (e: React.PointerEvent) => {
+            const el = ref.current;
+            if (!el || e.button !== 0) return;
+            const rect = el.getBoundingClientRect();
+            const from = { x: e.clientX, y: e.clientY };
+            moved.current = false;
+            let last: { x: number; y: number } | null = null;
+            const move = (ev: PointerEvent) => {
+                if (!moved.current && Math.hypot(ev.clientX - from.x, ev.clientY - from.y) < 4) return;
+                moved.current = true;
+                last = clamp({ x: rect.left + ev.clientX - from.x, y: rect.top + ev.clientY - from.y });
+                setPlace(last);
+            };
+            const up = () => {
+                window.removeEventListener("pointermove", move);
+                window.removeEventListener("pointerup", up);
+                if (last)
+                    try {
+                        localStorage.setItem(storageKey, JSON.stringify(last));
+                    } catch {
+                        // Remembering is optional.
+                    }
+            };
+            window.addEventListener("pointermove", move);
+            window.addEventListener("pointerup", up);
+        },
+        [clamp, storageKey],
+    );
+    // A drag that ends over a button isn't a press of it.
+    const onClickCapture = useCallback((e: React.MouseEvent) => {
+        if (moved.current) {
+            e.stopPropagation();
+            e.preventDefault();
+            moved.current = false;
+        }
+    }, []);
+
+    const style: React.CSSProperties | undefined = place ? { position: "fixed", left: place.x, top: place.y, right: "auto", bottom: "auto", translate: "none", transform: "none" } : undefined;
+    return { ref, style, handle: { onPointerDown, onClickCapture, style: { cursor: "grab", touchAction: "none" } as React.CSSProperties }, dragged: place !== null };
 }

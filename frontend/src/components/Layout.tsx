@@ -15,6 +15,7 @@ import { HistoryPanel } from "./HistoryPanel";
 import { StartCard } from "./StartCard";
 import { FirstSteps } from "./FirstSteps";
 import { HandStartup } from "../hands/HandStartup";
+import { Guide } from "./Guide";
 import { ViewCube } from "./ViewCube";
 import { Tooltips } from "./Tooltip";
 import { RoomChat } from "../collab/RoomChat";
@@ -106,6 +107,7 @@ export function Layout() {
             <StartCard />
             <FirstSteps />
             <HandStartup />
+            <Guide />
             <ViewCube />
             <Tooltips />
             <RoomChat />
