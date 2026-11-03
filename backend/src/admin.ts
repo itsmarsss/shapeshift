@@ -3,6 +3,7 @@ import { can, PERMISSIONS, ROLE_IDS, type Permission, type Role } from "@shapesh
 import { currentUser, Email, fail, isLocal, json, type User } from "./auth";
 import { feedbackPictureKey } from "./feedback";
 import { databaseMetrics, eventMetrics } from "./metrics";
+import { assistantMetrics, dashboard, deleteScene, deleteUser, getUser, listScenes, listUsers, resetPrompts, sceneOwner, sceneThumbnail, signOutEverywhere } from "./adminData";
 
 // /api/admin/*: the team's admin page. Every request checks the signed-in
 // person's role and the permission the action needs. To anyone who isn't an
@@ -98,12 +99,12 @@ export async function handleAdmin(request: Request, env: Env): Promise<Response 
         if (!allowed("feedback.read")) return forbidden();
         const before = Number(searchParams.get("before")) || Date.now() + 1;
         const { results } = await env.DB.prepare(
-            "SELECT id, created_at, email, page, message, has_picture, read_at FROM feedback WHERE created_at < ?1 ORDER BY created_at DESC LIMIT 30",
+            "SELECT id, created_at, email, user_id, page, message, has_picture, read_at FROM feedback WHERE created_at < ?1 AND (?2 = 0 OR read_at IS NULL) AND message LIKE ?3 ORDER BY created_at DESC LIMIT 30",
         )
-            .bind(before)
-            .all<{ id: string; created_at: number; email: string | null; page: string | null; message: string; has_picture: number; read_at: number | null }>();
+            .bind(before, searchParams.get("unread") === "1" ? 1 : 0, `%${(searchParams.get("q") ?? "").replace(/[%_]/g, "").slice(0, 100)}%`)
+            .all<{ id: string; created_at: number; email: string | null; user_id: string | null; page: string | null; message: string; has_picture: number; read_at: number | null }>();
         return json({
-            items: results.map((r) => ({ id: r.id, at: r.created_at, email: r.email, page: r.page, message: r.message, picture: Boolean(r.has_picture), read: r.read_at !== null })),
+            items: results.map((r) => ({ id: r.id, at: r.created_at, email: r.email, userId: r.user_id, page: r.page, message: r.message, picture: Boolean(r.has_picture), read: r.read_at !== null })),
             next: results.length === 30 ? results[results.length - 1].created_at : null,
         });
     }
@@ -123,22 +124,77 @@ export async function handleAdmin(request: Request, env: Env): Promise<Response 
         return json({ ok: true });
     }
 
+    const page = Math.max(0, Number(searchParams.get("page")) || 0);
+    const param = (name: string) => (searchParams.get(name) ?? "").trim();
+
+    if (path === "/dashboard" && method === "GET") {
+        if (!allowed("overview")) return forbidden();
+        return json(await dashboard(env));
+    }
+    if (path === "/metrics/assistant" && method === "GET") {
+        if (!allowed("metrics")) return forbidden();
+        return json(await assistantMetrics(env));
+    }
+
     if (path === "/users" && method === "GET") {
         if (!allowed("users.read")) return forbidden();
-        const q = (searchParams.get("q") ?? "").trim().toLowerCase().slice(0, 100);
-        const { results } = await env.DB.prepare(
-            `SELECT u.id, u.email, u.name, u.plan, u.plan_status, u.created_at,
-                (SELECT COUNT(*) FROM scenes s WHERE s.owner_id = u.id) AS scenes,
-                (SELECT role FROM admins a WHERE a.user_id = u.id) AS role
-             FROM users u WHERE u.email LIKE ?1 ORDER BY u.created_at DESC LIMIT 50`,
-        )
-            .bind(`%${q.replace(/[%_]/g, "")}%`)
-            .all<{ id: string; email: string; name: string | null; plan: string; plan_status: string | null; created_at: number; scenes: number; role: Role | null }>();
-        const fixed = superuserEmails(env, request);
-        return json({
-            users: results.map((u) => ({ ...u, role: fixed.has(u.email) ? "superuser" : u.role, joined: u.created_at })),
-        });
+        return json(await listUsers(env, { q: param("q"), plan: param("plan"), role: param("role"), scenes: param("scenes"), sort: param("sort"), dir: param("dir"), page }, superuserEmails(env, request)));
     }
+    const person = path.match(/^\/users\/([\w-]+)$/);
+    if (person && method === "GET") {
+        if (!allowed("users.read")) return forbidden();
+        const found = await getUser(env, person[1], superuserEmails(env, request));
+        return found ? json(found) : notFound();
+    }
+    const personAction = path.match(/^\/users\/([\w-]+)\/(signout|usage\/reset)$/);
+    if (personAction && method === "POST") {
+        if (!allowed("users.manage")) return forbidden();
+        const target = await env.DB.prepare("SELECT email FROM users WHERE id = ?1").bind(personAction[1]).first<{ email: string }>();
+        if (!target) return notFound();
+        if (personAction[2] === "signout") await signOutEverywhere(env, personAction[1]);
+        else await resetPrompts(env, personAction[1]);
+        await log(env, admin, personAction[2] === "signout" ? "sign out" : "reset prompts", target.email);
+        return json({ ok: true });
+    }
+    if (person && method === "DELETE") {
+        if (!allowed("users.delete")) return forbidden();
+        const target = await env.DB.prepare("SELECT email, plan, plan_status, stripe_customer_id FROM users WHERE id = ?1")
+            .bind(person[1])
+            .first<{ email: string; plan: string; plan_status: string | null; stripe_customer_id: string | null }>();
+        if (!target) return notFound();
+        if (person[1] === admin.user.id || superuserEmails(env, request).has(target.email)) return fail(400, "Superusers can't be deleted here.");
+        if (target.plan === "pro" && target.plan_status !== "manual" && target.stripe_customer_id)
+            return fail(409, "They're paying for Pro. Cancel their subscription in Stripe first.", "subscribed");
+        await deleteUser(env, person[1]);
+        await log(env, admin, "delete account", target.email);
+        return json({ ok: true });
+    }
+
+    if (path === "/scenes" && method === "GET") {
+        if (!allowed("scenes.moderate") && !allowed("users.read")) return forbidden();
+        return json(await listScenes(env, { q: param("q"), shared: param("shared"), listed: param("listed"), sort: param("sort"), dir: param("dir"), owner: param("owner"), page }));
+    }
+    const sceneThumb = path.match(/^\/scenes\/([\w-]+)\/thumbnail$/);
+    if (sceneThumb && method === "GET") {
+        if (!allowed("scenes.moderate") && !allowed("users.read")) return forbidden();
+        const file = await sceneThumbnail(env, sceneThumb[1]);
+        if (!file) return notFound();
+        return new Response(file.body, { headers: { "content-type": "image/jpeg", "cache-control": "private, max-age=600" } });
+    }
+    const sceneAction = path.match(/^\/scenes\/([\w-]+)\/(unlist|unshare)$/);
+    const sceneOne = path.match(/^\/scenes\/([\w-]+)$/);
+    if ((sceneAction && method === "POST") || (sceneOne && method === "DELETE")) {
+        if (!allowed("scenes.moderate") && !allowed("users.manage")) return forbidden();
+        const id = (sceneAction ?? sceneOne)![1];
+        const scene = await sceneOwner(env, id);
+        if (!scene) return notFound();
+        if (sceneOne) await deleteScene(env, id, scene.owner_id);
+        else if (sceneAction![2] === "unlist") await env.DB.prepare("UPDATE scenes SET listed = 0 WHERE id = ?1").bind(id).run();
+        else await env.DB.prepare("UPDATE scenes SET public_slug = NULL, listed = 0 WHERE id = ?1").bind(id).run();
+        await log(env, admin, sceneOne ? "delete scene" : sceneAction![2], `“${scene.title}” of ${scene.email}`);
+        return json({ ok: true });
+    }
+
     const plan = path.match(/^\/users\/([\w-]+)\/plan$/);
     if (plan && method === "POST") {
         if (!allowed("users.plans")) return forbidden();
