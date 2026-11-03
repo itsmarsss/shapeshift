@@ -39,3 +39,28 @@ export function useCopy<K extends string = "text">(ms = 1600) {
     );
     return { copied, copy };
 }
+
+// Marks a sideways-scrolling row with which ends have more to scroll to
+// (data-more="start", "end" or "both"), so `fadeEdges` can fade those ends.
+export function useScrollEdges(ref: RefObject<HTMLElement | null>, key?: unknown) {
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+        const mark = () => {
+            const start = el.scrollLeft > 2;
+            const end = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+            const more = start && end ? "both" : start ? "start" : end ? "end" : "";
+            if (more) el.dataset.more = more;
+            else delete el.dataset.more;
+        };
+        mark();
+        el.addEventListener("scroll", mark, { passive: true });
+        const ro = new ResizeObserver(mark);
+        ro.observe(el);
+        for (const child of el.children) ro.observe(child);
+        return () => {
+            el.removeEventListener("scroll", mark);
+            ro.disconnect();
+        };
+    }, [ref, key]);
+}

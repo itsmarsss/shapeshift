@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import styled from "styled-components";
 import { Modal } from "../components/Modal";
 import { Cube, Database, Hand, HandPointing, Keyboard, Monitor, PencilSimple, X } from "@phosphor-icons/react";
 import { useUI } from "../ui/store";
 import { useHands } from "../hands/tracker";
 import { useSettings, type Settings } from "./store";
-import { Button, IconButton, Segment, Segmented, Select } from "../components/ui";
+import { Button, fadeEdges, IconButton, Segment, Segmented, Select } from "../components/ui";
+import { useScrollEdges } from "../ui/hooks";
 
 
 const Dialog = styled(Modal)`
@@ -32,6 +33,8 @@ const Nav = styled.nav`
     @media (max-width: 560px) {
         flex-direction: row;
         overflow-x: auto;
+        scrollbar-width: none;
+        ${fadeEdges}
         border-right: none;
         border-bottom: 1px solid var(--border);
     }
@@ -605,13 +608,15 @@ export function SettingsModal() {
     const setOpen = useUI((s) => s.setShowSettings);
     const [section, setSection] = useState<SectionId>("appearance");
     const close = useCallback(() => setOpen(false), [setOpen]);
+    const nav = useRef<HTMLElement>(null);
+    useScrollEdges(nav, open);
 
     if (!open) return null;
     const current = SECTIONS.find((s) => s.id === section)!;
 
     return (
         <Dialog label="Settings" onClose={close}>
-            <Nav>
+            <Nav ref={nav}>
                 <NavTitle>Settings</NavTitle>
                 {SECTIONS.map(({ id, label, Icon }) => (
                     <NavItem key={id} type="button" $active={id === section} onClick={() => setSection(id)}>

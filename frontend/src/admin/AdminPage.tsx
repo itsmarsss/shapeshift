@@ -21,6 +21,8 @@ import { Empty } from "../site/parts";
 import { api } from "./api";
 import { go, useRoute } from "./nav";
 import { Badge, Toasts } from "./ui";
+import { fadeEdges } from "../components/ui";
+import { useScrollEdges } from "../ui/hooks";
 import { EASE_OUT, rise } from "../ui/motion";
 import { People } from "./sections/People";
 import { Person } from "./sections/Person";
@@ -142,6 +144,8 @@ const Side = styled.nav`
         flex-direction: row;
         flex-wrap: nowrap;
         overflow-x: auto;
+        scrollbar-width: none;
+        ${fadeEdges}
         gap: 6px;
 
         .me,
@@ -213,6 +217,8 @@ export default function AdminPage() {
     const [me, setMe] = useState<Me | null | false>(null);
     const [unread, setUnread] = useState(0);
     const route = useRoute();
+    const side = useRef<HTMLElement>(null);
+    useScrollEdges(side, me);
 
     const refreshUnread = () =>
         void api<{ attention: { unread: number } }>("/dashboard")
@@ -287,7 +293,7 @@ export default function AdminPage() {
     return (
         <SiteShell page="admin" wide>
             <Frame>
-                <Side aria-label="Admin sections">
+                <Side aria-label="Admin sections" ref={side}>
                     <Marker current={current?.id} />
                     <div className="me">
                         <b title={me.email}>{me.email}</b>

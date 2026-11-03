@@ -102,6 +102,21 @@ export const PanelTitle = styled.div`
     font-weight: 600;
 `;
 
+// Fades the ends of a sideways-scrolling row that has more beyond them. Pair
+// with useScrollEdges on the same element.
+export const fadeEdges = css`
+    --fade: 28px;
+    &[data-more="end"] {
+        mask-image: linear-gradient(to right, #000 calc(100% - var(--fade)), transparent);
+    }
+    &[data-more="start"] {
+        mask-image: linear-gradient(to left, #000 calc(100% - var(--fade)), transparent);
+    }
+    &[data-more="both"] {
+        mask-image: linear-gradient(to right, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
+    }
+`;
+
 const control = css`
     height: 30px;
     border-radius: var(--radius);
