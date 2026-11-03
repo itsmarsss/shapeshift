@@ -277,10 +277,8 @@ test('keeps the get-started card clear of the side panels', async ({ page }) => 
   await page.setViewportSize({ width: 1280, height: 720 })
   await openEditor(page)
   const card = page.getByRole('region', { name: 'Get started' })
-  // With nothing selected the inspector stays out of the way.
-  await expect(page.getByText('Inspector', { exact: true })).toHaveCount(0)
-  // Opened for scene settings, it sits beside the card, not under it.
-  await page.getByTitle('Inspector').click()
+  // Docked, the inspector shows the scene settings beside the card, not under it.
+  await expect(page.getByText('Scene', { exact: true })).toBeVisible()
   const scene = (await page.getByText('Scene', { exact: true }).locator('..').locator('..').boundingBox())!
   expect((await card.boundingBox())!.x).toBeGreaterThanOrEqual(scene.x + scene.width)
 })
