@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { can, PERMISSIONS, ROLE_IDS, type Permission, type Role } from "@shapeshift/shared/admin/roles";
 import { currentUser, Email, fail, isLocal, json, type User } from "./auth";
+import { agentStep, labProvider } from "./agent";
 import { feedbackPictureKey } from "./feedback";
 import { databaseMetrics, errorGroups, eventMetrics } from "./metrics";
 import { assistantMetrics, dashboard, deleteScene, deleteUser, getUser, listScenes, listUsers, resetPrompts, sceneOwner, sceneThumbnail, signOutEverywhere } from "./adminData";
@@ -84,6 +85,14 @@ export async function handleAdmin(request: Request, env: Env): Promise<Response 
             unreadFeedback: await count(env, "SELECT COUNT(*) AS n FROM feedback WHERE read_at IS NULL"),
             promptsThisMonth: await count(env, "SELECT COALESCE(SUM(prompts), 0) AS n FROM usage WHERE period = ?1", period()),
         });
+    }
+
+    // The Model lab: one assistant step on the model it names.
+    if (path === "/agent" && method === "POST") {
+        if (!allowed("models.lab")) return forbidden();
+        const provider = labProvider(env, searchParams.get("model") ?? "");
+        if (!provider) return fail(400, "That model isn't available. Workers AI models start with @cf/, and Claude ones need the key set.", "bad_request");
+        return agentStep(request, env, provider);
     }
 
     if ((path === "/metrics" || path === "/metrics/events") && method === "GET") {

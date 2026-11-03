@@ -14,12 +14,16 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
     window.addEventListener("load", () => void navigator.serviceWorker.register("/sw.js").catch(() => {}));
 }
 
-startAutosave();
-openPendingRemix();
-trackOpen();
+// The Model lab's runs build their own throwaway scenes: no saving, no rooms,
+// nothing counted as a visit.
+if (!location.pathname.startsWith("/lab")) {
+    startAutosave();
+    openPendingRemix();
+    trackOpen();
+    openFromUrl();
+    joinRoomFromUrl();
+}
 watchErrors();
-openFromUrl();
-joinRoomFromUrl();
 
 createRoot(document.getElementById("root")!).render(
     <StrictMode>

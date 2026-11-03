@@ -10,6 +10,7 @@ import {
     ListChecks,
     ShieldCheck,
     Sparkle,
+    Flask,
     SquaresFour,
     TrendUp,
     Users,
@@ -25,6 +26,7 @@ import { fadeEdges } from "../components/ui";
 import { useScrollEdges } from "../ui/hooks";
 import { EASE_OUT, rise } from "../ui/motion";
 import { People } from "./sections/People";
+import { ModelLab } from "./sections/ModelLab";
 import { Person } from "./sections/Person";
 import { Scenes } from "./sections/Scenes";
 import { Assistant, Dashboard, Growth, Health, Usage } from "./sections/Insights";
@@ -173,6 +175,7 @@ const GROUPS: { title: string; sections: Section[] }[] = [
             { id: "growth", label: "Growth", Icon: TrendUp, needs: "metrics" },
             { id: "usage", label: "Usage", Icon: ChartLineUp, needs: "metrics" },
             { id: "assistant", label: "Assistant", Icon: Sparkle, needs: "metrics" },
+            { id: "lab", label: "Model lab", Icon: Flask, needs: "models.lab" },
             { id: "health", label: "Health", Icon: Heartbeat, needs: "metrics" },
         ],
     },
@@ -266,6 +269,9 @@ export default function AdminPage() {
             break;
         case "assistant":
             body = <Assistant />;
+            break;
+        case "lab":
+            body = <ModelLab />;
             break;
         case "health":
             body = <Health />;

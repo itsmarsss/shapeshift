@@ -39,7 +39,17 @@ export async function agentInfo(request: Request, env: Env) {
     return provider ? Response.json(provider.info) : fail("not_configured", "No model is configured.");
 }
 
-export async function agentStep(request: Request, env: Env): Promise<Response> {
+// A model for the Model lab: a Workers AI id ("@cf/...", optionally with
+// "#low" and the like), or a Claude model when the key is set.
+export function labProvider(env: Env, model: string): Provider | null {
+    if (/^@cf\/[\w.\-/]+(#(low|medium|high))?$/.test(model) && env.AI) return workersAiProvider(env, model);
+    if (/^claude-[\w.-]+$/.test(model) && env.ANTHROPIC_API_KEY) return anthropicProvider({ ...env, ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY }, model);
+    return null;
+}
+
+// `lab` runs a step on a chosen model for the Model lab, without counting it
+// against anyone's prompts.
+export async function agentStep(request: Request, env: Env, lab?: Provider): Promise<Response> {
     const ip = request.headers.get("cf-connecting-ip") ?? "unknown";
     const { success } = await env.CHAT_LIMITER.limit({ key: ip });
     if (!success) return fail("rate_limited", "Too many requests. Wait a moment and try again.", 30);
@@ -62,13 +72,13 @@ export async function agentStep(request: Request, env: Env): Promise<Response> {
     if (messages[messages.length - 1].role === "assistant") return fail("bad_request", "The conversation must end with a user message or tool results.");
 
     const subject = await subjectFor(env, request);
-    const provider = pickProvider(env, subject.plan);
+    const provider = lab ?? pickProvider(env, subject.plan);
     if (!provider) return fail("not_configured", "No model is configured.");
 
     // Only a new message from the person counts as a prompt; the steps that
     // follow it carry tool results.
-    const fresh = messages[messages.length - 1].role === "user";
-    if (!(await spend(env, subject, fresh))) return fail("quota", quotaMessage(subject.plan));
+    const fresh = !lab && messages[messages.length - 1].role === "user";
+    if (!lab && !(await spend(env, subject, fresh))) return fail("quota", quotaMessage(subject.plan));
 
     const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
     const writer = writable.getWriter();

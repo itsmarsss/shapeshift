@@ -1,21 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Action as SiteAction } from "../site/parts";
 import { useCopy } from "../ui/hooks";
 import styled from "styled-components";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { CameraControls } from "@react-three/drei";
-import * as THREE from "three";
 import { ArrowSquareOut, Check, Code, Compass, Copy, Cube } from "@phosphor-icons/react";
 import { Button, GlobalStyle, TextArea } from "../components/ui";
-import { evaluate } from "../scene/animation";
 import { SceneDoc } from "@shapeshift/shared/scene/schema";
-import { worldBounds } from "../assistant/assistant";
-import { SceneMesh } from "../viewport/SceneMesh";
-import { cutGeometries } from "../scene/holes";
-import { useCsg } from "../scene/csg";
-import { SceneLight } from "../viewport/SceneLight";
-import { SceneEnvironment } from "../viewport/SceneEnvironment";
 import { REMIX_KEY } from "./remix";
+import { SceneView } from "./SceneView";
 import { embedCode } from "./embed";
 import { SAMPLES } from "../explore/samples";
 import { buildTemplate } from "../scene/templates";
@@ -156,64 +147,6 @@ const EmbedBox = styled.div`
 
 type Shared = { title: string; author: string | null; doc: SceneDoc };
 
-// Points the camera at everything in the scene once it loads.
-function Frame({ doc }: { doc: SceneDoc }) {
-    const controls = useThree((s) => s.controls) as unknown as CameraControls | null;
-    useEffect(() => {
-        if (!controls || !doc.objects.length) return;
-        const box = new THREE.Box3();
-        for (const o of doc.objects) {
-            const b = worldBounds(o);
-            box.expandByPoint(new THREE.Vector3(...b.min)).expandByPoint(new THREE.Vector3(...b.max));
-        }
-        void controls.fitToBox(box, false, { paddingTop: 0.4, paddingBottom: 0.4, paddingLeft: 0.4, paddingRight: 0.4 });
-    }, [controls, doc]);
-    return null;
-}
-
-function Scene({ doc }: { doc: SceneDoc }) {
-    const [time, setTime] = useState(0);
-    const animated = doc.animation.tracks.length > 0;
-    const clock = useRef(0);
-    useFrame((_, delta) => {
-        if (!animated) return;
-        clock.current += delta;
-        const { duration, loop } = doc.animation;
-        setTime(loop ? clock.current % duration : Math.min(clock.current, duration));
-    });
-    const poses = useMemo(() => (animated ? evaluate(doc.animation, time) : new Map()), [animated, doc, time]);
-    const objects = doc.objects.map((o) => {
-        const p = poses.get(o.id);
-        return p ? { ...o, position: p.position ?? o.position, rotation: p.rotation ?? o.rotation, scale: p.scale ?? o.scale, material: p.color ? { ...o.material, color: p.color } : o.material } : o;
-    });
-    useCsg((s) => s.ready);
-    const cuts = cutGeometries(objects);
-    const lights = doc.lights.map((l) => {
-        const p = poses.get(l.id);
-        return p ? { ...l, position: p.position ?? l.position, color: p.color ?? l.color, intensity: p.intensity ?? l.intensity } : l;
-    });
-    return (
-        <>
-            <color attach="background" args={["#0d0e10"]} />
-            <hemisphereLight args={["#ffffff", "#30333a", lights.length ? 0.35 : 0.7]} />
-            {!lights.length && <directionalLight position={[-5, 10, 3]} intensity={1.8} castShadow shadow-mapSize={[2048, 2048]} />}
-            {lights.map((l) => (
-                <SceneLight key={l.id} light={l} selected={false} showMarker={false} onSelect={() => {}} />
-            ))}
-            <SceneEnvironment preset={doc.environment} />
-            {objects.map((o) =>
-                o.hole ? null : <SceneMesh key={o.id} object={o} selected={false} hovered={false} showSelection={false} onSelect={() => {}} cut={cuts.get(o.id)} />
-            )}
-            <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-                <planeGeometry args={[200, 200]} />
-                <shadowMaterial opacity={0.35} />
-            </mesh>
-            <CameraControls makeDefault />
-            <Frame doc={doc} />
-        </>
-    );
-}
-
 function remixDoc(doc: SceneDoc) {
     try {
         localStorage.setItem(REMIX_KEY, JSON.stringify(doc));
@@ -302,9 +235,7 @@ export default function ViewerPage({ slug, sample }: { slug?: string; sample?: s
             )}
             {shared ? (
                 <>
-                    <Canvas shadows dpr={[1, 2]} camera={{ position: [4, 3.5, 6], fov: 45, near: 0.05, far: 500 }} style={{ position: "absolute", inset: 0 }}>
-                        <Scene doc={shared.doc} />
-                    </Canvas>
+                    <SceneView doc={shared.doc} />
                     {embedded && slug ? (
                         <Badge href={`/s/${slug}?remix=1`} target="_blank" rel="noopener" title="Open a copy of this scene in ShapeShift">
                             <img src="/icon.svg" alt="" />
