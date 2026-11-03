@@ -42,6 +42,13 @@ const Head = styled.div`
 
 const Body = styled.div`
     padding: 6px 20px 20px;
+
+    // A dialog's main action is the same size everywhere, as tall as its fields.
+    button[type="submit"],
+    form > button:last-child,
+    & > button:last-child {
+        height: 40px;
+    }
     overflow: auto;
 `;
 

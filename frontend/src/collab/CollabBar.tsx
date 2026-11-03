@@ -25,7 +25,7 @@ const ShareButton = styled.button<{ $live: boolean }>`
     gap: 8px;
     height: 30px;
     padding: 0 10px 0 ${(p) => (p.$live ? "4px" : "10px")};
-    border-radius: 999px;
+    border-radius: var(--radius);
     border: 1px solid ${(p) => (p.$live ? "var(--border-strong)" : "transparent")};
     background: ${(p) => (p.$live ? "transparent" : "var(--accent)")};
     color: ${(p) => (p.$live ? "var(--text)" : "var(--accent-text)")};

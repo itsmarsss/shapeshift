@@ -176,7 +176,7 @@ export const Segmented = styled.div`
 
 export const Segment = styled.button<{ $active: boolean }>`
     ${control}
-    height: 26px;
+    height: 24px;
     padding: 0 12px;
     border-radius: 6px;
     color: ${(p) => (p.$active ? "var(--text)" : "var(--text-muted)")};

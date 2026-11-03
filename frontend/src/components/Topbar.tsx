@@ -116,7 +116,7 @@ const HandsButton = styled.button`
     height: 30px;
     padding: 0 12px;
     margin: 0 2px;
-    border-radius: 999px;
+    border-radius: var(--radius);
     border: 1px solid var(--border-strong);
     background: transparent;
     color: var(--text);

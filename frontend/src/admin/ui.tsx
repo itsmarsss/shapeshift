@@ -49,7 +49,12 @@ export const Toolbar = styled.form`
         height: 38px;
     }
     select {
+        width: auto;
         height: 38px;
+    }
+    button {
+        height: 38px;
+        padding: 0 16px;
     }
 `;
 

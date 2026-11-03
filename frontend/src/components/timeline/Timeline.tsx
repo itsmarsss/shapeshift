@@ -185,9 +185,9 @@ const Length = styled.label`
 
     input {
         width: 44px;
-        height: 22px;
-        padding: 0 4px;
-        border-radius: 6px;
+        height: 24px;
+        padding: 0 6px;
+        border-radius: var(--radius);
         border: 1px solid var(--border);
         background: var(--bg);
         font-variant-numeric: tabular-nums;
