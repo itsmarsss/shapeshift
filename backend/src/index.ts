@@ -9,6 +9,7 @@ import { handleTelemetry } from "./telemetry";
 import { handleFeedback } from "./feedback";
 import { handleBilling } from "./billing";
 import { handleAdmin } from "./admin";
+import { sendErrorDigest } from "./digest";
 
 export { Room } from "./room";
 
@@ -52,5 +53,8 @@ export default {
         }
         if (pathname.startsWith("/api/")) return Response.json({ error: "Not found", code: "bad_request" }, { status: 404 });
         return env.ASSETS.fetch(request);
+    },
+    async scheduled(_controller, env, ctx) {
+        ctx.waitUntil(sendErrorDigest(env).catch((err) => console.error("Error digest failed", err)));
     },
 } satisfies ExportedHandler<Env>;

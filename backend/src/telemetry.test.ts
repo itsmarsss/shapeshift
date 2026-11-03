@@ -32,4 +32,12 @@ describe("telemetry", () => {
         expect(log).toHaveBeenCalledWith("client error", expect.stringContaining('"message":"boom"'));
         log.mockRestore();
     });
+
+    it("keeps where, the message, page, stack, browser and anonymous id of each crash, and nothing about the account", async () => {
+        const e = env();
+        vi.spyOn(console, "error").mockImplementation(() => {});
+        await handleTelemetry(post("/api/errors", { where: "render", message: "boom", stack: "at x", page: "/edit", browser: "Chrome 140 · macOS", id: "abc", email: "a@b.co" }), e);
+        expect(e.EVENTS.writeDataPoint).toHaveBeenCalledWith({ indexes: ["error"], blobs: ["error", "render", "boom", "/edit", "at x", "Chrome 140 · macOS", "abc"], doubles: [1] });
+        vi.restoreAllMocks();
+    });
 });

@@ -52,9 +52,15 @@ export async function handleTelemetry(request: Request, env: Env): Promise<Respo
         return new Response(null, { status: 204 });
     }
 
-    // Also counted, so the admin page can show which errors happen most.
-    // For these, the third text is the message rather than a browser id.
-    (env as Env & { EVENTS?: AnalyticsEngineDataset }).EVENTS?.writeDataPoint({ indexes: ["error"], blobs: ["error", str(body.where, 20), str(body.message, 96)], doubles: [1] });
+    // Also stored, so the admin page can show which errors happen most and
+    // what they looked like. For these, the third text is the message rather
+    // than a browser id; the anonymous id comes last, to count how many
+    // browsers hit each one.
+    (env as Env & { EVENTS?: AnalyticsEngineDataset }).EVENTS?.writeDataPoint({
+        indexes: ["error"],
+        blobs: ["error", str(body.where, 20), str(body.message, 96), str(body.page, 100), str(body.stack, 1200), str(body.browser, 40), str(body.id, 64)],
+        doubles: [1],
+    });
     // Logged as one line so it's easy to search and alert on.
     console.error("client error", JSON.stringify({ where: str(body.where, 20), message: str(body.message, 300), stack: str(body.stack, 1200), page: str(body.page, 100) }));
     return json({ ok: true });

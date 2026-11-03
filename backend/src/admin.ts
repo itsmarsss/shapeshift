@@ -2,7 +2,7 @@ import { z } from "zod";
 import { can, PERMISSIONS, ROLE_IDS, type Permission, type Role } from "@shapeshift/shared/admin/roles";
 import { currentUser, Email, fail, isLocal, json, type User } from "./auth";
 import { feedbackPictureKey } from "./feedback";
-import { databaseMetrics, eventMetrics } from "./metrics";
+import { databaseMetrics, errorGroups, eventMetrics } from "./metrics";
 import { assistantMetrics, dashboard, deleteScene, deleteUser, getUser, listScenes, listUsers, resetPrompts, sceneOwner, sceneThumbnail, signOutEverywhere } from "./adminData";
 
 // /api/admin/*: the team's admin page. Every request checks the signed-in
@@ -17,11 +17,14 @@ export const LOCAL_SUPERUSER = "admin@shapeshift.test";
 
 type Admin = { user: User; role: Role; fixed: boolean };
 
-function superuserEmails(env: Env, request: Request): Set<string> {
-    const listed = (env.SUPERUSER_EMAILS ?? "")
+export const listedSuperusers = (env: Env) =>
+    (env.SUPERUSER_EMAILS ?? "")
         .split(",")
         .map((e) => e.trim().toLowerCase())
         .filter(Boolean);
+
+function superuserEmails(env: Env, request: Request): Set<string> {
+    const listed = listedSuperusers(env);
     return new Set(isLocal(request) ? [...listed, LOCAL_SUPERUSER] : listed);
 }
 
@@ -92,6 +95,18 @@ export async function handleAdmin(request: Request, env: Env): Promise<Response 
         } catch (err) {
             console.error("Admin metrics failed", err);
             return fail(502, "Couldn't read the usage numbers from Cloudflare. Check the analytics token.", "upstream");
+        }
+    }
+
+    if (path === "/metrics/errors" && method === "GET") {
+        if (!allowed("metrics")) return forbidden();
+        if (!env.ANALYTICS_TOKEN) return json({ configured: false, errors: [] });
+        const days = [1, 7, 30, 90].includes(Number(searchParams.get("days"))) ? Number(searchParams.get("days")) : 7;
+        try {
+            return json({ configured: true, days, errors: await errorGroups(env, days) });
+        } catch (err) {
+            console.error("Admin errors failed", err);
+            return fail(502, "Couldn't read the error reports from Cloudflare. Check the analytics token.", "upstream");
         }
     }
 
