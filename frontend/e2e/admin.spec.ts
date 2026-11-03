@@ -79,3 +79,35 @@ test('shows each reported error with its stack trace on Health', async ({ page }
   await first.click()
   await expect(page.getByText('at Inspector (Inspector.tsx:42)')).toHaveCount(0)
 })
+
+test('runs models side by side in the Model lab and keeps the runs', async ({ page }) => {
+  // A scripted model, so no real one is used: a box, then a summary.
+  await page.context().route('**/api/admin/agent?**', async (route) => {
+    const first = !route.request().postData()?.includes('"role":"tool"')
+    const lines = first
+      ? [{ type: 'thinking', text: 'A box will do.' }, { type: 'message', message: { role: 'assistant', content: null, tool_calls: [{ id: 'a', name: 'add', arguments: '{"primitive":"box","name":"Crate","color":"#c58b4c"}' }] }, stop: 'tool_use', model: 'x' }]
+      : [{ type: 'text', text: 'Added a crate.' }, { type: 'message', message: { role: 'assistant', content: 'Added a crate.' }, stop: 'end', model: 'x' }]
+    await route.fulfill({ contentType: 'application/x-ndjson', body: lines.map((l) => JSON.stringify(l)).join('\n') + '\n' })
+  })
+  await openEditor(page)
+  await signIn(page, SUPERUSER)
+  await page.goto('/admin?s=lab')
+  const prompt = `A crate, test ${Date.now()}`
+  await page.getByLabel('Prompt').fill(prompt)
+  await page.getByRole('button', { name: /^Run/ }).click()
+  // Each model works in its own frame and reports back.
+  const lane = page.frameLocator('iframe[title^="Model lab: @cf/zai-org/glm-4.7-flash"]')
+  await expect(lane.getByText('A box will do.')).toBeVisible()
+  await expect(lane.getByText('✓ Added Crate')).toBeVisible()
+  await expect(page.getByRole('cell', { name: /^\d+\.\ds$/ })).toHaveCount(2)
+
+  // The runs are kept, and open again as they ended.
+  const past = page.getByRole('article').filter({ hasText: prompt }).first()
+  await expect(past.getByTitle('Open this run')).toHaveCount(2)
+  await past.getByTitle('Open this run').first().click()
+  const kept = page.frameLocator('iframe[title^="Kept run:"]').first()
+  await expect(kept.getByText('Added a crate.')).toBeVisible()
+  await past.getByRole('button', { name: 'Delete' }).click()
+  await past.getByRole('button', { name: 'Delete it' }).click()
+  await expect(page.getByRole('article').filter({ hasText: prompt })).toHaveCount(0)
+})

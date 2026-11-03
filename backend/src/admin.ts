@@ -2,6 +2,7 @@ import { z } from "zod";
 import { can, PERMISSIONS, ROLE_IDS, type Permission, type Role } from "@shapeshift/shared/admin/roles";
 import { currentUser, Email, fail, isLocal, json, type User } from "./auth";
 import { agentStep, labProvider } from "./agent";
+import { handleLab } from "./lab";
 import { feedbackPictureKey } from "./feedback";
 import { databaseMetrics, errorGroups, eventMetrics } from "./metrics";
 import { assistantMetrics, dashboard, deleteScene, deleteUser, getUser, listScenes, listUsers, resetPrompts, sceneOwner, sceneThumbnail, signOutEverywhere } from "./adminData";
@@ -85,6 +86,13 @@ export async function handleAdmin(request: Request, env: Env): Promise<Response 
             unreadFeedback: await count(env, "SELECT COUNT(*) AS n FROM feedback WHERE read_at IS NULL"),
             promptsThisMonth: await count(env, "SELECT COALESCE(SUM(prompts), 0) AS n FROM usage WHERE period = ?1", period()),
         });
+    }
+
+    // The Model lab's kept runs.
+    if (path.startsWith("/lab/")) {
+        if (!allowed("models.lab")) return forbidden();
+        const res = await handleLab(request, env, path);
+        if (res) return res;
     }
 
     // The Model lab: one assistant step on the model it names.
