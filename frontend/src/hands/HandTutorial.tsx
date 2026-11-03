@@ -27,9 +27,31 @@ type Step = {
     done?: () => boolean;
     // Gets the scene ready for the step.
     setup?: () => void;
+    // Shows the live push and pull meter.
+    meter?: boolean;
 };
 
 const activity = () => useHandActivity.getState().activity;
+
+// The furthest a held shape has been pushed and pulled since the push step
+// began. Both count once they pass a few centimetres, past the dead zone.
+const REACH_GOAL = 0.04;
+const reached = { push: 0, pull: 0 };
+useHandActivity.subscribe(({ activity, reach }) => {
+    if (activity !== "object") return;
+    reached.push = Math.max(reached.push, reach);
+    reached.pull = Math.max(reached.pull, -reach);
+});
+
+// Puts a shape in view to work with, if there isn't one.
+function ensureShape() {
+    const scene = useScene.getState();
+    scene.setMode("object");
+    if (!scene.doc.objects.length) {
+        scene.run({ type: "add", primitive: "box" });
+        frameSelection();
+    }
+}
 
 const STEPS: Step[] = [
     {
@@ -52,20 +74,20 @@ const STEPS: Step[] = [
         Icon: HandGrabbing,
         motion: "pinch",
         done: () => activity() === "object",
-        setup: () => {
-            const scene = useScene.getState();
-            scene.setMode("object");
-            if (!scene.doc.objects.length) {
-                scene.run({ type: "add", primitive: "box" });
-                frameSelection();
-            }
-        },
+        setup: ensureShape,
     },
     {
         title: "Push and pull",
-        text: "While you hold a shape, reach toward the screen to push it away, and pull your hand back to bring it closer.",
+        text: "Grab the shape again and keep pinching. Reach toward the screen to push it away, then pull your hand back to bring it closer. Move slowly; the bar shows what the camera sees.",
         Icon: Hand,
         motion: "push",
+        meter: true,
+        done: () => reached.push >= REACH_GOAL && reached.pull >= REACH_GOAL,
+        setup: () => {
+            reached.push = 0;
+            reached.pull = 0;
+            ensureShape();
+        },
     },
     {
         title: "Use both hands",
@@ -216,6 +238,68 @@ const Dots = styled.div`
     }
 `;
 
+const MeterBox = styled.div`
+    grid-column: 1 / -1;
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--text-muted);
+
+    .bar {
+        position: relative;
+        height: 10px;
+        margin: 6px 0 4px;
+        border-radius: 999px;
+        background: var(--surface-raised);
+        overflow: hidden;
+    }
+    .bar::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        margin-left: -1px;
+        background: var(--border-strong);
+    }
+    .fill {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        border-radius: 999px;
+        background: var(--accent);
+        transition: left 0.08s linear, width 0.08s linear;
+    }
+    .ends {
+        display: flex;
+        justify-content: space-between;
+    }
+    .ends span[data-done="true"] {
+        color: var(--success);
+        font-weight: 600;
+    }
+`;
+
+// How far the held shape is pushed or pulled right now, with both goals.
+function ReachMeter() {
+    const holding = useHandActivity((s) => s.activity === "object");
+    const reach = useHandActivity((s) => s.reach);
+    // Full bar either way at three times the goal.
+    const share = Math.max(-1, Math.min(1, reach / (REACH_GOAL * 3)));
+    return (
+        <MeterBox aria-label="Push and pull">
+            {holding ? "Holding the shape" : "Pinch the shape to hold it"}
+            <div className="bar">
+                <span className="fill" style={share >= 0 ? { left: "50%", width: `${share * 50}%` } : { left: `${50 + share * 50}%`, width: `${-share * 50}%` }} />
+            </div>
+            <div className="ends">
+                <span data-done={reached.pull >= REACH_GOAL}>{reached.pull >= REACH_GOAL ? "✓ Pulled closer" : "← Pull back"}</span>
+                <span data-done={reached.push >= REACH_GOAL}>{reached.push >= REACH_GOAL ? "Pushed away ✓" : "Reach in →"}</span>
+            </div>
+        </MeterBox>
+    );
+}
+
 const Action = styled(SiteAction).attrs({ as: "button", type: "button" })``;
 
 // Long enough to see the tick before the next step.
@@ -277,6 +361,7 @@ export function HandTutorial() {
                         </small>
                     </Head>
                     <Text>{step.text}</Text>
+                    {step.meter && !ticked && <ReachMeter />}
                     <Foot>
                         <Dots aria-hidden>
                             {STEPS.map((_, i) => (

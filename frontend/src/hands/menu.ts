@@ -17,7 +17,9 @@ export const useHandMenu = create<HandMenuState>()(() => ({ open: null, hover: n
 
 // What hand control is doing right now, so the cursors can say so.
 export type HandActivity = "object" | "vertex" | "stretch" | "orbit" | "camera" | "slider" | "scroll" | "press" | null;
-export const useHandActivity = create<{ activity: HandActivity }>()(() => ({ activity: null }));
+// `reach` is how far a held shape is being pushed (positive: the hand reached
+// toward the screen) or pulled, in meters past the dead zone. 0 when nothing is held.
+export const useHandActivity = create<{ activity: HandActivity; reach: number }>()(() => ({ activity: null, reach: 0 }));
 
 // A short note about what a gesture just did ("Copy placed"), shown by HandCommands.
 export const useHandToast = create<{ id: number; text: string }>()(() => ({ id: 0, text: "" }));

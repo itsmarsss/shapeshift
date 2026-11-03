@@ -1,4 +1,5 @@
 import { COMPACT } from "../ui/compact";
+import { spin } from "../ui/keyframes";
 import { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import { CameraSlash, CircleNotch, Play, Record, Stop } from "@phosphor-icons/react";
@@ -52,6 +53,10 @@ const Overlay = styled.div`
     text-align: center;
     color: var(--text-muted);
     font-size: 12px;
+
+    .spin {
+        animation: ${spin} 0.9s linear infinite;
+    }
 `;
 
 const Legend = styled.div`
@@ -90,7 +95,6 @@ export function HandPreview() {
     const status = useHands((s) => s.status);
     const error = useHands((s) => s.error);
     const stage = useHands((s) => s.stage);
-    const progress = useHands((s) => s.progress);
     const canvas = useRef<HTMLCanvasElement>(null);
     const [rec, setRec] = useState(false);
     const showPreview = useSettings((s) => s.showHandPreview);
@@ -145,12 +149,8 @@ export function HandPreview() {
                 <canvas ref={canvas} />
                 {status === "starting" && (
                     <Overlay>
-                        <CircleNotch size={18} />
-                        {stage === "camera"
-                            ? "Starting the camera…"
-                            : progress !== null && progress < 1
-                              ? `Loading hand tracking · ${Math.round(progress * 100)}%`
-                              : "Getting hand tracking ready…"}
+                        <CircleNotch className="spin" size={18} />
+                        {stage === "camera" ? "Starting the camera…" : "Getting ready…"}
                     </Overlay>
                 )}
                 {status === "error" && (
