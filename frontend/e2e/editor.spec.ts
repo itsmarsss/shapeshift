@@ -24,6 +24,32 @@ test('shows the intro once to new visitors', async ({ page }) => {
   await expect(intro).toHaveCount(0)
 })
 
+test('gives new visitors a first-steps checklist that ticks itself off', async ({ page }) => {
+  await page.goto('/edit')
+  await page.getByRole('dialog', { name: 'Welcome to ShapeShift' }).getByRole('button', { name: 'Skip' }).click()
+  const steps = page.getByRole('region', { name: 'First steps' })
+  // Not on an empty screen, where the get-started card is.
+  await expect(steps).toHaveCount(0)
+  await page.getByRole('region', { name: 'Get started' }).getByRole('button', { name: 'Add a box' }).click()
+  await expect(steps).toContainText('0 of 5 done')
+
+  // Recoloring the box ticks off its step, wherever it was done from.
+  await page.getByRole('button', { name: /^Color: #/ }).click()
+  await page.getByRole('dialog', { name: 'Pick color' }).getByRole('button', { name: '#3e8ed0' }).click()
+  await page.keyboard.press('Escape')
+  await expect(steps).toContainText('1 of 5 done')
+
+  // "Show me" on the next step starts it: here, the assistant.
+  await steps.getByRole('button', { name: 'Show me' }).click()
+  await expect(steps).toContainText('2 of 5 done')
+
+  await steps.getByTitle('Hide first steps').click()
+  await expect(steps).toHaveCount(0)
+  await page.reload()
+  await expect(page.getByTitle('Add box')).toBeVisible()
+  await expect(steps).toHaveCount(0)
+})
+
 test('jumps back through the history panel', async ({ page }) => {
   await openEditor(page)
   await page.getByTitle('Add box').click()

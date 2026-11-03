@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useFirstSteps } from "../components/firstStepsStore";
 import { useScene } from "../scene/store";
 import { useCollab } from "../collab/session";
 import { takeSnapshot } from "../viewport/snapshot";
@@ -147,6 +148,7 @@ export const useAccount = create<AccountState>()((set, get) => ({
                 set({ save: "saved", cloudId: scene.id, cloudTitle: scene.title });
                 remember(scene.id, scene.title);
             }
+            useFirstSteps.getState().mark("share");
         } catch (err) {
             if (err instanceof ApiError && err.status === 404) {
                 // It was deleted elsewhere; save it as a new scene instead.

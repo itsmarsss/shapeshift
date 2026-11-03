@@ -13,6 +13,7 @@ import Inspector from "./Inspector";
 import { GridScale } from "./GridScale";
 import { HistoryPanel } from "./HistoryPanel";
 import { StartCard } from "./StartCard";
+import { FirstSteps } from "./FirstSteps";
 import { ViewCube } from "./ViewCube";
 import { Tooltips } from "./Tooltip";
 import { RoomChat } from "../collab/RoomChat";
@@ -102,6 +103,7 @@ export function Layout() {
             <Timeline />
             <OfflineNote />
             <StartCard />
+            <FirstSteps />
             <ViewCube />
             <Tooltips />
             <RoomChat />
