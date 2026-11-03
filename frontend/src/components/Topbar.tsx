@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
+import { useDismiss } from "../ui/hooks";
 import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-m";
 import { drop } from "../ui/motion";
@@ -36,7 +37,7 @@ import { useUI } from "../ui/store";
 import { toggleInspector, useInspectorVisible } from "../ui/inspector";
 import { useHands, warmUpHands } from "../hands/tracker";
 import { useSettings } from "../settings/store";
-import { IconButton, Segment, Segmented } from "./ui";
+import { Button, IconButton, Segment, Segmented } from "./ui";
 import { CollabBar } from "../collab/CollabBar";
 import { useAccount } from "../account/store";
 import { AccountButton } from "../account/AccountButton";
@@ -109,23 +110,12 @@ const Modes = styled(Segmented)`
 `;
 
 // Hand control is what ShapeShift is about, so it gets a named button.
-const HandsButton = styled.button`
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 30px;
+const HandsButton = styled(Button).attrs({ $variant: "outline" })`
     padding: 0 12px;
     margin: 0 2px;
-    border-radius: var(--radius);
-    border: 1px solid var(--border-strong);
-    background: transparent;
-    color: var(--text);
-    font-weight: 500;
 
-    &:hover {
-        background: var(--surface-hover);
-    }
-    &[aria-pressed="true"] {
+    &[aria-pressed="true"],
+    &[aria-pressed="true"]:hover:not(:disabled) {
         background: var(--accent);
         border-color: var(--accent);
         color: var(--accent-text);
@@ -218,14 +208,7 @@ const MenuButton = styled.button`
 function MoreMenu({ items, label }: { items: MenuItem[]; label?: string }) {
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
-    useEffect(() => {
-        if (!open) return;
-        const close = (e: PointerEvent) => {
-            if (!ref.current?.contains(e.target as Node)) setOpen(false);
-        };
-        window.addEventListener("pointerdown", close);
-        return () => window.removeEventListener("pointerdown", close);
-    }, [open]);
+    useDismiss(ref, open, () => setOpen(false));
     return (
         <div ref={ref} style={{ position: "relative" }}>
             {label ? (

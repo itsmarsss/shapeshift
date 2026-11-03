@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { EASE_OUT_CSS } from "../ui/motion";
 import styled, { keyframes } from "styled-components";
 import { ArrowRight, CaretDown, HandGrabbing, Microphone } from "@phosphor-icons/react";
 import { gsap } from "gsap";
@@ -166,7 +167,7 @@ const Way = styled.span`
     padding-bottom: 0.08em;
 
     @media (prefers-reduced-motion: no-preference) {
-        animation: ${swap} 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+        animation: ${swap} 0.45s ${EASE_OUT_CSS};
     }
 `;
 
@@ -337,7 +338,7 @@ const Pick = styled.a`
         width: 100%;
         height: 100%;
         object-fit: contain;
-        transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+        transition: transform 0.6s ${EASE_OUT_CSS};
         ${appearing}
     }
     .text {

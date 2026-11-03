@@ -1,4 +1,6 @@
 import { useState, type CSSProperties } from "react";
+import { ago } from "../ui/format";
+import { useCopy } from "../ui/hooks";
 import styled from "styled-components";
 import { tile } from "../site/parts";
 import { Check, Cube, LinkSimple, PencilSimple, Trash } from "@phosphor-icons/react";
@@ -81,14 +83,6 @@ const Info = styled.div`
     }
 `;
 
-function ago(at: number) {
-    const s = Math.max(0, (Date.now() - at) / 1000);
-    if (s < 60) return "just now";
-    if (s < 3600) return `${Math.floor(s / 60)} min ago`;
-    if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
-    return new Date(at).toLocaleDateString();
-}
-
 const Shared = styled.div`
     display: flex;
     align-items: center;
@@ -117,13 +111,7 @@ export function SceneCard({ scene, onOpen, index = 0 }: { scene: CloudScene; onO
     const renameScene = useAccount((s) => s.renameScene);
     const deleteScene = useAccount((s) => s.deleteScene);
     const setShared = useAccount((s) => s.setShared);
-    const [copied, setCopied] = useState<"link" | "embed" | null>(null);
-
-    async function copy(text: string, what: "link" | "embed") {
-        await navigator.clipboard?.writeText(text).catch(() => {});
-        setCopied(what);
-        setTimeout(() => setCopied(null), 1600);
-    }
+    const { copied, copy } = useCopy<"link" | "embed">();
 
     async function share() {
         const link = await setShared(id, true);

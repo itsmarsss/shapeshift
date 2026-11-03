@@ -1,4 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { initials } from "../ui/format";
+import { useDismiss } from "../ui/hooks";
 import styled from "styled-components";
 import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-m";
@@ -246,26 +248,11 @@ const Footer = styled.footer<{ $wide?: boolean }>`
     }
 `;
 
-function initials(label: string) {
-    const parts = label.split(/[\s@._-]+/).filter(Boolean);
-    return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
-}
-
 function AccountMenu() {
     const user = useAccount((s) => s.user)!;
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
-    useEffect(() => {
-        if (!open) return;
-        const close = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-        const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-        window.addEventListener("pointerdown", close);
-        window.addEventListener("keydown", onKey);
-        return () => {
-            window.removeEventListener("pointerdown", close);
-            window.removeEventListener("keydown", onKey);
-        };
-    }, [open]);
+    useDismiss(ref, open, () => setOpen(false));
     const label = user.name || user.email;
     const pro = user.plan === "pro";
     return (

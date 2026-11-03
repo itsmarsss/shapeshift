@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useCopy } from "../ui/hooks";
 import styled from "styled-components";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { CameraControls } from "@react-three/drei";
 import * as THREE from "three";
 import { ArrowSquareOut, Check, Code, Compass, Copy, Cube } from "@phosphor-icons/react";
-import { Button, GlobalStyle } from "../components/ui";
+import { Button, GlobalStyle, TextArea } from "../components/ui";
 import { evaluate } from "../scene/animation";
 import { SceneDoc } from "@shapeshift/shared/scene/schema";
 import { worldBounds } from "../assistant/assistant";
@@ -157,10 +158,6 @@ const EmbedBox = styled.div`
     textarea {
         height: 86px;
         resize: none;
-        padding: 8px;
-        border-radius: var(--radius);
-        border: 1px solid var(--border);
-        background: var(--bg);
         font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
     }
 `;
@@ -239,7 +236,7 @@ export default function ViewerPage({ slug, sample }: { slug?: string; sample?: s
     const [shared, setShared] = useState<Shared | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [showEmbed, setShowEmbed] = useState(false);
-    const [copied, setCopied] = useState(false);
+    const { copied, copy } = useCopy();
     // Shown inside someone else's page: just the scene and a link back.
     const embedded = new URLSearchParams(location.search).has("embed");
 
@@ -267,11 +264,7 @@ export default function ViewerPage({ slug, sample }: { slug?: string; sample?: s
     }, [slug, sample]);
 
     const code = shared && slug ? embedCode(location.origin, slug, shared.title) : "";
-    async function copyEmbed() {
-        await navigator.clipboard?.writeText(code).catch(() => {});
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1600);
-    }
+    const copyEmbed = () => copy(code);
 
     return (
         <Page>
@@ -308,7 +301,7 @@ export default function ViewerPage({ slug, sample }: { slug?: string; sample?: s
             {showEmbed && shared && !embedded && (
                 <EmbedBox role="dialog" aria-label="Embed this scene">
                     <p>Paste this into your site, blog or class page. People can look around and remix it.</p>
-                    <textarea readOnly value={code} aria-label="Embed code" onFocus={(e) => e.target.select()} />
+                    <TextArea readOnly value={code} aria-label="Embed code" onFocus={(e) => e.target.select()} />
                     <Button $variant="primary" onClick={() => void copyEmbed()}>
                         {copied ? <Check size={16} /> : <Copy size={16} />}
                         {copied ? "Copied" : "Copy embed code"}

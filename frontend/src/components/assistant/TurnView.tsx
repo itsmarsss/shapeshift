@@ -1,4 +1,6 @@
-import styled, { css, keyframes } from "styled-components";
+import styled, { css } from "styled-components";
+import { shimmer, spin } from "../../ui/keyframes";
+import { Button } from "../ui";
 import { ArrowClockwise, ArrowCounterClockwise, CircleNotch, WarningCircle } from "@phosphor-icons/react";
 import { useScene } from "../../scene/store";
 import { useAssistant, type Turn } from "../../assistant/store";
@@ -7,11 +9,6 @@ import { ActivityList } from "./ActivityList";
 import { Thinking } from "./Thinking";
 import { RichText } from "./RichText";
 
-const spin = keyframes`to { transform: rotate(360deg); }`;
-const shimmer = keyframes`
-    0% { background-position: 100% 0; }
-    100% { background-position: -100% 0; }
-`;
 
 const Root = styled.section`
     display: flex;
@@ -152,26 +149,8 @@ const Meta = styled.div`
     font-variant-numeric: tabular-nums;
 `;
 
-const Action = styled.button`
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    height: 24px;
-    padding: 0 8px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--text-muted);
-    font-size: 12px;
-
-    &:hover:not(:disabled) {
-        color: var(--text);
-        border-color: var(--border-strong);
-        background: var(--surface-raised);
-    }
-    &:disabled {
-        opacity: 0.5;
-    }
+const Action = styled(Button).attrs({ $size: "sm", $variant: "outline" })`
+    text-decoration: none;
 `;
 
 function seconds(turn: Turn) {

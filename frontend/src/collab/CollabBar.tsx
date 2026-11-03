@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { pulse } from "../ui/keyframes";
+import { ago, initials } from "../ui/format";
+import { useCopy, useDismiss } from "../ui/hooks";
 import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-m";
 import { drop } from "../ui/motion";
-import styled, { keyframes } from "styled-components";
+import styled from "styled-components";
 import { ArrowCounterClockwise, Check, ClockCounterClockwise, Copy, FloppyDisk, SignOut, UsersThree } from "@phosphor-icons/react";
 import { useShallow } from "zustand/react/shallow";
 import { Button, Input } from "../components/ui";
@@ -64,7 +67,6 @@ const Face = styled.span<{ $color: string }>`
     }
 `;
 
-const pulse = keyframes`50% { opacity: 0.35; }`;
 
 const Dot = styled.span<{ $status: string }>`
     width: 7px;
@@ -151,31 +153,9 @@ const Versions = styled.ul`
     }
 `;
 
-const Small = styled.button<{ $confirm?: boolean }>`
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    height: 24px;
-    padding: 0 8px;
-    border-radius: 6px;
-    border: 1px solid ${(p) => (p.$confirm ? "var(--danger)" : "var(--border)")};
-    background: ${(p) => (p.$confirm ? "color-mix(in srgb, var(--danger) 18%, transparent)" : "transparent")};
-    color: ${(p) => (p.$confirm ? "var(--text)" : "var(--text-muted)")};
-    font-size: 12px;
-
-    &:hover:not(:disabled) {
-        color: var(--text);
-        border-color: var(--border-strong);
-    }
+const Small = styled(Button).attrs({ $size: "sm", $variant: "outline" })<{ $confirm?: boolean }>`
+    ${(p) => p.$confirm && "border-color: var(--danger); background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--text);"}
 `;
-
-function ago(at: number) {
-    const s = Math.max(0, (Date.now() - at) / 1000);
-    if (s < 60) return "just now";
-    if (s < 3600) return `${Math.floor(s / 60)} min ago`;
-    if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
-    return new Date(at).toLocaleDateString();
-}
 
 function History() {
     const versions = useCollab((s) => s.versions);
@@ -243,14 +223,6 @@ const Note = styled.div<{ $error?: boolean }>`
     color: ${(p) => (p.$error ? "var(--danger)" : "var(--text-muted)")};
 `;
 
-const initials = (name: string) =>
-    name
-        .split(/\s+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((w) => w[0]!.toUpperCase())
-        .join("") || "?";
-
 const STATUS_TEXT: Record<string, string> = {
     connecting: "Connecting…",
     reconnecting: "Reconnecting…",
@@ -269,32 +241,18 @@ export function CollabBar() {
     const leave = useCollab((s) => s.leave);
     const rename = useCollab((s) => s.rename);
     const [open, setOpen] = useState(false);
-    const [copied, setCopied] = useState(false);
+    const { copied, copy: copyText } = useCopy(1500);
     const [draftName, setDraftName] = useState(name);
     const wrap = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        if (!open) return;
-        const close = (e: PointerEvent) => {
-            if (!wrap.current?.contains(e.target as Node)) setOpen(false);
-        };
-        window.addEventListener("pointerdown", close);
-        return () => window.removeEventListener("pointerdown", close);
-    }, [open]);
+    useDismiss(wrap, open, () => setOpen(false));
 
     const live = status !== "off";
     const everyone: Peer[] = [...(you ? [{ ...you, name }] : []), ...peers];
     const link = roomId ? roomLink(roomId) : "";
 
-    async function copy() {
-        try {
-            await navigator.clipboard.writeText(link);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
-        } catch {
-            // Clipboard can be blocked; the link is still selectable.
-        }
-    }
+    // Clipboard can be blocked; the link is still selectable.
+    const copy = () => copyText(link);
 
     return (
         <Wrap ref={wrap}>

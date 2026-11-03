@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { pulse } from "../ui/keyframes";
 import styled from "styled-components";
 import { Cube, ShareNetwork } from "@phosphor-icons/react";
 import { api, type ExploreScene } from "../account/api";
@@ -32,12 +33,7 @@ const Placeholder = styled.div`
         background: var(--surface-raised);
     }
     @media (prefers-reduced-motion: no-preference) {
-        animation: pulse 1.4s ease-in-out infinite;
-    }
-    @keyframes pulse {
-        50% {
-            opacity: 0.55;
-        }
+        animation: ${pulse} 1.4s ease-in-out infinite;
     }
 `;
 

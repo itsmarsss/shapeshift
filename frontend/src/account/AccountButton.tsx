@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { Button } from "../components/ui";
+import { initials } from "../ui/format";
+import { useDismiss } from "../ui/hooks";
 import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-m";
 import { drop } from "../ui/motion";
@@ -14,22 +17,7 @@ const Wrap = styled.div`
     margin-right: 4px;
 `;
 
-const SignIn = styled.button`
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 30px;
-    padding: 0 10px;
-    border-radius: var(--radius);
-    border: 1px solid var(--border-strong);
-    background: transparent;
-    color: var(--text);
-    font-weight: 500;
-    white-space: nowrap;
-
-    &:hover {
-        background: var(--surface-hover);
-    }
+const SignIn = styled(Button).attrs({ $variant: "outline" })`
     span {
         @media ${MEDIUM} {
             display: none;
@@ -115,14 +103,6 @@ const Status = styled.div`
     font-size: 12px;
 `;
 
-const initials = (name: string) =>
-    name
-        .split(/[\s@._-]+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((w) => w[0]!.toUpperCase())
-        .join("") || "?";
-
 export function AccountButton() {
     const user = useAccount((s) => s.user);
     const loaded = useAccount((s) => s.loaded);
@@ -139,12 +119,7 @@ export function AccountButton() {
         void load();
     }, [load]);
 
-    useEffect(() => {
-        if (!open) return;
-        const close = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-        window.addEventListener("pointerdown", close);
-        return () => window.removeEventListener("pointerdown", close);
-    }, [open]);
+    useDismiss(ref, open, () => setOpen(false));
 
     if (!loaded) return null;
     const act = (fn: () => void) => () => {

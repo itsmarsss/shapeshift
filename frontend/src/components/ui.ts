@@ -129,9 +129,31 @@ const control = css`
     }
 `;
 
-export const Button = styled.button<{ $variant?: "default" | "primary" | "danger" }>`
+// default: quiet, for toolbars. outline: a bordered button that reads as a
+// button on its own. sm: the little chips under an assistant reply or a version.
+export const Button = styled.button<{ $variant?: "default" | "primary" | "danger" | "outline"; $size?: "sm" }>`
     ${control}
     padding: 0 10px;
+    ${(p) =>
+        p.$variant === "outline" &&
+        css`
+            border-color: var(--border-strong);
+            font-weight: 500;
+        `}
+    ${(p) =>
+        p.$size === "sm" &&
+        css`
+            height: 24px;
+            padding: 0 8px;
+            gap: 4px;
+            border-radius: 6px;
+            font-size: 12px;
+            ${p.$variant === "outline" && "border-color: var(--border); font-weight: 400; color: var(--text-muted);"}
+            &:hover:not(:disabled) {
+                color: var(--text);
+                border-color: var(--border-strong);
+            }
+        `}
     ${(p) =>
         p.$variant === "primary" &&
         css`
@@ -183,7 +205,7 @@ export const Segment = styled.button<{ $active: boolean }>`
     background: ${(p) => (p.$active ? "var(--surface-raised)" : "transparent")};
 `;
 
-const field = css`
+export const field = css`
     height: 30px;
     width: 100%;
     min-width: 0;
@@ -210,6 +232,14 @@ export const Input = styled.input`
     }
 `;
 
+export const TextArea = styled.textarea`
+    ${field}
+    height: auto;
+    padding: 8px 10px;
+    line-height: 1.45;
+    resize: vertical;
+`;
+
 export const Select = styled.select`
     ${field}
     cursor: pointer;
@@ -221,8 +251,3 @@ export const FieldLabel = styled.div`
     margin-bottom: 6px;
 `;
 
-export const Divider = styled.div`
-    height: 1px;
-    background: var(--border);
-    flex-shrink: 0;
-`;

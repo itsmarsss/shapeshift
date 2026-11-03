@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { EASE_OUT_CSS } from "../ui/motion";
 import styled from "styled-components";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -68,7 +69,7 @@ const Caption = styled.div<{ $on: boolean }>`
     translate: 0 ${(p) => (p.$on ? 0 : "18px")};
     transition:
         opacity 0.45s ease,
-        translate 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+        translate 0.45s ${EASE_OUT_CSS};
     pointer-events: none;
 
     @media (max-width: 820px) {

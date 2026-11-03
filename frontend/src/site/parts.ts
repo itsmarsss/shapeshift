@@ -1,4 +1,5 @@
 import styled, { css, keyframes } from "styled-components";
+import { EASE_OUT_CSS } from "../ui/motion";
 
 // Pieces shared by the pages around the editor (home, Explore, pricing), so
 // they look like one site.
@@ -28,7 +29,7 @@ export const appearing = css`
 // them come in one after another.
 export const entering = css`
     @media (prefers-reduced-motion: no-preference) {
-        animation: ${enter} 0.38s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+        animation: ${enter} 0.38s ${EASE_OUT_CSS} backwards;
         animation-delay: calc(min(var(--i, 0), 12) * 35ms);
     }
 `;

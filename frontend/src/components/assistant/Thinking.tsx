@@ -1,15 +1,11 @@
 import { useState } from "react";
-import styled, { keyframes } from "styled-components";
+import { pulse } from "../../ui/keyframes";
+import styled from "styled-components";
 import { CaretRight, Lightbulb } from "@phosphor-icons/react";
 
 // The model's thinking, shown as it streams in and folded away once it's
 // moved on, so you can watch it work without it crowding the reply.
 
-const pulse = keyframes`
-    50% {
-        opacity: 0.4;
-    }
-`;
 
 const Toggle = styled.button`
     display: inline-flex;

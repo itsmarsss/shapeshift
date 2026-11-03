@@ -5,7 +5,7 @@ import { Dialog } from "../account/Dialog";
 import { useAccount } from "../account/store";
 import { takeSnapshot } from "../viewport/snapshot";
 import { useUI } from "../ui/store";
-import { Button, Input } from "./ui";
+import { Button, Input, TextArea } from "./ui";
 
 const Form = styled.form`
     display: flex;
@@ -19,14 +19,6 @@ const Form = styled.form`
     }
     textarea {
         min-height: 120px;
-        resize: vertical;
-        padding: 10px;
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        background: var(--bg);
-        color: var(--text);
-        font: inherit;
-        line-height: 1.45;
     }
     label {
         display: flex;
@@ -103,7 +95,7 @@ export default function FeedbackDialog() {
             ) : (
                 <Form onSubmit={send}>
                     <p>What's confusing, broken or missing? Anything helps.</p>
-                    <textarea autoFocus aria-label="Your feedback" value={message} maxLength={4000} onChange={(e) => setMessage(e.target.value)} />
+                    <TextArea autoFocus aria-label="Your feedback" value={message} maxLength={4000} onChange={(e) => setMessage(e.target.value)} />
                     {!user && <Input type="email" placeholder="Email, if you'd like a reply" value={email} onChange={(e) => setEmail(e.target.value)} />}
                     {picture && (
                         <>

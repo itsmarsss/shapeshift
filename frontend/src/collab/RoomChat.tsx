@@ -4,7 +4,7 @@ import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-m";
 import { ChatsCircle, PaperPlaneRight, X } from "@phosphor-icons/react";
 import { ROOM_LIMITS, type RoomMessage } from "@shapeshift/shared/collab/protocol";
-import { IconButton, Panel, PanelHeader, PanelTitle } from "../components/ui";
+import { IconButton, Input, Panel, PanelHeader, PanelTitle } from "../components/ui";
 import { COMPACT, useCompact } from "../ui/compact";
 import { rise, slide } from "../ui/motion";
 import { useCollab } from "./session";
@@ -102,12 +102,8 @@ const Form = styled.form`
 
     input {
         flex: 1;
-        min-width: 0;
         height: 36px;
         padding: 0 10px;
-        border-radius: var(--radius);
-        border: 1px solid var(--border-strong);
-        background: var(--bg);
     }
     button {
         width: 36px;
@@ -243,7 +239,7 @@ export function RoomChat() {
                                 setDraft("");
                             }}
                         >
-                            <input
+                            <Input
                                 value={draft}
                                 onChange={(e) => setDraft(e.target.value)}
                                 maxLength={ROOM_LIMITS.messageChars}

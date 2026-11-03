@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState, type RefObject } from "react";
+import { spin } from "../ui/keyframes";
 import styled from "styled-components";
 import { ArrowRight, ArrowsIn, ArrowsOut, Camera, CameraSlash, CircleNotch, HandGrabbing, ShieldCheck } from "@phosphor-icons/react";
 import { live, useHands, warmUpHands } from "../hands/tracker";
@@ -114,12 +115,7 @@ const Button = styled.button`
         border-color: var(--border-strong);
     }
     .spin {
-        animation: spin 1s linear infinite;
-    }
-    @keyframes spin {
-        to {
-            transform: rotate(360deg);
-        }
+        animation: ${spin} 1s linear infinite;
     }
 `;
 
