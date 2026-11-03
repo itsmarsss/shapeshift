@@ -11,7 +11,7 @@ import { IconButton, Panel, PanelHeader, PanelTitle } from "./ui";
 
 const Root = styled(Panel)`
     top: calc(var(--topbar) + var(--gap));
-    right: calc(var(--gap) + var(--chat-width, 0px));
+    right: max(var(--gap), var(--right-inset, 0px));
     width: 260px;
     max-height: min(480px, calc(100% - var(--topbar) - var(--gap) * 2 - var(--bottom-offset, 0px)));
     z-index: 30;

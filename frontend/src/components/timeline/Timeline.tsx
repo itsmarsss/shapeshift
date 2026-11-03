@@ -16,7 +16,7 @@ export const TIMELINE_HEIGHT = 92;
 
 const Root = styled(Panel)`
     left: calc(var(--gap) * 2 + 46px);
-    right: calc(var(--gap) * 2 + var(--chat-width, 0px));
+    right: calc(var(--gap) + var(--right-inset, 0px));
     bottom: var(--gap);
     height: ${TIMELINE_HEIGHT}px;
     padding: 8px 10px;

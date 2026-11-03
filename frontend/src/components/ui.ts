@@ -96,6 +96,11 @@ export const PanelHeader = styled.div`
     padding: 0 8px 0 14px;
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+
+    // The title takes the room; buttons line up after it.
+    > :first-child {
+        margin-right: auto;
+    }
 `;
 
 export const PanelTitle = styled.div`

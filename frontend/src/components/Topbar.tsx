@@ -68,6 +68,7 @@ const Bar = styled.div`
         // Sides size to their buttons so the mode switch can sit between them.
         grid-template-columns: auto 1fr auto;
         padding: 0 4px;
+        gap: 4px;
         padding-top: env(safe-area-inset-top, 0px);
         height: calc(var(--topbar) + env(safe-area-inset-top, 0px));
     }
@@ -106,6 +107,13 @@ const Modes = styled(Segmented)`
     @media ${MEDIUM} {
         button {
             padding: 0 8px;
+        }
+    }
+    // The smallest phones: just enough room for every button in the bar.
+    @media (max-width: 380px) {
+        button {
+            padding: 0 5px;
+            font-size: 12px;
         }
     }
 `;

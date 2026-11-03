@@ -69,7 +69,8 @@ export function useScrollEdges(ref: RefObject<HTMLElement | null>, key?: unknown
 // Lets a floating card be dragged anywhere and remembers where, per `key`.
 // Until it's moved it stays where its CSS puts it. Spread `handle` on the part
 // to drag by; a press that moves less than a few pixels is still a click.
-export function useDraggable<T extends HTMLElement>(key: string) {
+// `keepTransform` leaves transforms alone, for a panel that animates in with one.
+export function useDraggable<T extends HTMLElement>(key: string, { keepTransform = false }: { keepTransform?: boolean } = {}) {
     const ref = useRef<T>(null);
     const storageKey = `shapeshift-place-${key}`;
     const [place, setPlace] = useState<{ x: number; y: number } | null>(() => {
@@ -135,6 +136,8 @@ export function useDraggable<T extends HTMLElement>(key: string) {
         }
     }, []);
 
-    const style: React.CSSProperties | undefined = place ? { position: "fixed", left: place.x, top: place.y, right: "auto", bottom: "auto", translate: "none", transform: "none" } : undefined;
+    const style: React.CSSProperties | undefined = place
+        ? { position: "fixed", left: place.x, top: place.y, right: "auto", bottom: "auto", ...(keepTransform ? {} : { translate: "none", transform: "none" }) }
+        : undefined;
     return { ref, style, handle: { onPointerDown, onClickCapture, style: { cursor: "grab", touchAction: "none" } as React.CSSProperties }, dragged: place !== null };
 }

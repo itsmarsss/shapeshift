@@ -1,4 +1,6 @@
 import { useEffect, useRef } from "react";
+import { DockResizer, DockToggle } from "./Dock";
+import { useDockPanel } from "../ui/useDockLayout";
 import styled from "styled-components";
 import { AnimatePresence } from "motion/react";
 import { slide } from "../ui/motion";
@@ -17,7 +19,7 @@ const Root = styled(Panel)<{ $empty?: boolean }>`
     top: calc(var(--topbar) + var(--gap));
     bottom: var(--gap);
     right: var(--gap);
-    width: var(--chat-width);
+    width: 360px;
     z-index: 50;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
 
@@ -206,6 +208,7 @@ function isTyping(target: EventTarget | null) {
 export function ChatPanel() {
     const show = useUI((s) => s.showChat);
     const compact = useCompact();
+    const place = useDockPanel<HTMLDivElement>("assistant");
     const setShow = useUI((s) => s.setShowChat);
     const turns = useAssistant((s) => s.turns);
     const running = useAssistant((s) => s.running);
@@ -234,8 +237,9 @@ export function ChatPanel() {
     return (
         <AnimatePresence>
             {show && (
-                <Root key="panel" {...slide(compact ? "bottom" : "right")} aria-label="Assistant" $empty={turns.length === 0}>
-                    <Header>
+                <Root key="panel" ref={place.ref} style={place.style} {...slide(compact ? "bottom" : "right")} aria-label="Assistant" $empty={turns.length === 0}>
+                    <DockResizer id="assistant" />
+                    <Header {...place.handle}>
                         <Mark>
                             <Sparkle size={16} weight="fill" />
                         </Mark>
@@ -246,6 +250,7 @@ export function ChatPanel() {
                         <IconButton title="New chat" onClick={reset} disabled={turns.length === 0}>
                             <NotePencil size={16} />
                         </IconButton>
+                        <DockToggle id="assistant" />
                         <IconButton title="Close" onClick={() => setShow(false)}>
                             <X size={16} />
                         </IconButton>

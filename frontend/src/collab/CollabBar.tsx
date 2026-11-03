@@ -36,6 +36,9 @@ const ShareButton = styled.button<{ $live: boolean }>`
     &:hover {
         opacity: 0.9;
     }
+    @media (max-width: 380px) {
+        padding: 0 7px 0 ${(p) => (p.$live ? "4px" : "7px")};
+    }
 `;
 
 const ShareLabel = styled.span`
