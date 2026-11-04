@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import recording from "./fixtures/two-open-hands.json";
 import type { HandFrame } from "./gestures";
-import { detectPose, POSES, PoseTracker, type Pose } from "./poses";
+import { handRatio } from "./contact";
+import { POSES, PoseTracker, TOUCH, type Pose } from "./poses";
 
 type Recorded = { time: number; hands: HandFrame[] };
 const frames = recording as Recorded[];
@@ -18,21 +19,45 @@ function touching(base: number[], fingertip: number, amount = 1): number[] {
     return l;
 }
 
-const right = (l: number[]): HandFrame[] => [{ handedness: "Right", landmarks: l }];
+const right = (l: number[], world?: number[]): HandFrame[] => [{ handedness: "Right", landmarks: l, world }];
 
-function run(seq: number[][]) {
+function run(seq: number[][], world?: (l: number[]) => number[]) {
     const tracker = new PoseTracker();
-    return seq.flatMap((l, i) => tracker.update(right(l), i * 33).map((e) => e.pose));
+    return seq.flatMap((l, i) => tracker.update(right(l, world?.(l)), i * 33).map((e) => e.pose));
+}
+
+// Moves the thumb most of the way, stopping a little short of the fingertip.
+function nearly(fingertip: number) {
+    let lo = 0;
+    let hi = 1;
+    for (let i = 0; i < 40; i++) {
+        const mid = (lo + hi) / 2;
+        if (handRatio(touching(openHand, fingertip, mid), undefined, 4, fingertip) > TOUCH + 0.04) lo = mid;
+        else hi = mid;
+    }
+    return touching(openHand, fingertip, lo);
 }
 
 describe("poses", () => {
     it("recognizes each finger touching the thumb", () => {
-        for (const pose of Object.keys(POSES) as Pose[]) expect(detectPose(touching(openHand, POSES[pose]))).toBe(pose);
-        expect(detectPose(openHand)).toBeNull();
+        for (const pose of Object.keys(POSES) as Pose[]) expect(run(Array(12).fill(touching(openHand, POSES[pose])))).toEqual([pose]);
+        expect(run(Array(30).fill(openHand))).toEqual([]);
     });
 
     it("never fires on a thumb-index pinch", () => {
-        expect(detectPose(touching(openHand, 8))).toBeNull();
+        expect(run(Array(30).fill(touching(openHand, 8)))).toEqual([]);
+    });
+
+    it("counts a quick close that stops just short, but not a hand resting that way", () => {
+        const short = nearly(POSES.mode);
+        expect(run([...Array(6).fill(openHand), ...Array(12).fill(short)])).toEqual(["mode"]);
+        expect(run(Array(30).fill(short))).toEqual([]);
+    });
+
+    it("goes by real space when there are world landmarks", () => {
+        // Apart in the picture but touching for real, as with a turned hand.
+        expect(run(Array(12).fill(openHand), () => touching(openHand, POSES.undo))).toEqual(["undo"]);
+        expect(run(Array(12).fill(touching(openHand, POSES.undo)), () => openHand)).toEqual([]);
     });
 
     it("never fires in the recorded stream of open hands", () => {
