@@ -41,8 +41,19 @@ const Rail = styled.div`
     flex-direction: column;
     gap: 8px;
     z-index: 20;
+    // Scrolls when the view is short (as with panels docked along the bottom).
+    // The padding keeps the groups' shadows from being cut off.
+    max-height: calc(100% - var(--topbar) - var(--bottom-offset, 0px));
+    overflow-y: auto;
+    scrollbar-width: none;
+    padding: 12px;
+    margin: -12px;
 
     @media ${COMPACT} {
+        max-height: none;
+        overflow-y: visible;
+        padding: 0;
+        margin: 0;
         top: auto;
         left: var(--gap);
         right: var(--gap);

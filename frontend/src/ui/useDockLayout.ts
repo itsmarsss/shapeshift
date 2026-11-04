@@ -2,12 +2,12 @@ import { useCallback, useRef, type CSSProperties, type PointerEvent as ReactPoin
 import { create } from "zustand";
 import { useCollab } from "../collab/session";
 import { useCompact } from "./compact";
-import { PANEL_IDS, useDock, type DockPanelId, type DockSide, type DropTarget, type Stack } from "./dock";
+import { isRow, PANEL_IDS, SIDES, useDock, type DockPanelId, type DockSide, type DropTarget, type Stack } from "./dock";
 import { useInspectorVisible } from "./inspector";
 import { useUI } from "./store";
 
 // Where each panel is right now, worked out from the layout and which panels
-// are open: closed ones take no room, a column with nothing open folds away,
+// are open: closed ones take no room, a column or row with nothing open folds away,
 // and a stack shows tabs once two of its panels are open. Phones have bottom
 // sheets instead, so nothing docks there.
 
@@ -25,8 +25,9 @@ export function usePanelsOpen(): Record<DockPanelId, boolean> {
     };
 }
 
-// The stacks of one column that have something open, with where each starts
-// and how much of the height it takes (fractions of the space under the top bar).
+// The stacks of one column or row that have something open, with where each
+// starts and how much of it each takes: fractions of the height under the top
+// bar for a column, of the width between the columns for a row.
 export function placeColumn(stacks: Stack[], side: DockSide, open: Record<DockPanelId, boolean>): PlacedStack[] {
     const shown = stacks.map((s, index) => ({ ...s, side, index, open: s.tabs.filter((t) => open[t]) })).filter((s) => s.open.length);
     const total = shown.reduce((n, s) => n + s.weight, 0) || 1;
@@ -43,17 +44,19 @@ export function useDockLayout() {
     const compact = useCompact();
     const columns = useDock((s) => s.columns);
     const width = useDock((s) => s.width);
+    const height = useDock((s) => s.height);
     const floating = useDock((s) => s.floating);
     const open = usePanelsOpen();
-    const stacks = {
-        left: compact ? [] : placeColumn(columns.left, "left", open),
-        right: compact ? [] : placeColumn(columns.right, "right", open),
-    };
+    const place = (side: DockSide) => (compact ? [] : placeColumn(columns[side], side, open));
+    const stacks: Record<DockSide, PlacedStack[]> = { left: place("left"), right: place("right"), top: place("top"), bottom: place("bottom") };
+    // How much of the screen each side takes, nothing when it's empty.
     const left = stacks.left.length ? width.left : 0;
     const right = stacks.right.length ? width.right : 0;
-    const where = (id: DockPanelId) => [...stacks.left, ...stacks.right].find((s) => s.open.includes(id));
+    const top = stacks.top.length ? height.top : 0;
+    const bottom = stacks.bottom.length ? height.bottom : 0;
+    const where = (id: DockPanelId) => SIDES.flatMap((side) => stacks[side]).find((s) => s.open.includes(id));
     const docked = (id: DockPanelId) => !!where(id);
-    return { compact, open, stacks, left, right, width, floating, where, docked };
+    return { compact, open, stacks, left, right, top, bottom, width, height, floating, where, docked };
 }
 
 export type DockLayout = ReturnType<typeof useDockLayout>;
@@ -63,28 +66,49 @@ const vertical = (from: number, size: number, tabs: boolean): CSSProperties => (
     height: `calc((100% - var(--topbar)) * ${size} - ${tabs ? TAB_HEIGHT : 0}px)`,
 });
 
-// Where a docked panel sits in its column: hidden while another tab of its
-// stack is in front.
+// Across the space between the columns, where rows sit.
+export const across = (fraction: number) => `calc(var(--dock-left) + (100% - var(--dock-left) - var(--dock-right)) * ${fraction})`;
+export const acrossSize = (fraction: number) => `calc((100% - var(--dock-left) - var(--dock-right)) * ${fraction})`;
+
+// Where a stack's tabs (or its panel, without tabs) start, from the top of the screen.
+export const rowTop = (side: "top" | "bottom", height: number) => (side === "top" ? "var(--topbar)" : `calc(100% - ${height}px)`);
+
+// Where a docked panel sits in its column or row: hidden while another tab of
+// its stack is in front.
 export function dockedStyle(id: DockPanelId, layout: DockLayout): CSSProperties | undefined {
     const s = layout.where(id);
     if (!s) return undefined;
     const tabs = s.open.length > 1;
     const last = s.from + s.size > 0.999;
+    const line = "1px solid var(--border)";
+    const common: CSSProperties = { position: "absolute", maxHeight: "none", borderRadius: 0, boxShadow: "none", transform: "none", translate: "none", ...(s.shown === id ? {} : { display: "none" }) };
+    if (isRow(s.side)) {
+        const tab = tabs ? TAB_HEIGHT : 0;
+        const height = s.side === "top" ? layout.top : layout.bottom;
+        return {
+            ...common,
+            left: across(s.from),
+            width: acrossSize(s.size),
+            right: "auto",
+            top: `calc(${rowTop(s.side, height)} + ${tab}px)`,
+            bottom: "auto",
+            height: height - tab,
+            borderLeft: "none",
+            borderRight: last ? "none" : line,
+            borderTop: s.side === "top" || tabs ? "none" : line,
+            borderBottom: s.side === "bottom" ? "none" : line,
+        };
+    }
     return {
-        position: "absolute",
+        ...common,
         ...vertical(s.from, s.size, tabs),
         bottom: "auto",
         [s.side]: 0,
         [s.side === "left" ? "right" : "left"]: "auto",
         width: s.side === "left" ? layout.left : layout.right,
-        maxHeight: "none",
-        borderRadius: 0,
         borderTop: "none",
-        borderBottom: last ? "none" : "1px solid var(--border)",
+        borderBottom: last ? "none" : line,
         [s.side === "left" ? "borderLeft" : "borderRight"]: "none",
-        boxShadow: "none",
-        transform: "none",
-        ...(s.shown === id ? {} : { display: "none" }),
     };
 }
 
@@ -98,7 +122,7 @@ export function dropZones(layout: DockLayout, w = window.innerWidth, h = window.
     const zones: { target: DropTarget; rect: DOMRect; preview: DOMRect }[] = [];
     const body = h - TOPBAR;
     const rect = (x: number, y: number, rw: number, rh: number) => new DOMRect(x, y, rw, rh);
-    for (const side of ["left", "right"] as DockSide[]) {
+    for (const side of ["left", "right"] as const) {
         const stacks = layout.stacks[side];
         const colWidth = side === "left" ? layout.left : layout.right;
         if (!stacks.length) {
@@ -121,6 +145,37 @@ export function dropZones(layout: DockLayout, w = window.innerWidth, h = window.
             // The last one's bottom edge: a new stack at the bottom.
             if (i === stacks.length - 1)
                 zones.push({ target: { kind: "split", side, index: s.index + 1 }, rect: rect(x, top + height - edge, colWidth, edge), preview: rect(x, top + height / 2, colWidth, height / 2) });
+        });
+    }
+    // Rows run between the columns: across the top under the bar, and along the bottom.
+    const x0 = layout.left;
+    const span = w - layout.left - layout.right;
+    for (const side of ["top", "bottom"] as const) {
+        const stacks = layout.stacks[side];
+        const rowHeight = side === "top" ? layout.top : layout.bottom;
+        if (!stacks.length) {
+            // An empty row: a band along its edge starts one there.
+            const band = 56;
+            const height = layout.height[side];
+            zones.push({
+                target: { kind: "split", side, index: 0 },
+                rect: rect(x0, side === "top" ? TOPBAR : h - band, span, band),
+                preview: rect(x0, side === "top" ? TOPBAR : h - height, span, height),
+            });
+            continue;
+        }
+        const y = side === "top" ? TOPBAR : h - rowHeight;
+        stacks.forEach((s, i) => {
+            const left = x0 + span * s.from;
+            const width = span * s.size;
+            const edge = Math.min(48, width / 4);
+            // The middle of a stack: join it as a tab.
+            zones.push({ target: { kind: "tab", side, stack: s.index }, rect: rect(left + edge, y, width - edge * 2, rowHeight), preview: rect(left, y, width, rowHeight) });
+            // Its left edge: a new stack before it.
+            zones.push({ target: { kind: "split", side, index: s.index }, rect: rect(left, y, edge, rowHeight), preview: rect(left, y, Math.min(width / 2, span / 3), rowHeight) });
+            // The last one's right edge: a new stack at the end.
+            if (i === stacks.length - 1)
+                zones.push({ target: { kind: "split", side, index: s.index + 1 }, rect: rect(left + width - edge, y, edge, rowHeight), preview: rect(left + width / 2, y, width / 2, rowHeight) });
         });
     }
     return zones;

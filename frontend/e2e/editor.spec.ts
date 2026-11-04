@@ -525,3 +525,42 @@ test('rearranges panels by dragging them into columns, stacks and tabs', async (
   await page.getByTitle('Add box').click()
   await expect(page.getByRole('tablist', { name: 'Panels' }).getByRole('tab')).toHaveText(['Inspector', 'Assistant'])
 })
+
+test('docks panels in rows along the top and bottom of the screen', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 860 })
+  await openEditor(page)
+  await page.getByTitle('Add box').click()
+  await page.getByTitle('History').click()
+  const carry = async (from: { x: number; y: number }, to: { x: number; y: number }) => {
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(from.x + 12, from.y + 12, { steps: 3 })
+    await page.mouse.move(to.x, to.y, { steps: 8 })
+    await page.mouse.up()
+  }
+  const view = async () => (await page.locator('canvas').first().boundingBox())!
+  const history = page.getByRole('dialog', { name: 'History' })
+  // Dropped on the bottom edge of the view, History becomes a row along the
+  // bottom, and the view ends above it.
+  const at = (await history.boundingBox())!
+  await carry({ x: at.x + 60, y: at.y + 20 }, { x: 700, y: 850 })
+  await expect.poll(async () => (await history.boundingBox())!.width).toBeGreaterThan(600)
+  await expect.poll(async () => {
+    const v = await view()
+    return v.y + v.height
+  }).toBeLessThan(860 - 200)
+
+  // The inspector on the top edge: a row under the top bar, and the view
+  // starts below it.
+  const header = (await page.getByText('Inspector', { exact: true }).boundingBox())!
+  await carry({ x: header.x + 10, y: header.y + 5 }, { x: 700, y: 70 })
+  await expect.poll(async () => (await view()).y).toBeGreaterThan(48 + 200)
+  await expect.poll(async () => (await view()).x).toBeLessThan(10)
+
+  // The assistant beside History, at the row's left end.
+  const assistant = (await page.getByText('Builds and changes things for you').boundingBox())!
+  const row = (await history.boundingBox())!
+  await carry({ x: assistant.x + 20, y: assistant.y + 6 }, { x: row.x + 10, y: row.y + row.height / 2 })
+  await expect.poll(async () => (await history.boundingBox())!.x).toBeGreaterThan(row.x + 200)
+  await expect(page.getByRole('tablist', { name: 'Panels' })).toHaveCount(0)
+})

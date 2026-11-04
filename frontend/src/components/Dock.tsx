@@ -1,12 +1,12 @@
 import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import styled from "styled-components";
 import { ChatsCircle, ClockCounterClockwise, PictureInPicture, SidebarSimple, SlidersHorizontal, Sparkle } from "@phosphor-icons/react";
-import { useDock, type DockPanelId, type DockSide } from "../ui/dock";
-import { dropZones, TAB_HEIGHT, useDockDrag, useDockLayout, usePanelDrag, type PlacedStack } from "../ui/useDockLayout";
+import { isRow, SIDES, useDock, type DockPanelId, type DockSide } from "../ui/dock";
+import { across, acrossSize, dropZones, rowTop, TAB_HEIGHT, TOPBAR, useDockDrag, useDockLayout, usePanelDrag, type DockLayout, type PlacedStack } from "../ui/useDockLayout";
 import { IconButton } from "./ui";
 
 // What the dock draws around the panels: tabs for stacks with several open
-// panels, handles to resize columns and stacks, and while a panel is being
+// panels, handles to resize columns, rows and stacks, and while a panel is being
 // dragged, where it can go.
 
 const PANEL_NAMES: Record<DockPanelId, string> = { inspector: "Inspector", assistant: "Assistant", chat: "Room chat", history: "History" };
@@ -60,18 +60,17 @@ const Tab = styled.button<{ $active: boolean }>`
     }
 `;
 
-function StackTabs({ stack, width }: { stack: PlacedStack; width: number }) {
+// Where a stack's tab strip goes: across its top, in a column or a row.
+function tabsPlace(stack: PlacedStack, layout: DockLayout) {
+    if (stack.side === "top" || stack.side === "bottom")
+        return { top: rowTop(stack.side, stack.side === "top" ? layout.top : layout.bottom), left: across(stack.from), width: acrossSize(stack.size) };
+    return { top: `calc(var(--topbar) + (100% - var(--topbar)) * ${stack.from})`, [stack.side]: 0, width: stack.side === "left" ? layout.left : layout.right };
+}
+
+function StackTabs({ stack, layout }: { stack: PlacedStack; layout: DockLayout }) {
     const setActive = useDock((s) => s.setActive);
     return (
-        <Tabs
-            role="tablist"
-            aria-label="Panels"
-            style={{
-                top: `calc(var(--topbar) + (100% - var(--topbar)) * ${stack.from})`,
-                [stack.side]: 0,
-                width,
-            }}
-        >
+        <Tabs role="tablist" aria-label="Panels" style={tabsPlace(stack, layout)}>
             {stack.open.map((id) => (
                 <TabButton key={id} id={id} active={stack.shown === id} onSelect={() => setActive(stack.side, stack.index, id)} />
             ))}
@@ -108,15 +107,19 @@ const Grip = styled.div<{ $axis: "x" | "y" }>`
     }
 `;
 
-// Drag a column's inner edge to resize it.
-function ColumnGrip({ side, width }: { side: DockSide; width: number }) {
-    const setWidth = useDock((s) => s.setWidth);
+// Drag a column's or row's inner edge to resize it.
+function SideGrip({ side, size }: { side: DockSide; size: number }) {
+    const setSize = useDock((s) => s.setSize);
     const grip = useRef<HTMLDivElement>(null);
+    const row = isRow(side);
     const start = (e: ReactPointerEvent) => {
         e.preventDefault();
-        const from = e.clientX;
+        const from = row ? e.clientY : e.clientX;
         grip.current?.setAttribute("data-active", "");
-        const move = (ev: PointerEvent) => setWidth(side, width + (side === "left" ? ev.clientX - from : from - ev.clientX));
+        const move = (ev: PointerEvent) => {
+            const at = row ? ev.clientY : ev.clientX;
+            setSize(side, size + (side === "left" || side === "top" ? at - from : from - at));
+        };
         const up = () => {
             grip.current?.removeAttribute("data-active");
             window.removeEventListener("pointermove", move);
@@ -125,11 +128,14 @@ function ColumnGrip({ side, width }: { side: DockSide; width: number }) {
         window.addEventListener("pointermove", move);
         window.addEventListener("pointerup", up);
     };
-    return <Grip ref={grip} $axis="x" role="separator" aria-orientation="vertical" title="Drag to resize" onPointerDown={start} style={{ top: "var(--topbar)", bottom: 0, width: 8, [side]: width - 4 }} />;
+    const place = row
+        ? { left: "var(--dock-left)", right: "var(--dock-right)", height: 8, ...(side === "top" ? { top: `calc(var(--topbar) + ${size - 4}px)` } : { bottom: size - 4 }) }
+        : { top: "var(--topbar)", bottom: 0, width: 8, [side]: size - 4 };
+    return <Grip ref={grip} $axis={row ? "y" : "x"} role="separator" aria-orientation={row ? "horizontal" : "vertical"} title="Drag to resize" onPointerDown={start} style={place} />;
 }
 
 // Drag the line between two stacks to give one more room.
-function StackGrip({ side, stacks, at, width }: { side: DockSide; stacks: PlacedStack[]; at: number; width: number }) {
+function StackGrip({ side, stacks, at, layout }: { side: DockSide; stacks: PlacedStack[]; at: number; layout: DockLayout }) {
     const setWeights = useDock((s) => s.setWeights);
     const columns = useDock((s) => s.columns);
     const grip = useRef<HTMLDivElement>(null);
@@ -137,12 +143,13 @@ function StackGrip({ side, stacks, at, width }: { side: DockSide; stacks: Placed
     const below = stacks[at + 1]!;
     const start = (e: ReactPointerEvent) => {
         e.preventDefault();
-        const from = e.clientY;
-        const body = window.innerHeight - 48;
+        const row = isRow(side);
+        const from = row ? e.clientX : e.clientY;
+        const body = row ? window.innerWidth - layout.left - layout.right : window.innerHeight - TOPBAR;
         const total = stacks.reduce((n, s) => n + s.weight, 0);
         grip.current?.setAttribute("data-active", "");
         const move = (ev: PointerEvent) => {
-            const delta = ((ev.clientY - from) / body) * total;
+            const delta = (((row ? ev.clientX : ev.clientY) - from) / body) * total;
             const pair = above.weight + below.weight;
             const a = Math.min(pair - 0.15, Math.max(0.15, above.weight + delta));
             const weights = columns[side].map((s, i) => (i === above.index ? a : i === below.index ? pair - a : s.weight));
@@ -156,17 +163,11 @@ function StackGrip({ side, stacks, at, width }: { side: DockSide; stacks: Placed
         window.addEventListener("pointermove", move);
         window.addEventListener("pointerup", up);
     };
-    return (
-        <Grip
-            ref={grip}
-            $axis="y"
-            role="separator"
-            aria-orientation="horizontal"
-            title="Drag to resize"
-            onPointerDown={start}
-            style={{ height: 8, width, [side]: 0, top: `calc(var(--topbar) + (100% - var(--topbar)) * ${below.from} - 4px)` }}
-        />
-    );
+    const place = isRow(side)
+        ? { width: 8, height: side === "top" ? layout.top : layout.bottom, top: rowTop(side as "top" | "bottom", side === "top" ? layout.top : layout.bottom), left: `calc(${across(below.from)} - 4px)` }
+        : { height: 8, width: side === "left" ? layout.left : layout.right, [side]: 0, top: `calc(var(--topbar) + (100% - var(--topbar)) * ${below.from} - 4px)` };
+    const vertical = isRow(side);
+    return <Grip ref={grip} $axis={vertical ? "x" : "y"} role="separator" aria-orientation={vertical ? "vertical" : "horizontal"} title="Drag to resize" onPointerDown={start} style={place} />;
 }
 
 const Zone = styled.div<{ $on: boolean }>`
@@ -226,17 +227,16 @@ export function DockFrames() {
     if (layout.compact) return null;
     return (
         <>
-            {(["left", "right"] as DockSide[]).map((side) => {
+            {SIDES.map((side) => {
                 const stacks = layout.stacks[side];
-                const width = side === "left" ? layout.left : layout.right;
                 if (!stacks.length) return null;
                 return (
                     <div key={side}>
-                        {stacks.map((s) => s.open.length > 1 && <StackTabs key={`tabs-${s.index}`} stack={s} width={width} />)}
+                        {stacks.map((s) => s.open.length > 1 && <StackTabs key={`tabs-${s.index}`} stack={s} layout={layout} />)}
                         {stacks.slice(0, -1).map((_, i) => (
-                            <StackGrip key={`grip-${i}`} side={side} stacks={stacks} at={i} width={width} />
+                            <StackGrip key={`grip-${i}`} side={side} stacks={stacks} at={i} layout={layout} />
                         ))}
-                        <ColumnGrip side={side} width={width} />
+                        <SideGrip side={side} size={layout[side]} />
                     </div>
                 );
             })}

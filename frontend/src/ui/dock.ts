@@ -1,25 +1,31 @@
 import { create } from "zustand";
 
 // The editor's panels laid out like Blender's areas: a column on each side
-// holds stacks of panels, one above the other; a stack with several panels
+// and a row along the top and bottom hold stacks of panels; a stack with several panels
 // shows them as tabs. Panels are dragged by their header or tab to another
 // stack (as a tab), between stacks (as a new one), or out over the view, where
 // they float. Columns and stacks are resized by dragging their edges. The
 // whole layout is remembered.
 
 export type DockPanelId = "inspector" | "assistant" | "chat" | "history";
-export type DockSide = "left" | "right";
+// Columns on the left and right hold stacks one above the other; rows along
+// the top and bottom hold them side by side.
+export type DockSide = "left" | "right" | "top" | "bottom";
+export const SIDES: DockSide[] = ["left", "right", "top", "bottom"];
+export const isRow = (side: DockSide) => side === "top" || side === "bottom";
 export type Stack = { tabs: DockPanelId[]; active: DockPanelId; weight: number };
 
 export const PANEL_IDS: DockPanelId[] = ["inspector", "assistant", "chat", "history"];
 export const DOCK_MIN = 240;
 export const DOCK_MAX = 560;
+export const ROW_MIN = 120;
 
 export type DropTarget = { kind: "tab"; side: DockSide; stack: number } | { kind: "split"; side: DockSide; index: number } | { kind: "float"; x: number; y: number };
 
 type Layout = {
     columns: Record<DockSide, Stack[]>;
-    width: Record<DockSide, number>;
+    width: Record<"left" | "right", number>;
+    height: Record<"top" | "bottom", number>;
     // Panels floating over the view, and where (null until moved).
     floating: Partial<Record<DockPanelId, { x: number; y: number } | null>>;
 };
@@ -32,15 +38,22 @@ const DEFAULT: Layout = {
             { tabs: ["assistant", "chat"], active: "assistant", weight: 2 },
             { tabs: ["history"], active: "history", weight: 1 },
         ],
+        top: [],
+        bottom: [],
     },
     width: { left: 280, right: 360 },
+    height: { top: 220, bottom: 240 },
     floating: {},
 };
 
-// A saved layout with every panel placed exactly once, or the default.
+// A saved layout with every panel placed exactly once, or the default. Ones
+// saved before the top and bottom rows existed get empty rows.
 function valid(layout: Layout | null): layout is Layout {
     if (!layout?.columns?.left || !layout.columns.right || !layout.width) return false;
-    const placed = [...layout.columns.left, ...layout.columns.right].flatMap((s) => s.tabs).concat(Object.keys(layout.floating ?? {}) as DockPanelId[]);
+    layout.columns.top ??= [];
+    layout.columns.bottom ??= [];
+    layout.height ??= DEFAULT.height;
+    const placed = SIDES.flatMap((side) => layout.columns[side]).flatMap((s) => s.tabs).concat(Object.keys(layout.floating ?? {}) as DockPanelId[]);
     return PANEL_IDS.every((id) => placed.filter((p) => p === id).length === 1) && placed.length === PANEL_IDS.length;
 }
 
@@ -56,7 +69,7 @@ function load(): Layout {
 // The layout without `id` anywhere, dropping stacks it leaves empty.
 function without(layout: Layout, id: DockPanelId): Layout {
     const columns = Object.fromEntries(
-        (["left", "right"] as DockSide[]).map((side) => [
+        SIDES.map((side) => [
             side,
             layout.columns[side]
                 .map((s) => {
@@ -80,7 +93,8 @@ type DockState = Layout & {
     setActive: (side: DockSide, stack: number, id: DockPanelId) => void;
     // Brings a panel to the front of its stack, as when it's opened.
     reveal: (id: DockPanelId) => void;
-    setWidth: (side: DockSide, width: number) => void;
+    // A column's width, or a row's height.
+    setSize: (side: DockSide, size: number) => void;
     setWeights: (side: DockSide, weights: number[]) => void;
     reset: () => void;
 };
@@ -89,19 +103,19 @@ export const useDock = create<DockState>()((set, get) => {
     const commit = (layout: Layout) => {
         set(layout);
         try {
-            localStorage.setItem(KEY, JSON.stringify({ columns: layout.columns, width: layout.width, floating: layout.floating }));
+            localStorage.setItem(KEY, JSON.stringify({ columns: layout.columns, width: layout.width, height: layout.height, floating: layout.floating }));
         } catch {
             // Remembering is optional.
         }
     };
     const current = (): Layout => {
-        const { columns, width, floating } = get();
-        return { columns, width, floating };
+        const { columns, width, height, floating } = get();
+        return { columns, width, height, floating };
     };
     return {
         ...load(),
         find: (id) => {
-            for (const side of ["left", "right"] as DockSide[]) {
+            for (const side of SIDES) {
                 const stack = get().columns[side].findIndex((s) => s.tabs.includes(id));
                 if (stack >= 0) return { side, stack };
             }
@@ -145,7 +159,10 @@ export const useDock = create<DockState>()((set, get) => {
             const at = get().find(id);
             if (at && get().columns[at.side][at.stack]!.active !== id) get().setActive(at.side, at.stack, id);
         },
-        setWidth: (side, width) => commit({ ...current(), width: { ...get().width, [side]: Math.round(Math.min(DOCK_MAX, Math.max(DOCK_MIN, width))) } }),
+        setSize: (side, size) =>
+            isRow(side)
+                ? commit({ ...current(), height: { ...get().height, [side]: Math.round(Math.min(window.innerHeight * 0.6, Math.max(ROW_MIN, size))) } })
+                : commit({ ...current(), width: { ...get().width, [side]: Math.round(Math.min(DOCK_MAX, Math.max(DOCK_MIN, size))) } }),
         setWeights: (side, weights) => commit({ ...current(), columns: { ...get().columns, [side]: get().columns[side].map((s, i) => ({ ...s, weight: Math.max(0.15, weights[i] ?? s.weight) })) } }),
         reset: () => commit(DEFAULT),
     };
