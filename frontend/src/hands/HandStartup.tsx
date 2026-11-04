@@ -18,7 +18,7 @@ const Spot = styled.div`
     left: 50%;
     translate: -50% 0;
     width: min(340px, calc(100% - 24px));
-    z-index: 40;
+    z-index: 65;
 
     @media ${COMPACT} {
         top: calc(var(--topbar) + env(safe-area-inset-top, 0px) + 8px);

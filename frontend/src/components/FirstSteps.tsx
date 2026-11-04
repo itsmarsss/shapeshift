@@ -25,13 +25,16 @@ const Spot = styled.div`
     translate: -50% 0;
     bottom: calc(var(--gap) + 12px + var(--bottom-offset, 0px));
     width: 290px;
-    z-index: 24;
+    // Above the panels, so it stays in reach wherever it's dragged.
+    z-index: 64;
 
     @media ${COMPACT} {
         left: 12px;
         right: 12px;
         translate: none;
         width: auto;
+        // Under the bottom sheets on phones.
+        z-index: 24;
         bottom: calc(var(--gap) * 2 + 48px + env(safe-area-inset-bottom, 0px) + var(--bottom-offset, 0px));
     }
 `;
