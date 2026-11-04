@@ -6,7 +6,7 @@ import type { HandFrame, Handedness } from "./gestures";
 // pinch that drags and orbits.
 export const POSES = {
     voice: 12, // thumb to middle fingertip: talk to the assistant
-    mode: 16, // thumb to ring fingertip: next editor mode
+    mode: 16, // thumb to ring fingertip: preview, and back to editing
     undo: 20, // thumb to pinky fingertip: undo
 } as const;
 export type Pose = keyof typeof POSES;

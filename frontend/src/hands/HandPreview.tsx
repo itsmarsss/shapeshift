@@ -250,7 +250,7 @@ export function HandPreview() {
                     <b>Thumb + middle</b>
                     <span>Talk to the assistant</span>
                     <b>Thumb + ring</b>
-                    <span>Next mode</span>
+                    <span>Preview, and back</span>
                     <b>Thumb + pinky</b>
                     <span>Undo</span>
                 </Legend>

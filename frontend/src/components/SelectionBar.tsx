@@ -1,11 +1,12 @@
 import styled from "styled-components";
 import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-m";
-import { Check, Copy, Polygon, SlidersHorizontal, Trash } from "@phosphor-icons/react";
+import { Check, Copy, Eye, Polygon, SlidersHorizontal, Trash } from "@phosphor-icons/react";
 import { startEditPoints, stopEditPoints } from "../scene/editPoints";
+import { stopLook } from "../scene/look";
 import { touchOnly } from "../ui/touch";
 import { useScene } from "../scene/store";
-import { useCompact } from "../ui/compact";
+import { COMPACT, useCompact } from "../ui/compact";
 import { useInspectorVisible } from "../ui/inspector";
 import { drop } from "../ui/motion";
 import { useUI } from "../ui/store";
@@ -16,7 +17,8 @@ import { Button, IconButton } from "./ui";
 // a copy, delete, editing its points, and a way into the inspector for
 // everything else. It shows while the inspector is closed, so the big panel
 // can stay out of the way. While a shape's points are being edited it says so,
-// whether or not the inspector is open, with Done to finish.
+// whether or not the inspector is open, with Done to finish; in Preview, the
+// way back to editing.
 
 const Bar = styled(m.div)`
     position: absolute;
@@ -32,6 +34,14 @@ const Bar = styled(m.div)`
     border: 1px solid var(--border);
     border-radius: 12px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+    // Phones keep the view cube in the top corner, so the bar sits above
+    // the toolbar at the bottom instead.
+    @media ${COMPACT} {
+        top: auto;
+        bottom: calc(var(--gap) * 2 + 48px + env(safe-area-inset-bottom, 0px) + var(--bottom-offset, 0px));
+        max-width: calc(100% - 24px);
+    }
 
     .name {
         max-width: 160px;
@@ -69,6 +79,15 @@ export function SelectionBar() {
     const editing = mode === "edit" && !!selected;
     return (
         <AnimatePresence mode="wait">
+            {mode === "render" && (
+                <Bar key="previewing" {...drop} role="toolbar" aria-label="Previewing">
+                    <Eye size={16} weight="fill" style={{ marginLeft: 8, color: "var(--accent)" }} />
+                    <span className="name">Previewing</span>
+                    <Button $size="sm" $variant="primary" onClick={stopLook}>
+                        Back to editing
+                    </Button>
+                </Bar>
+            )}
             {editing && selected && (
                 <Bar key="editing-points" {...drop} role="toolbar" aria-label="Editing points">
                     <span className="name" title={selected.name}>

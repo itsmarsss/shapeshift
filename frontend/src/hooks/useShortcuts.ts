@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { startEditPoints, stopEditPoints } from "../scene/editPoints";
+import { startLook, stopLook, toggleLook } from "../scene/look";
 import { useScene } from "../scene/store";
 import { PRIMITIVES } from "@shapeshift/shared/scene/schema";
 import { addShape, dropSelection, duplicateSelection, groupSelection, removeSelection, selectAll, ungroupSelection } from "../scene/selection";
@@ -17,6 +18,8 @@ function isTyping(target: EventTarget | null) {
 
 export function useShortcuts() {
     useEffect(() => {
+        // Whether Space is being held to peek at the preview.
+        let peeking = false;
         function onKeyDown(e: KeyboardEvent) {
             const s = useScene.getState();
             const ui = useUI.getState();
@@ -76,10 +79,18 @@ export function useShortcuts() {
                 dropSelection();
             } else if (key === "escape") {
                 if (useTools.getState().tool !== "select") useTools.getState().setTool("select");
+                else if (s.mode === "render") stopLook();
                 else if (s.mode === "edit") stopEditPoints();
                 else s.select(null);
             } else if (key === "enter" && !mod && s.mode === "object" && s.selectedIds.length === 1) {
                 startEditPoints();
+            } else if (!mod && key === "p") {
+                toggleLook();
+            } else if (key === " " && !mod && !e.repeat && s.mode !== "render" && !(e.target as HTMLElement | null)?.closest?.("button, a, [role='button'], [role='tab']")) {
+                // Held, Space peeks at the preview until it's let go.
+                e.preventDefault();
+                peeking = true;
+                startLook();
             } else if (!mod && key === "f") {
                 frameSelection();
             } else if (!mod && key in TRANSFORM_KEYS) {
@@ -90,6 +101,10 @@ export function useShortcuts() {
         }
         const onKeyUp = (e: KeyboardEvent) => {
             if (e.key.startsWith("Arrow")) useScene.getState().endCoalesce();
+            if (e.key === " " && peeking) {
+                peeking = false;
+                stopLook();
+            }
         };
         window.addEventListener("keydown", onKeyDown);
         window.addEventListener("keyup", onKeyUp);
