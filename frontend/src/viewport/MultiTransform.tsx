@@ -38,7 +38,7 @@ export function MultiTransform({ objects, gizmoBusy }: { objects: SceneObject[];
                 <TransformControls
                     ref={gizmoColors}
                     object={pivot}
-                    mode={transformMode}
+                    mode={transformMode ?? "translate"}
                     translationSnap={snap.enabled && !workplane ? snap.translate : null}
                     rotationSnap={snap.enabled ? snap.rotate : null}
                     scaleSnap={snap.enabled ? snap.scale : null}

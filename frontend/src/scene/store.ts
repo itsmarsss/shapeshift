@@ -33,7 +33,9 @@ export type SceneState = {
     // Everything selected, primary last.
     selectedIds: string[];
     mode: EditorMode;
-    transformMode: TransformMode;
+    // The precise per-axis gizmo, when one is picked; null shows only the
+    // handles on the selection (size boxes, turn knob, lift arrow).
+    transformMode: TransformMode | null;
     snap: Snap;
     run: (commands: Command | Command[], options?: RunOptions) => CommandResult[];
     endCoalesce: () => void;
@@ -50,7 +52,7 @@ export type SceneState = {
     select: (id: string | null, options?: { toggle?: boolean }) => void;
     selectMany: (ids: string[]) => void;
     setMode: (mode: EditorMode) => void;
-    setTransformMode: (mode: TransformMode) => void;
+    setTransformMode: (mode: TransformMode | null) => void;
     setSnap: (snap: Partial<Snap>) => void;
 };
 
@@ -78,7 +80,7 @@ export const useScene = create<SceneState>()((set, get) => ({
     selectedId: null,
     selectedIds: [],
     mode: "object",
-    transformMode: "translate",
+    transformMode: null,
     snap: { enabled: false, translate: 0.5, rotate: Math.PI / 12, scale: 0.1 },
 
     run: (commands, options = {}) => {

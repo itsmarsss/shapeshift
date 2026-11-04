@@ -180,7 +180,7 @@ export function HandControls() {
         const near = !control && handedness === objectHand() ? handHandles.near[handedness] : null;
         if (near && near.set.grab(near.point.key, near.point.x, near.point.y)) {
             drag.current = { kind: "handle", set: near.set, dx: near.point.x - x * window.innerWidth, dy: near.point.y - y * window.innerHeight };
-            handHandles.active = near.set;
+            handHandles.active = { set: near.set, key: near.point.key };
             return;
         }
         const ui = control ?? interfaceAt(x, y);

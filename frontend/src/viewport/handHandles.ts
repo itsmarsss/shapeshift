@@ -7,10 +7,10 @@
 export type HandlePoint = { key: string; x: number; y: number };
 
 export type HandleSet = {
-    // What a pinch does, shown by the hand cursor ("Pinch to resize").
-    verb: string;
-    // While dragging ("Resizing").
-    doing: string;
+    // What a pinch on a handle does, shown by the hand cursor ("Pinch to resize").
+    verb: (key: string) => string;
+    // While dragging it ("Resizing").
+    doing: (key: string) => string;
     // The point on any of its handles nearest a window point, right now.
     nearest: (x: number, y: number) => HandlePoint | null;
     // Lights up a handle (or none) as the hand comes near.
@@ -46,4 +46,4 @@ export function handleNear(x: number, y: number, reach: number): NearHandle | nu
 }
 
 // What each hand is near and what one is dragging, for the hand cursor's label.
-export const handHandles: { near: Record<string, NearHandle | null>; active: HandleSet | null } = { near: {}, active: null };
+export const handHandles: { near: Record<string, NearHandle | null>; active: { set: HandleSet; key: string } | null } = { near: {}, active: null };

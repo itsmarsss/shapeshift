@@ -564,3 +564,16 @@ test('docks panels in rows along the top and bottom of the screen', async ({ pag
   await expect.poll(async () => (await history.boundingBox())!.x).toBeGreaterThan(row.x + 200)
   await expect(page.getByRole('tablist', { name: 'Panels' })).toHaveCount(0)
 })
+
+test('keeps the precise arrows behind one button', async ({ page }) => {
+  await openEditor(page)
+  await page.getByTitle('Add box').click()
+  await expect(page.getByTitle('Turn around one axis (E)')).toHaveCount(0)
+  await page.getByTitle('Precise arrows: move, turn or stretch along one axis').click()
+  await page.getByTitle('Turn around one axis (E)').click()
+  await expect(page.getByTitle('Turn around one axis (E)')).toHaveAttribute('aria-pressed', 'true')
+  // The same shortcut again puts them away.
+  await page.locator('canvas').first().hover()
+  await page.keyboard.press('e')
+  await expect(page.getByTitle('Turn around one axis (E)')).toHaveCount(0)
+})
