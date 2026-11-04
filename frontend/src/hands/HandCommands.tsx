@@ -7,8 +7,9 @@ import { PoseTracker, type Pose } from "./poses";
 import { live, useHands } from "./tracker";
 import { useHandToast } from "./menu";
 
-const NEXT_MODE: Record<EditorMode, EditorMode> = { object: "edit", edit: "render", render: "object" };
-const MODE_LABEL: Record<EditorMode, string> = { object: "Arrange", edit: "Reshape", render: "Preview" };
+// Between building and previewing; editing points finishes back to building.
+const NEXT_MODE: Record<EditorMode, EditorMode> = { object: "render", edit: "object", render: "object" };
+const MODE_LABEL: Record<EditorMode, string> = { object: "Arrange", edit: "Editing points", render: "Preview" };
 
 const pop = keyframes`
     from { opacity: 0; transform: translate(-50%, 6px) scale(0.96); }

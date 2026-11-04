@@ -19,6 +19,7 @@ type Props = {
     onSelect: (id: string, event: ThreeEvent<MouseEvent>) => void;
     // Pressing starts a drag; see useObjectDrag.
     onPress?: (id: string, event: ThreeEvent<PointerEvent>) => void;
+    onDoubleClick?: (id: string, event: ThreeEvent<MouseEvent>) => void;
     onHover?: (over: boolean) => void;
     meshRef?: (mesh: THREE.Mesh | null) => void;
     // Replaces the object's own shape, such as a solid with its holes cut out.
@@ -28,7 +29,7 @@ type Props = {
 
 const HOLE_COLOR = "#9a9ea6";
 
-export const SceneMesh = memo(function SceneMesh({ object, selected, hovered, peerColor, showSelection, onSelect, onPress, onHover, meshRef, cut, look = "solid" }: Props) {
+export const SceneMesh = memo(function SceneMesh({ object, selected, hovered, peerColor, showSelection, onSelect, onPress, onDoubleClick, onHover, meshRef, cut, look = "solid" }: Props) {
     const own = useMemo(() => buildGeometry(object.geometry), [object.geometry]);
     useEffect(() => () => own.dispose(), [own]);
     const { color, metalness, roughness, opacity, emissive, emissiveIntensity = 0, transmission = 0 } = object.material;
@@ -78,6 +79,7 @@ export const SceneMesh = memo(function SceneMesh({ object, selected, hovered, pe
             castShadow={look === "solid"}
             receiveShadow={look === "solid"}
             onClick={(e: ThreeEvent<MouseEvent>) => onSelect(object.id, e)}
+            onDoubleClick={onDoubleClick && ((e: ThreeEvent<MouseEvent>) => onDoubleClick(object.id, e))}
             onPointerDown={onPress && ((e: ThreeEvent<PointerEvent>) => onPress(object.id, e))}
             onPointerOver={onHover && ((e: ThreeEvent<PointerEvent>) => (e.stopPropagation(), onHover(true)))}
             onPointerOut={onHover && (() => onHover(false))}

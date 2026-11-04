@@ -1,18 +1,22 @@
 import styled from "styled-components";
 import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-m";
-import { Copy, SlidersHorizontal, Trash } from "@phosphor-icons/react";
+import { Check, Copy, Polygon, SlidersHorizontal, Trash } from "@phosphor-icons/react";
+import { startEditPoints, stopEditPoints } from "../scene/editPoints";
+import { touchOnly } from "../ui/touch";
 import { useScene } from "../scene/store";
 import { useCompact } from "../ui/compact";
 import { useInspectorVisible } from "../ui/inspector";
 import { drop } from "../ui/motion";
 import { useUI } from "../ui/store";
 import { ColorPicker } from "./ColorPicker";
-import { IconButton } from "./ui";
+import { Button, IconButton } from "./ui";
 
 // A small bar over the view for the selected shape, like Canva's: its color,
-// a copy, delete, and a way into the inspector for everything else. It shows
-// while the inspector is closed, so the big panel can stay out of the way.
+// a copy, delete, editing its points, and a way into the inspector for
+// everything else. It shows while the inspector is closed, so the big panel
+// can stay out of the way. While a shape's points are being edited it says so,
+// whether or not the inspector is open, with Done to finish.
 
 const Bar = styled(m.div)`
     position: absolute;
@@ -40,6 +44,12 @@ const Bar = styled(m.div)`
     .color {
         width: 132px;
     }
+    .hint {
+        padding: 0 8px;
+        color: var(--text-muted);
+        font-size: 12px;
+        white-space: nowrap;
+    }
     .sep {
         width: 1px;
         height: 18px;
@@ -56,8 +66,21 @@ export function SelectionBar() {
     const run = useScene((s) => s.run);
     const endCoalesce = useScene((s) => s.endCoalesce);
     const show = !compact && !inspector && mode === "object" && !!selected;
+    const editing = mode === "edit" && !!selected;
     return (
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
+            {editing && selected && (
+                <Bar key="editing-points" {...drop} role="toolbar" aria-label="Editing points">
+                    <span className="name" title={selected.name}>
+                        Editing points of {selected.name}
+                    </span>
+                    {!compact && <span className="hint">{touchOnly() ? "Tap a point, then drag its arrows" : "Click a point and drag its arrows. Shift-click for more"}</span>}
+                    <Button $size="sm" $variant="primary" onClick={stopEditPoints}>
+                        <Check size={14} weight="bold" />
+                        Done
+                    </Button>
+                </Bar>
+            )}
             {show && selected && (
                 <Bar key="selection-bar" {...drop} role="toolbar" aria-label="Selected shape">
                     <span className="name" title={selected.name}>
@@ -76,6 +99,9 @@ export function SelectionBar() {
                     </IconButton>
                     <IconButton title="Delete" onClick={() => run({ type: "remove", target: selected.id })} style={{ color: "var(--danger)" }}>
                         <Trash size={16} />
+                    </IconButton>
+                    <IconButton title="Edit points (Enter, or double-click the shape)" onClick={() => startEditPoints(selected.id)}>
+                        <Polygon size={16} />
                     </IconButton>
                     <span className="sep" />
                     <IconButton title="More settings (inspector)" onClick={() => useUI.getState().setShowInspector(true)}>
