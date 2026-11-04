@@ -9,26 +9,28 @@ import { useUI } from "./store";
 // Docked, it stays open and shows the scene when nothing is selected, like a
 // sidebar, so the 3D view beside it doesn't jump with every click.
 
-const docked = (mode: string, compact: boolean) => mode === "dock" && !compact;
+// Docked means it sits in a column, rather than floating.
+const docked = (inColumn: boolean, compact: boolean) => inColumn && !compact;
+const inColumn = (s: ReturnType<typeof useDock.getState>) => s.columns.left.some((x) => x.tabs.includes("inspector")) || s.columns.right.some((x) => x.tabs.includes("inspector"));
 
 export function useInspectorVisible() {
     const show = useUI((s) => s.showInspector);
     const sceneOpen = useUI((s) => s.sceneOpen);
     const selected = useScene((s) => s.selectedIds.length > 0);
-    const stays = docked(useDock((s) => s.mode.inspector), useCompact());
+    const stays = docked(useDock(inColumn), useCompact());
     return show && (stays || selected || sceneOpen);
 }
 
 export function inspectorVisible() {
     const ui = useUI.getState();
-    const stays = docked(useDock.getState().mode.inspector, isCompact());
+    const stays = docked(inColumn(useDock.getState()), isCompact());
     return ui.showInspector && (stays || useScene.getState().selectedIds.length > 0 || ui.sceneOpen);
 }
 
 export function toggleInspector() {
     const selected = useScene.getState().selectedIds.length > 0;
     const ui = useUI.getState();
-    if (docked(useDock.getState().mode.inspector, isCompact())) return ui.setShowInspector(!ui.showInspector);
+    if (docked(inColumn(useDock.getState()), isCompact())) return ui.setShowInspector(!ui.showInspector);
     if (inspectorVisible()) {
         if (selected) ui.setShowInspector(false);
         useUI.setState({ sceneOpen: false });

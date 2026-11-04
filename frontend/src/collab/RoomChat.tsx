@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { DockResizer, DockToggle } from "../components/Dock";
+import { DockToggle } from "../components/Dock";
 import { useDockPanel } from "../ui/useDockLayout";
 import styled from "styled-components";
 import { AnimatePresence } from "motion/react";
@@ -214,9 +214,8 @@ export function RoomChat() {
             </AnimatePresence>
             <AnimatePresence>
                 {open && (
-                    <Root key="room-chat" ref={place.ref} style={place.style} {...slide(compact ? "bottom" : "right")} role="dialog" aria-label="Room chat">
-                        <DockResizer id="chat" />
-                        <PanelHeader {...place.handle}>
+                    <Root key="room-chat" ref={place.ref} style={place.style} {...place.panel} {...slide(compact ? "bottom" : "right")} role="dialog" aria-label="Room chat">
+                                                <PanelHeader {...place.handle}>
                             <PanelTitle>Room chat</PanelTitle>
                             <DockToggle id="chat" />
                             <IconButton title="Close" onClick={() => setOpen(false)}>

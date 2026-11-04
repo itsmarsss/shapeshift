@@ -8,6 +8,8 @@ import { describeDiff, diffKind } from "../scene/describe";
 import { useUI } from "../ui/store";
 import { COMPACT, useCompact } from "../ui/compact";
 import { IconButton, Panel, PanelHeader, PanelTitle } from "./ui";
+import { DockToggle } from "./Dock";
+import { useDockPanel } from "../ui/useDockLayout";
 
 const Root = styled(Panel)`
     top: calc(var(--topbar) + var(--gap));
@@ -79,6 +81,7 @@ const ICONS = { add: Plus, remove: Minus, edit: PencilSimple };
 
 export function HistoryPanel() {
     const show = useUI((s) => s.showHistory);
+    const place = useDockPanel<HTMLDivElement>("history");
     const compact = useCompact();
     const setShow = useUI((s) => s.setShowHistory);
     const past = useScene((s) => s.past);
@@ -100,9 +103,10 @@ export function HistoryPanel() {
     return (
         <AnimatePresence>
             {show && (
-                <Root key="panel" {...slide(compact ? "bottom" : "right")} role="dialog" aria-label="History">
-                    <PanelHeader>
+                <Root key="panel" ref={place.ref} style={place.style} {...place.panel} {...slide(compact ? "bottom" : "right")} role="dialog" aria-label="History">
+                    <PanelHeader {...place.handle}>
                         <PanelTitle>History</PanelTitle>
+                        <DockToggle id="history" />
                         <IconButton title="Close history" onClick={() => setShow(false)}>
                             <X size={16} />
                         </IconButton>

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { DockResizer, DockToggle } from "./Dock";
+import { DockToggle } from "./Dock";
 import { useDockPanel } from "../ui/useDockLayout";
 import styled from "styled-components";
 import { AnimatePresence } from "motion/react";
@@ -237,9 +237,8 @@ export function ChatPanel() {
     return (
         <AnimatePresence>
             {show && (
-                <Root key="panel" ref={place.ref} style={place.style} {...slide(compact ? "bottom" : "right")} aria-label="Assistant" $empty={turns.length === 0}>
-                    <DockResizer id="assistant" />
-                    <Header {...place.handle}>
+                <Root key="panel" ref={place.ref} style={place.style} {...place.panel} {...slide(compact ? "bottom" : "right")} aria-label="Assistant" $empty={turns.length === 0}>
+                                        <Header {...place.handle}>
                         <Mark>
                             <Sparkle size={16} weight="fill" />
                         </Mark>

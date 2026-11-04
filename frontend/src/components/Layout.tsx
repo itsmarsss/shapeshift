@@ -1,5 +1,6 @@
 import { OfflineNote } from "./OfflineNote";
 import { useDockLayout } from "../ui/useDockLayout";
+import { DockFrames } from "./Dock";
 import { Timeline, TIMELINE_HEIGHT } from "./timeline/Timeline";
 import { useTimeline } from "../scene/timeline";
 import { useCompact } from "../ui/compact";
@@ -125,7 +126,6 @@ export function Layout() {
                 </Stage>
                 <Toolbar />
                 <GridScale />
-                <HistoryPanel />
                 <Timeline />
                 <OfflineNote />
                 <StartCard />
@@ -135,7 +135,9 @@ export function Layout() {
                 <ViewCube />
                 <Suspense fallback={null}>{handsOn && <HandUI />}</Suspense>
             </Area>
+            <DockFrames />
             <Inspector />
+            <HistoryPanel />
             <Guide />
             <Tooltips />
             <RoomChat />
