@@ -105,6 +105,7 @@ export function SizeHandles({ objects, gizmoBusy }: { objects: SceneObject[]; gi
     // How far a turn or lift has gone, shown beside its handle.
     const [readout, setReadout] = useState<string | null>(null);
     const group = useRef<THREE.Group>(null);
+    const upGroup = useRef<THREE.Group>(null);
     const busy = hovered !== null || dragging !== null;
     useEffect(() => {
         useTools.getState().setHandleBusy(busy);
@@ -119,12 +120,30 @@ export function SizeHandles({ objects, gizmoBusy }: { objects: SceneObject[]; gi
         return workplaneMatrix(workplane);
     }, [objects, workplane]);
     const box = useMemo(() => boundsIn(objects, frame), [objects, frame]);
+    // Turning and lifting go by the floor (or the workplane), even for a shape
+    // that's tipped over: around the upright axis, and straight up.
+    const upFrame = useMemo(() => {
+        if (objects.length !== 1) return frame;
+        const o = objects[0];
+        const up = new THREE.Vector3(0, 1, 0).applyEuler(new THREE.Euler(...o.rotation));
+        return up.y > 0.9999 ? frame : new THREE.Matrix4().makeTranslation(...o.position);
+    }, [objects, frame]);
+    const upBox = useMemo(() => (upFrame === frame ? box : boundsIn(objects, upFrame)), [objects, frame, upFrame, box]);
+    // Which frame and bounds a handle goes by.
+    const placeOf = (h: Handle) => (h.kind === "size" ? { frame, box } : { frame: upFrame, box: upBox });
     const size = box.getSize(new THREE.Vector3());
     const outline = useMemo(() => new THREE.Box3Helper(box), [box]);
 
     // Hands grab the handles too (see handHandles): where each is on screen,
     // and the same resize a mouse drag does.
-    const latest = useRef<{ box: THREE.Box3; frame: THREE.Matrix4; begin: (h: Handle) => { move: (x: number, y: number, u: boolean) => void; stop: () => void } } | null>(null);
+    const latest = useRef<{
+        box: THREE.Box3;
+        placeOf: (h: Handle) => { frame: THREE.Matrix4; box: THREE.Box3 };
+        begin: (h: Handle) => {
+            move: (x: number, y: number, u: boolean) => void;
+            stop: () => void;
+        };
+    } | null>(null);
     useEffect(() => {
         let active: ReturnType<NonNullable<typeof latest.current>["begin"]> | null = null;
         const screen = new THREE.Vector3();
@@ -137,7 +156,8 @@ export function SizeHandles({ objects, gizmoBusy }: { objects: SceneObject[]; gi
                 const rect = gl.domElement.getBoundingClientRect();
                 let best: { key: string; x: number; y: number; gap: number } | null = null;
                 for (const h of HANDLES) {
-                    screen.copy(handleSpot(l.box, h)).applyMatrix4(l.frame).project(camera);
+                    const at = l.placeOf(h);
+                    screen.copy(handleSpot(at.box, h)).applyMatrix4(at.frame).project(camera);
                     if (screen.z > 1) continue;
                     const px = rect.left + ((screen.x + 1) / 2) * rect.width;
                     const py = rect.top + ((1 - screen.y) / 2) * rect.height;
@@ -162,21 +182,21 @@ export function SizeHandles({ objects, gizmoBusy }: { objects: SceneObject[]; gi
     }, [camera, gl]);
 
     useFrame(() => {
-        const g = group.current;
-        if (!g) return;
         const world = new THREE.Vector3();
-        for (const child of g.children) {
-            if (!child.userData.handle) continue;
-            child.getWorldPosition(world);
-            child.scale.setScalar(world.distanceTo(camera.position) * 0.009);
-        }
+        for (const g of [group.current, upGroup.current])
+            for (const child of g?.children ?? []) {
+                if (!child.userData.handle) continue;
+                child.getWorldPosition(world);
+                child.scale.setScalar(world.distanceTo(camera.position) * 0.009);
+            }
     });
 
-    latest.current = box.isEmpty() ? null : { box, frame, begin };
+    latest.current = box.isEmpty() ? null : { box, placeOf, begin };
     if (box.isEmpty()) return null;
 
     // Starts resizing from a handle; the returned drag follows a window point.
     function begin(handle: Handle) {
+        const { frame, box } = placeOf(handle);
         gizmoBusy.current = true;
         if (controls) controls.enabled = false;
         const start = handleSpot(box, handle).applyMatrix4(frame);
@@ -186,8 +206,9 @@ export function SizeHandles({ objects, gizmoBusy }: { objects: SceneObject[]; gi
         // the rest move across the floor.
         if (handle.dir[1] !== 0 && handle.kind !== "turn") {
             const view = camera.getWorldDirection(new THREE.Vector3());
-            normal = view.sub(up.clone().multiplyScalar(view.dot(up))).normalize();
-            if (normal.lengthSq() < 1e-6) normal = new THREE.Vector3(1, 0, 0).transformDirection(frame);
+            // Facing the camera, but upright; looking straight down, any upright plane does.
+            normal = view.sub(up.clone().multiplyScalar(view.dot(up)));
+            normal = normal.lengthSq() < 1e-4 ? new THREE.Vector3(1, 0, 0).transformDirection(frame) : normal.normalize();
         }
         const drag: Drag = {
             handle,
@@ -240,7 +261,6 @@ export function SizeHandles({ objects, gizmoBusy }: { objects: SceneObject[]; gi
         window.addEventListener("pointermove", move);
         window.addEventListener("pointerup", stop);
     }
-
 
     function resize(drag: Drag, p: THREE.Vector3, uniform: boolean) {
         const { box: b, handle } = drag;
@@ -301,7 +321,11 @@ export function SizeHandles({ objects, gizmoBusy }: { objects: SceneObject[]; gi
         const commands: Command[] = drag.members.map(({ id, matrix }) => {
             change.clone().multiply(matrix).decompose(position, quaternion, scale);
             const rotation = new THREE.Euler().setFromQuaternion(quaternion);
-            return transformCommand(id, { position: position.toArray() as Vec3, rotation: [rotation.x, rotation.y, rotation.z], scale: scale.toArray() as Vec3 });
+            return transformCommand(id, {
+                position: position.toArray() as Vec3,
+                rotation: [rotation.x, rotation.y, rotation.z],
+                scale: scale.toArray() as Vec3,
+            });
         });
         useScene.getState().run(commands, { coalesce, select: false });
     }
@@ -310,66 +334,73 @@ export function SizeHandles({ objects, gizmoBusy }: { objects: SceneObject[]; gi
     const showSizes = sizing(hovered) || sizing(dragging);
     const c = box.getCenter(new THREE.Vector3());
     const turning = hovered === "turn" || dragging === "turn";
+    const uc = upBox.getCenter(new THREE.Vector3());
     const ring = turning
         ? Array.from({ length: 65 }, (_, i) => {
               const a = (i / 64) * Math.PI * 2;
-              return new THREE.Vector3(c.x + Math.cos(a) * ringRadius(box), box.min.y, c.z + Math.sin(a) * ringRadius(box));
+              return new THREE.Vector3(uc.x + Math.cos(a) * ringRadius(upBox), upBox.min.y, uc.z + Math.sin(a) * ringRadius(upBox));
           })
         : [];
     const active = dragging ?? hovered;
+    const activeHandle = HANDLES.find((h) => h.id === active);
+
+    const handleMesh = (h: Handle) => {
+        const lit = hovered === h.id || dragging === h.id;
+        return (
+            <mesh
+                key={h.id}
+                userData={{ handle: true }}
+                name={`size-${h.id}`}
+                position={handleSpot(placeOf(h).box, h)}
+                renderOrder={5}
+                onPointerDown={(e) => onDown(h, e)}
+                onPointerOver={(e) => {
+                    e.stopPropagation();
+                    setHovered(h.id);
+                    gl.domElement.style.cursor = "pointer";
+                }}
+                onPointerOut={() => {
+                    setHovered(null);
+                    gl.domElement.style.cursor = "";
+                }}
+                onClick={(e) => e.stopPropagation()}
+            >
+                {h.kind === "lift" ? <coneGeometry args={[0.75, 1.9, 20]} /> : h.kind === "turn" ? <sphereGeometry args={[0.85, 20, 14]} /> : <boxGeometry args={[1, 1, 1]} />}
+                <meshBasicMaterial color={lit || (h.kind !== "size" && !active) ? palette.accent : handleColor} depthTest={false} />
+            </mesh>
+        );
+    };
 
     return (
-        <group matrix={frame} matrixAutoUpdate={false}>
-            <primitive object={outline} raycast={() => null}>
-                <lineBasicMaterial attach="material" color={palette.accent} transparent opacity={0.35} depthTest={false} />
-            </primitive>
-            <group ref={group}>
-                {HANDLES.map((h) => {
-                    const lit = hovered === h.id || dragging === h.id;
-                    return (
-                        <mesh
-                            key={h.id}
-                            userData={{ handle: true }}
-                            name={`size-${h.id}`}
-                            position={handleSpot(box, h)}
-                            renderOrder={5}
-                            onPointerDown={(e) => onDown(h, e)}
-                            onPointerOver={(e) => {
-                                e.stopPropagation();
-                                setHovered(h.id);
-                                gl.domElement.style.cursor = "pointer";
-                            }}
-                            onPointerOut={() => {
-                                setHovered(null);
-                                gl.domElement.style.cursor = "";
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            {h.kind === "lift" ? <coneGeometry args={[0.75, 1.9, 20]} /> : h.kind === "turn" ? <sphereGeometry args={[0.85, 20, 14]} /> : <boxGeometry args={[1, 1, 1]} />}
-                            <meshBasicMaterial color={lit || (h.kind !== "size" && !active) ? palette.accent : handleColor} depthTest={false} />
-                        </mesh>
-                    );
-                })}
+        <>
+            <group matrix={upFrame} matrixAutoUpdate={false}>
+                <group ref={upGroup}>{HANDLES.filter((h) => h.kind !== "size").map(handleMesh)}</group>
+                {turning && <Line points={ring} color={palette.accent} lineWidth={1.5} transparent opacity={0.6} depthTest={false} raycast={() => null} />}
+                {readout && activeHandle && activeHandle.kind !== "size" && (
+                    <Html position={handleSpot(upBox, activeHandle)} center zIndexRange={[14, 0]} pointerEvents="none" style={{ transform: "translateY(-26px)" }}>
+                        <div style={label}>{readout}</div>
+                    </Html>
+                )}
             </group>
-            {turning && <Line points={ring} color={palette.accent} lineWidth={1.5} transparent opacity={0.6} depthTest={false} raycast={() => null} />}
-            {readout && active && (
-                <Html position={handleSpot(box, HANDLES.find((h) => h.id === active)!)} center zIndexRange={[14, 0]} pointerEvents="none" style={{ transform: "translateY(-26px)" }}>
-                    <div style={label}>{readout}</div>
-                </Html>
-            )}
-            {showSizes && (
-                <>
-                    <Html position={[c.x, box.min.y, box.max.z]} center zIndexRange={[14, 0]} pointerEvents="none">
-                        <div style={label}>{formatLength(size.x, units)}</div>
-                    </Html>
-                    <Html position={[box.max.x, box.min.y, c.z]} center zIndexRange={[14, 0]} pointerEvents="none">
-                        <div style={label}>{formatLength(size.z, units)}</div>
-                    </Html>
-                    <Html position={[box.max.x, c.y, box.max.z]} center zIndexRange={[14, 0]} pointerEvents="none">
-                        <div style={label}>{formatLength(size.y, units)}</div>
-                    </Html>
-                </>
-            )}
-        </group>
+            <group matrix={frame} matrixAutoUpdate={false}>
+                <primitive object={outline} raycast={() => null}>
+                    <lineBasicMaterial attach="material" color={palette.accent} transparent opacity={0.35} depthTest={false} />
+                </primitive>
+                <group ref={group}>{HANDLES.filter((h) => h.kind === "size").map(handleMesh)}</group>
+                {showSizes && (
+                    <>
+                        <Html position={[c.x, box.min.y, box.max.z]} center zIndexRange={[14, 0]} pointerEvents="none">
+                            <div style={label}>{formatLength(size.x, units)}</div>
+                        </Html>
+                        <Html position={[box.max.x, box.min.y, c.z]} center zIndexRange={[14, 0]} pointerEvents="none">
+                            <div style={label}>{formatLength(size.z, units)}</div>
+                        </Html>
+                        <Html position={[box.max.x, c.y, box.max.z]} center zIndexRange={[14, 0]} pointerEvents="none">
+                            <div style={label}>{formatLength(size.y, units)}</div>
+                        </Html>
+                    </>
+                )}
+            </group>
+        </>
     );
 }

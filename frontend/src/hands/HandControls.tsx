@@ -165,6 +165,12 @@ export function HandControls() {
 
     function setNearHandle(near: (ReturnType<typeof handleAt> & {}) | null) {
         const hand = objectHand();
+        // The other hand may have been the object hand a moment ago.
+        for (const other of Object.keys(handHandles.near))
+            if (other !== hand && handHandles.near[other]) {
+                handHandles.near[other]!.set.hover(null);
+                handHandles.near[other] = null;
+            }
         const was = handHandles.near[hand];
         if (was && (was.set !== near?.set || was.point.key !== near.point.key)) was.set.hover(null);
         if (near && (was?.set !== near.set || was.point.key !== near.point.key)) near.set.hover(near.point.key);
@@ -296,6 +302,8 @@ export function HandControls() {
     }
 
     function pairStart(holding: Handedness | null) {
+        // A handle is let go of first: two hands move the camera instead.
+        if (drag.current?.kind === "handle") end();
         pairing.current = true;
         const d = drag.current;
         const object = d?.kind === "object" && holding ? useScene.getState().doc.objects.find((o) => o.id === d.id) : undefined;
@@ -363,13 +371,20 @@ export function HandControls() {
         drag.current = null;
     }
 
-    useEffect(
-        () => () => {
+    useEffect(() => {
+        // A handle being held goes away when the editor changes under it
+        // (Preview, another selection): let go of it rather than keep going.
+        const off = useScene.subscribe((s, prev) => {
+            if (drag.current?.kind === "handle" && (s.mode !== prev.mode || s.selectedId !== prev.selectedId)) end();
+        });
+        return () => {
+            off();
+            // Hand control turned off mid-drag lets go too.
+            if (drag.current) end();
             clearControls();
             setNearHandle(null);
-        },
-        [], // eslint-disable-line react-hooks/exhaustive-deps
-    );
+        };
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     useFrame(() => {
         if (live.hands === lastHands.current) return;
@@ -380,6 +395,7 @@ export function HandControls() {
         if (useHandMenu.getState().open) {
             if (drag.current) end();
             clearControls();
+            setNearHandle(null);
             if (useHandHover.getState().hoveredId !== null) useHandHover.setState({ hoveredId: null });
             report();
             return;

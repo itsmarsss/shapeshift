@@ -228,7 +228,9 @@ export function FirstSteps() {
 
     // Waits for the welcome and the get-started card, so it isn't one more
     // thing on an empty screen.
-    const show = active && !onboarding && (started || count > 0);
+    // On phones the editing and preview bars sit where it does.
+    const busy = useScene((s) => s.mode !== "object") && window.matchMedia(COMPACT).matches;
+    const show = active && !onboarding && (started || count > 0) && !busy;
     const r = 9;
     const length = 2 * Math.PI * r;
 

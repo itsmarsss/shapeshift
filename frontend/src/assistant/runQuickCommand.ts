@@ -1,5 +1,6 @@
 import type { QuickCommand } from "./quickCommands";
-import { startEditPoints } from "../scene/editPoints";
+import { startEditPoints, stopEditPoints } from "../scene/editPoints";
+import { startLook, stopLook } from "../scene/look";
 import { useScene } from "../scene/store";
 import { duplicateSelection, removeSelection } from "../scene/selection";
 import { frameSelection, resetView } from "../viewport/frame";
@@ -48,7 +49,9 @@ export function runQuickCommand(command: QuickCommand): string {
                 startEditPoints();
                 return useScene.getState().mode === "edit" ? "Editing points" : "Select one shape first";
             }
-            scene.setMode(command.mode);
+            if (command.mode === "render") startLook();
+            else stopLook();
+            if (command.mode === "object") stopEditPoints();
             return `${MODE_NAME[command.mode]} mode`;
         case "closeAssistant":
             useUI.getState().setShowChat(false);

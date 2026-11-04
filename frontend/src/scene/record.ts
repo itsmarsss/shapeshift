@@ -66,8 +66,9 @@ export async function recordAnimation() {
     stream.getTracks().forEach((t) => t.stop());
 
     const s = useScene.getState();
-    s.setMode(before.mode);
+    // Selection first, so going back to editing points finds its shape.
     s.selectMany(before.selection);
+    s.setMode(before.mode);
     useTimeline.getState().seek(before.time);
     useRecording.setState({ recording: false });
 

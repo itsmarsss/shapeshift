@@ -1,4 +1,5 @@
 import { useScene, type EditorMode } from "./store";
+import { useRecording } from "./record";
 
 // Preview: the scene lit and shaded, without the editing helpers. It's a way
 // of looking rather than a mode to work in, so it remembers what you were
@@ -16,7 +17,8 @@ export function startLook() {
 
 export function stopLook() {
     const s = useScene.getState();
-    if (s.mode === "render") s.setMode(before);
+    // A recording keeps the preview until it's done (see record.ts).
+    if (s.mode === "render" && !useRecording.getState().recording) s.setMode(before);
 }
 
 export function toggleLook() {
