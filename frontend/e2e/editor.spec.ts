@@ -487,3 +487,41 @@ test('shows a bar for the selected shape while the inspector is closed', async (
   await bar.getByTitle('More settings (inspector)').click()
   await expect(bar).toHaveCount(0)
 })
+
+test('rearranges panels by dragging them into columns, stacks and tabs', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 860 })
+  await openEditor(page)
+  await page.getByTitle('Add box').click()
+  await page.getByTitle('History').click()
+  const carry = async (from: { x: number; y: number }, to: { x: number; y: number }) => {
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(from.x + 12, from.y + 12, { steps: 3 })
+    await page.mouse.move(to.x, to.y, { steps: 8 })
+    await page.mouse.up()
+  }
+  const history = page.getByRole('dialog', { name: 'History' })
+  // History starts under the assistant on the right; dropped at the bottom of
+  // the left column, it becomes a new stack under the inspector.
+  const at = (await history.boundingBox())!
+  await carry({ x: at.x + 60, y: at.y + 20 }, { x: 140, y: 845 })
+  await expect.poll(async () => (await history.boundingBox())!.x).toBeLessThan(10)
+
+  // Dropped in the middle of the inspector, the assistant joins it as a tab.
+  const assistant = (await page.getByText('Builds and changes things for you').boundingBox())!
+  await carry({ x: assistant.x + 20, y: assistant.y + 6 }, { x: 140, y: 260 })
+  const tabs = page.getByRole('tablist', { name: 'Panels' })
+  await expect(tabs.getByRole('tab')).toHaveText(['Inspector', 'Assistant'])
+  // With nothing left on the right, the view takes the room.
+  await expect.poll(async () => {
+    const view = (await page.locator('canvas').first().boundingBox())!
+    return view.x + view.width
+  }).toBeGreaterThan(1430)
+  await tabs.getByRole('tab', { name: 'Inspector' }).click()
+  await expect(page.getByText('Builds and changes things for you')).toBeHidden()
+
+  // The layout is remembered.
+  await page.reload()
+  await page.getByTitle('Add box').click()
+  await expect(page.getByRole('tablist', { name: 'Panels' }).getByRole('tab')).toHaveText(['Inspector', 'Assistant'])
+})

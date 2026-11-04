@@ -1,47 +1,105 @@
-import { useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import styled from "styled-components";
-import { PictureInPicture, SidebarSimple } from "@phosphor-icons/react";
-import { DOCK_SIDE, useDock, type DockPanelId } from "../ui/dock";
-import { useDockLayout } from "../ui/useDockLayout";
+import { ChatsCircle, ClockCounterClockwise, PictureInPicture, SidebarSimple, SlidersHorizontal, Sparkle } from "@phosphor-icons/react";
+import { useDock, type DockPanelId, type DockSide } from "../ui/dock";
+import { dropZones, TAB_HEIGHT, useDockDrag, useDockLayout, usePanelDrag, type PlacedStack } from "../ui/useDockLayout";
 import { IconButton } from "./ui";
 
-// The pieces a dockable panel uses: where it goes, a button to dock it or
-// pop it out, and a handle to make a docked one wider.
+// What the dock draws around the panels: tabs for stacks with several open
+// panels, handles to resize columns and stacks, and while a panel is being
+// dragged, where it can go.
+
+const PANEL_NAMES: Record<DockPanelId, string> = { inspector: "Inspector", assistant: "Assistant", chat: "Room chat", history: "History" };
+const PANEL_ICONS = { inspector: SlidersHorizontal, assistant: Sparkle, chat: ChatsCircle, history: ClockCounterClockwise };
 
 export function DockToggle({ id }: { id: DockPanelId }) {
-    const mode = useDock((s) => s.mode[id]);
-    const setMode = useDock((s) => s.setMode);
-    const compact = useDockLayout().compact;
-    if (compact) return null;
-    const docked = mode === "dock";
+    const layout = useDockLayout();
+    const toggle = useDock((s) => s.toggleFloat);
+    if (layout.compact) return null;
+    const docked = layout.docked(id);
+    const side = id === "inspector" ? "left" : "right";
     return (
-        <IconButton
-            title={docked ? "Pop out as a floating panel" : `Dock to the ${DOCK_SIDE[id]} side`}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => setMode(id, docked ? "float" : "dock")}
-        >
-            {docked ? <PictureInPicture size={16} /> : <SidebarSimple size={16} style={DOCK_SIDE[id] === "right" ? { transform: "scaleX(-1)" } : undefined} />}
+        <IconButton title={docked ? "Pop out as a floating panel" : `Dock to the ${side} side`} onPointerDown={(e) => e.stopPropagation()} onClick={() => toggle(id)}>
+            {docked ? <PictureInPicture size={16} /> : <SidebarSimple size={16} style={side === "right" ? { transform: "scaleX(-1)" } : undefined} />}
         </IconButton>
     );
 }
 
-const Grip = styled.div`
+const Tabs = styled.div`
     position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 8px;
-    cursor: col-resize;
-    z-index: 2;
+    z-index: 31;
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: ${TAB_HEIGHT}px;
+    padding: 0 6px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: none;
+`;
+
+const Tab = styled.button<{ $active: boolean }>`
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid ${(p) => (p.$active ? "var(--border)" : "transparent")};
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    background: ${(p) => (p.$active ? "var(--surface)" : "transparent")};
+    color: ${(p) => (p.$active ? "var(--text)" : "var(--text-muted)")};
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    margin-bottom: -1px;
+
+    &:hover {
+        color: var(--text);
+    }
+`;
+
+function StackTabs({ stack, width }: { stack: PlacedStack; width: number }) {
+    const setActive = useDock((s) => s.setActive);
+    return (
+        <Tabs
+            role="tablist"
+            aria-label="Panels"
+            style={{
+                top: `calc(var(--topbar) + (100% - var(--topbar)) * ${stack.from})`,
+                [stack.side]: 0,
+                width,
+            }}
+        >
+            {stack.open.map((id) => (
+                <TabButton key={id} id={id} active={stack.shown === id} onSelect={() => setActive(stack.side, stack.index, id)} />
+            ))}
+        </Tabs>
+    );
+}
+
+function TabButton({ id, active, onSelect }: { id: DockPanelId; active: boolean; onSelect: () => void }) {
+    const drag = usePanelDrag(id);
+    const Icon = PANEL_ICONS[id];
+    return (
+        <Tab type="button" role="tab" data-drag aria-selected={active} $active={active} onClick={onSelect} {...drag} title={`${PANEL_NAMES[id]} · drag to move`}>
+            <Icon size={13} weight={active ? "fill" : "regular"} />
+            {PANEL_NAMES[id]}
+        </Tab>
+    );
+}
+
+const Grip = styled.div<{ $axis: "x" | "y" }>`
+    position: absolute;
+    z-index: 32;
     touch-action: none;
+    cursor: ${(p) => (p.$axis === "x" ? "col-resize" : "row-resize")};
 
     &::after {
         content: "";
         position: absolute;
-        top: 0;
-        bottom: 0;
-        left: 3px;
-        width: 2px;
-        background: transparent;
+        ${(p) => (p.$axis === "x" ? "top: 0; bottom: 0; left: 3px; width: 2px;" : "left: 0; right: 0; top: 3px; height: 2px;")}
         transition: background 0.15s ease;
     }
     &:hover::after,
@@ -50,22 +108,15 @@ const Grip = styled.div`
     }
 `;
 
-// Drag the inner edge of a docked panel to make it wider or narrower.
-export function DockResizer({ id }: { id: DockPanelId }) {
-    const layout = useDockLayout();
-    // Stacked on the right, the two panels share one column: the assistant's.
-    const target: DockPanelId = layout.stacked && DOCK_SIDE[id] === "right" ? "assistant" : id;
+// Drag a column's inner edge to resize it.
+function ColumnGrip({ side, width }: { side: DockSide; width: number }) {
     const setWidth = useDock((s) => s.setWidth);
-    const width = useDock((s) => s.width[target]);
-    const docked = layout.docked(id);
     const grip = useRef<HTMLDivElement>(null);
-    if (!docked) return null;
-    const side = DOCK_SIDE[id];
     const start = (e: ReactPointerEvent) => {
         e.preventDefault();
         const from = e.clientX;
         grip.current?.setAttribute("data-active", "");
-        const move = (ev: PointerEvent) => setWidth(target, width + (side === "left" ? ev.clientX - from : from - ev.clientX));
+        const move = (ev: PointerEvent) => setWidth(side, width + (side === "left" ? ev.clientX - from : from - ev.clientX));
         const up = () => {
             grip.current?.removeAttribute("data-active");
             window.removeEventListener("pointermove", move);
@@ -74,6 +125,122 @@ export function DockResizer({ id }: { id: DockPanelId }) {
         window.addEventListener("pointermove", move);
         window.addEventListener("pointerup", up);
     };
-    const style: CSSProperties = side === "left" ? { right: -4 } : { left: -4 };
-    return <Grip ref={grip} style={style} onPointerDown={start} title="Drag to resize" role="separator" aria-orientation="vertical" />;
+    return <Grip ref={grip} $axis="x" role="separator" aria-orientation="vertical" title="Drag to resize" onPointerDown={start} style={{ top: "var(--topbar)", bottom: 0, width: 8, [side]: width - 4 }} />;
+}
+
+// Drag the line between two stacks to give one more room.
+function StackGrip({ side, stacks, at, width }: { side: DockSide; stacks: PlacedStack[]; at: number; width: number }) {
+    const setWeights = useDock((s) => s.setWeights);
+    const columns = useDock((s) => s.columns);
+    const grip = useRef<HTMLDivElement>(null);
+    const above = stacks[at]!;
+    const below = stacks[at + 1]!;
+    const start = (e: ReactPointerEvent) => {
+        e.preventDefault();
+        const from = e.clientY;
+        const body = window.innerHeight - 48;
+        const total = stacks.reduce((n, s) => n + s.weight, 0);
+        grip.current?.setAttribute("data-active", "");
+        const move = (ev: PointerEvent) => {
+            const delta = ((ev.clientY - from) / body) * total;
+            const pair = above.weight + below.weight;
+            const a = Math.min(pair - 0.15, Math.max(0.15, above.weight + delta));
+            const weights = columns[side].map((s, i) => (i === above.index ? a : i === below.index ? pair - a : s.weight));
+            setWeights(side, weights);
+        };
+        const up = () => {
+            grip.current?.removeAttribute("data-active");
+            window.removeEventListener("pointermove", move);
+            window.removeEventListener("pointerup", up);
+        };
+        window.addEventListener("pointermove", move);
+        window.addEventListener("pointerup", up);
+    };
+    return (
+        <Grip
+            ref={grip}
+            $axis="y"
+            role="separator"
+            aria-orientation="horizontal"
+            title="Drag to resize"
+            onPointerDown={start}
+            style={{ height: 8, width, [side]: 0, top: `calc(var(--topbar) + (100% - var(--topbar)) * ${below.from} - 4px)` }}
+        />
+    );
+}
+
+const Zone = styled.div<{ $on: boolean }>`
+    position: fixed;
+    z-index: 950;
+    pointer-events: none;
+    border-radius: 10px;
+    border: ${(p) => (p.$on ? "2px solid var(--accent)" : "1px dashed color-mix(in srgb, var(--accent) 45%, transparent)")};
+    background: ${(p) => (p.$on ? "color-mix(in srgb, var(--accent) 18%, transparent)" : "transparent")};
+    transition: all 0.12s ease;
+`;
+
+const Ghost = styled.div`
+    position: fixed;
+    z-index: 960;
+    pointer-events: none;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--accent-text);
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    translate: 12px 12px;
+`;
+
+// While a panel is dragged: where it would land, and its name at the pointer.
+function DropPreview() {
+    const drag = useDockDrag((s) => s.drag);
+    const layout = useDockLayout();
+    if (!drag) return null;
+    const zones = dropZones(layout);
+    const t = drag.target;
+    const hit = t && t.kind !== "float" ? zones.find((z) => JSON.stringify(z.target) === JSON.stringify(t)) : null;
+    const where = !t ? "" : t.kind === "float" ? "Float here" : t.kind === "tab" ? "Add as a tab" : "New panel here";
+    return (
+        <>
+            {/* Every place it could go, faintly, and the one it will go, clearly. */}
+            {zones.map((z, i) => z !== hit && <Zone key={i} $on={false} style={{ left: z.rect.left + 3, top: z.rect.top + 3, width: z.rect.width - 6, height: z.rect.height - 6 }} />)}
+            {hit && <Zone $on style={{ left: hit.preview.left, top: hit.preview.top, width: hit.preview.width, height: hit.preview.height }} />}
+            <Ghost style={{ left: drag.x, top: drag.y }}>
+                {PANEL_NAMES[drag.id]} · {where}
+            </Ghost>
+        </>
+    );
+}
+
+export function DockFrames() {
+    const layout = useDockLayout();
+    const reveal = useDock((s) => s.reveal);
+    // A panel that opens comes to the front of its stack.
+    const was = useRef(layout.open);
+    useEffect(() => {
+        for (const id of Object.keys(layout.open) as DockPanelId[]) if (layout.open[id] && !was.current[id]) reveal(id);
+        was.current = layout.open;
+    }, [layout.open, reveal]);
+    if (layout.compact) return null;
+    return (
+        <>
+            {(["left", "right"] as DockSide[]).map((side) => {
+                const stacks = layout.stacks[side];
+                const width = side === "left" ? layout.left : layout.right;
+                if (!stacks.length) return null;
+                return (
+                    <div key={side}>
+                        {stacks.map((s) => s.open.length > 1 && <StackTabs key={`tabs-${s.index}`} stack={s} width={width} />)}
+                        {stacks.slice(0, -1).map((_, i) => (
+                            <StackGrip key={`grip-${i}`} side={side} stacks={stacks} at={i} width={width} />
+                        ))}
+                        <ColumnGrip side={side} width={width} />
+                    </div>
+                );
+            })}
+            <DropPreview />
+        </>
+    );
 }

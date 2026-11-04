@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { DockResizer, DockToggle } from "./Dock";
+import { DockToggle } from "./Dock";
 import { useDockPanel } from "../ui/useDockLayout";
 import { NumberInput } from "./NumberInput";
 import { ArrangeSection, HoleToggle, ShapeSection } from "./ModelingSections";
@@ -518,9 +518,8 @@ export function Inspector() {
     return (
         <AnimatePresence>
             {show && (
-                <Root key="panel" ref={place.ref} style={place.style} {...slide(compact ? "bottom" : "left")}>
-                    <DockResizer id="inspector" />
-                    <PanelHeader {...place.handle}>
+                <Root key="panel" ref={place.ref} style={place.style} {...place.panel} {...slide(compact ? "bottom" : "left")}>
+                                        <PanelHeader {...place.handle}>
                         <PanelTitle>{selected || selectedLight || multi ? "Inspector" : "Scene"}</PanelTitle>
                         <DockToggle id="inspector" />
                         <IconButton title="Close" onClick={toggleInspector}>
