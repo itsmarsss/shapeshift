@@ -21,7 +21,9 @@ const Box = styled.div`
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    z-index: 20;
+    // Above docked and floating panels, so it can't end up hidden behind one
+    // after it's dragged.
+    z-index: 65;
 
     @media ${COMPACT} {
         top: calc(var(--topbar) + var(--gap));

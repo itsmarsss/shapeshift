@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import recording from "./fixtures/two-open-hands.json";
-import { GestureTracker, PINCH_END, PINCH_START, pinchRatio, type HandFrame } from "./gestures";
+import { GestureTracker, PINCH_END, PINCH_LOOSE, PINCH_START, pinchRatio, type HandFrame } from "./gestures";
 
 type Recorded = { time: number; hands: HandFrame[] };
 const frames = recording as Recorded[];
@@ -100,6 +100,41 @@ describe("pinch state machine", () => {
         const states = replay([pinched, pinched, null, null, null, pinched, ...Array(8).fill(null)]);
         expect(states[5]?.pinching).toBe(true);
         expect(states[states.length - 1]).toBeNull();
+    });
+});
+
+describe("looser pinches", () => {
+    const just = () => withPinch(openHand, amountForRatio((PINCH_START + PINCH_LOOSE) / 2));
+
+    it("counts fingers that snap shut and stop just short of touching", () => {
+        const states = replay([...Array(6).fill(openHand), just(), just(), just()]);
+        expect(states[states.length - 1]?.pinching).toBe(true);
+    });
+
+    it("but not a hand that just rests that way", () => {
+        expect(replay(Array.from({ length: 60 }, just)).some((s) => s?.pinching)).toBe(false);
+    });
+
+    it("holds a loose pinch through a wobble and lets go when the hand opens", () => {
+        const wobble = withPinch(openHand, amountForRatio(PINCH_END + 0.03));
+        const states = replay([...Array(6).fill(openHand), just(), just(), wobble, wobble, just(), wobble, wobble, openHand, openHand]);
+        expect(states.slice(7, -2).every((s) => s?.pinching)).toBe(true);
+        expect(states[states.length - 1]?.pinching).toBe(false);
+    });
+});
+
+describe("world landmarks", () => {
+    // The picture and real space disagree when the hand is turned: tips that
+    // look apart can be touching, and ones that look together can be apart.
+    const pinched = withPinch(openHand, 1);
+    const run = (landmarks: number[], world: number[]) => {
+        const tracker = new GestureTracker();
+        return Array.from({ length: 4 }, (_, i) => tracker.update([{ handedness: "Right", landmarks, world }], i * 33)[0]!.pinching);
+    };
+
+    it("go by how far apart the fingers really are", () => {
+        expect(run(openHand, pinched).at(-1)).toBe(true);
+        expect(run(pinched, openHand).at(-1)).toBe(false);
     });
 });
 
