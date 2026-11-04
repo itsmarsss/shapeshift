@@ -31,14 +31,14 @@ import {
     SlidersHorizontal,
     TrayArrowDown,
 } from "@phosphor-icons/react";
-import { useScene, type EditorMode } from "../scene/store";
+import { useScene } from "../scene/store";
 import { download, exportGLB, importModel, parseSceneFile, saveSceneFile } from "../scene/io";
 import { takeSnapshot } from "../viewport/snapshot";
 import { useUI } from "../ui/store";
 import { toggleInspector, useInspectorVisible } from "../ui/inspector";
 import { useHands, warmUpHands } from "../hands/tracker";
 import { useSettings } from "../settings/store";
-import { Button, IconButton, Menu, Segment, Segmented } from "./ui";
+import { Button, IconButton, Menu } from "./ui";
 import { CollabBar } from "../collab/CollabBar";
 import { useAccount } from "../account/store";
 import { AccountButton } from "../account/AccountButton";
@@ -49,8 +49,7 @@ import { track } from "../telemetry";
 const Bar = styled.div`
     height: var(--topbar);
     display: grid;
-    // The sides take what their buttons need and the mode switch centers in
-    // what's left, so nothing wraps on a laptop screen.
+    // The sides take what their buttons need, so nothing wraps on a laptop screen.
     grid-template-columns: auto 1fr auto;
     gap: 8px;
     align-items: center;
@@ -65,7 +64,6 @@ const Bar = styled.div`
     z-index: 100;
 
     @media ${COMPACT} {
-        // Sides size to their buttons so the mode switch can sit between them.
         grid-template-columns: auto 1fr auto;
         padding: 0 4px;
         gap: 4px;
@@ -100,32 +98,6 @@ const Brand = styled.a`
     }
 `;
 
-// The mode switch, tightened on phones so the bar fits a 360px screen.
-const Modes = styled(Segmented)`
-    justify-self: center;
-    // Shrinks rather than pushing buttons off a very narrow screen.
-    min-width: 0;
-    max-width: 100%;
-
-    button {
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    @media ${MEDIUM} {
-        button {
-            padding: 0 8px;
-        }
-    }
-    // The smallest phones: just enough room for every button in the bar.
-    @media (max-width: 380px) {
-        button {
-            padding: 0 5px;
-            font-size: 12px;
-        }
-    }
-`;
 
 // Hand control is what ShapeShift is about, so it gets a named button.
 const HandsButton = styled(Button).attrs({ $variant: "outline" })`
@@ -247,12 +219,6 @@ function MoreMenu({ items, label }: { items: MenuItem[]; label?: string }) {
 
 const PrintDialog = lazy(() => import("./PrintDialog"));
 
-// Named for what you do in each, not after 3D-software terms.
-const MODES: { mode: EditorMode; label: string; hint: string }[] = [
-    { mode: "object", label: "Arrange", hint: "Add, move and style shapes" },
-    { mode: "render", label: "Preview", hint: "See it lit and shaded, without the editing helpers" },
-];
-
 // Renders the current view at twice the screen's resolution, without editor
 // overlays, and downloads it as a PNG.
 async function saveImage() {
@@ -272,8 +238,6 @@ export function Topbar() {
     const redo = useScene((s) => s.redo);
     const canUndo = useScene((s) => s.past.length > 0);
     const canRedo = useScene((s) => s.future.length > 0);
-    const mode = useScene((s) => s.mode);
-    const setMode = useScene((s) => s.setMode);
     const showInspector = useInspectorVisible();
     const showChat = useUI((s) => s.showChat);
     const setShowChat = useUI((s) => s.setShowChat);
@@ -372,13 +336,9 @@ export function Topbar() {
                 )}
                 <input ref={importRef} type="file" accept=".glb,.gltf" hidden onChange={onImport} />
             </Group>
-            <Modes>
-                {MODES.map(({ mode: m, label, hint }) => (
-                    <Segment key={m} $active={mode === m} title={hint} onClick={() => setMode(m)}>
-                        {label}
-                    </Segment>
-                ))}
-            </Modes>
+            {/* The middle stays clear: there are no modes to switch between.
+                Preview is the eye by the view cube. */}
+            <span />
             <Group $end>
                 {/* On phones the account lives in the ⋯ menu. */}
                 <Wide>

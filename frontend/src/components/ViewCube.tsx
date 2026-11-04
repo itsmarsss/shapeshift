@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import styled from "styled-components";
-import { ArrowCounterClockwise, CornersOut } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, CornersOut, Eye } from "@phosphor-icons/react";
+import { toggleLook } from "../scene/look";
 import { COMPACT } from "../ui/compact";
 import { useScene } from "../scene/store";
 import { frameSelection, orbitBy, resetView, useCameraAngles, viewFrom, type ViewSide } from "../viewport/frame";
@@ -92,6 +93,11 @@ const Buttons = styled.div`
         color: var(--text);
         border-color: var(--border-strong);
     }
+    button[aria-pressed="true"] {
+        color: var(--accent-text);
+        background: var(--accent);
+        border-color: var(--accent);
+    }
 `;
 
 const HALF = SIZE / 2;
@@ -111,6 +117,7 @@ export function ViewCube() {
     const azimuth = useCameraAngles((s) => s.azimuth);
     const polar = useCameraAngles((s) => s.polar);
     const hasSelection = useScene((s) => s.selectedIds.length > 0);
+    const previewing = useScene((s) => s.mode === "render");
     const empty = useScene((s) => s.doc.objects.length === 0 && s.doc.lights.length === 0);
     const deg = 180 / Math.PI;
     const drag = useRef<{ x: number; y: number; moved: boolean } | null>(null);
@@ -170,6 +177,9 @@ export function ViewCube() {
                 </button>
                 <button type="button" title="Reset the view" onClick={resetView}>
                     <ArrowCounterClockwise size={16} />
+                </button>
+                <button type="button" title={previewing ? "Back to editing (P)" : "Preview: see it lit, without the helpers (P, or hold Space)"} aria-pressed={previewing} onClick={toggleLook}>
+                    <Eye size={16} weight={previewing ? "fill" : "regular"} />
                 </button>
             </Buttons>
         </Root>

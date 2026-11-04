@@ -1,15 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
 import { ArrowUUpLeft, Cube, HandGrabbing, Microphone, MicrophoneSlash } from "@phosphor-icons/react";
-import { useScene, type EditorMode } from "../scene/store";
+import { useScene } from "../scene/store";
+import { toggleLook } from "../scene/look";
 import { toggleVoice, useVoice } from "../ui/voice";
 import { PoseTracker, type Pose } from "./poses";
 import { live, useHands } from "./tracker";
 import { useHandToast } from "./menu";
 
-// Between building and previewing; editing points finishes back to building.
-const NEXT_MODE: Record<EditorMode, EditorMode> = { object: "render", edit: "object", render: "object" };
-const MODE_LABEL: Record<EditorMode, string> = { object: "Arrange", edit: "Editing points", render: "Preview" };
 
 const pop = keyframes`
     from { opacity: 0; transform: translate(-50%, 6px) scale(0.96); }
@@ -46,9 +44,8 @@ function perform(pose: Pose): string {
             return listening ? "Sending to the assistant" : "Listening…";
         }
         case "mode": {
-            const next = NEXT_MODE[scene.mode];
-            scene.setMode(next);
-            return MODE_LABEL[next];
+            toggleLook();
+            return useScene.getState().mode === "render" ? "Preview" : "Back to editing";
         }
         case "undo": {
             if (!scene.past.length) return "Nothing to undo";
@@ -59,7 +56,7 @@ function perform(pose: Pose): string {
 }
 
 // Turns held hand poses into commands: thumb to middle finger talks to the
-// assistant, thumb to ring finger switches mode, thumb to pinky undoes.
+// assistant, thumb to ring finger previews (and back), thumb to pinky undoes.
 export function HandCommands() {
     const status = useHands((s) => s.status);
     const [notice, setNotice] = useState<Notice | null>(null);

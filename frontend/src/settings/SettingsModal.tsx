@@ -211,7 +211,7 @@ const GESTURES: [string, [string, string][]][] = [
         "Thumb to a fingertip",
         [
             ["Thumb to middle finger", "Talk to the assistant"],
-            ["Thumb to ring finger", "Next mode"],
+            ["Thumb to ring finger", "Preview, and back to editing"],
             ["Thumb to pinky", "Undo"],
         ],
     ],
@@ -361,6 +361,8 @@ const SHORTCUTS: [string, string[]][] = [
     ["Delete", ["Delete"]],
     ["Deselect", ["Esc"]],
     ["Precise arrows: move, turn, stretch (again to hide)", ["W", "E", "R"]],
+    ["Edit points of the selected shape", ["Enter"]],
+    ["Preview (hold Space to peek)", ["P"]],
     ["Add box, sphere, cylinder, cone, torus, plane", ["1", "–", "6"]],
     ["Open assistant", [MOD, "L"]],
     ["Focus the assistant", ["/"]],
