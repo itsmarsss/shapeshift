@@ -165,7 +165,7 @@ const INFO: Record<Step, { label: string; Icon: typeof Sparkle; show: () => void
         Icon: ArrowsOutCardinal,
         show: () => {
             pickShape();
-            showGuide({ target: 'canvas', text: "Press on the shape and drag it across the floor. Or pull one of its colored arrows." });
+            showGuide({ target: 'canvas', text: "Press on the shape and drag it across the floor. The arrow on top lifts it and the ball on the ring turns it." });
         },
     },
     color: {

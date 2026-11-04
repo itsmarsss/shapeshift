@@ -79,7 +79,9 @@ export function useShortcuts() {
             } else if (!mod && key === "f") {
                 frameSelection();
             } else if (!mod && key in TRANSFORM_KEYS) {
-                s.setTransformMode(TRANSFORM_KEYS[key as keyof typeof TRANSFORM_KEYS]);
+                // The same key again puts the precise arrows away.
+                const next = TRANSFORM_KEYS[key as keyof typeof TRANSFORM_KEYS];
+                s.setTransformMode(s.transformMode === next ? null : next);
             }
         }
         const onKeyUp = (e: KeyboardEvent) => {

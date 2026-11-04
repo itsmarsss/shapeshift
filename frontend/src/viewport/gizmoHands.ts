@@ -39,12 +39,8 @@ export function useGizmoHands() {
         };
         const v = new THREE.Vector3();
         return addHandles({
-            get verb() {
-                return WORDS[gizmo.mode].verb;
-            },
-            get doing() {
-                return WORDS[gizmo.mode].doing;
-            },
+            verb: () => WORDS[gizmo.mode].verb,
+            doing: () => WORDS[gizmo.mode].doing,
             // The nearest point on any visible handle: along an arrow, around a
             // ring, on a square.
             nearest: (x, y) => {

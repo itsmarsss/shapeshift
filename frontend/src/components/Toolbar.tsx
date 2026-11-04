@@ -6,6 +6,7 @@ import {
     ArrowsClockwise,
     ArrowsOut,
     ArrowsOutCardinal,
+    CrosshairSimple,
     Magnet,
     Cube,
     Cylinder,
@@ -185,10 +186,13 @@ const LIGHTS: { light: LightType; label: string; Icon: typeof Cube }[] = [
     { light: "directional", label: "Add sunlight", Icon: Sun },
 ];
 
+// The precise arrows, for one axis at a time. Day to day the handles on the
+// selection do it: drag it to move, the boxes to resize, the knob to turn and
+// the arrow to lift.
 const TOOLS: { mode: TransformMode; label: string; Icon: typeof Cube }[] = [
-    { mode: "translate", label: "Move (W)", Icon: ArrowsOutCardinal },
-    { mode: "rotate", label: "Rotate (E)", Icon: ArrowsClockwise },
-    { mode: "scale", label: "Scale (R)", Icon: ArrowsOut },
+    { mode: "translate", label: "Move along one axis (W)", Icon: ArrowsOutCardinal },
+    { mode: "rotate", label: "Turn around one axis (E)", Icon: ArrowsClockwise },
+    { mode: "scale", label: "Stretch along one axis (R)", Icon: ArrowsOut },
 ];
 
 const VIEW_TOOLS: { tool: Tool; label: string; Icon: typeof Cube }[] = [
@@ -315,20 +319,34 @@ export function Toolbar() {
             </Group>
             {mode === "object" && (
                 <Group>
-                    {TOOLS.map(({ mode: m, label, Icon }) => (
-                        <IconButton
-                            key={m}
-                            $size={36}
-                            $active={tool === "select" && transformMode === m}
-                            title={label}
-                            onClick={() => {
-                                setTool("select");
-                                setTransformMode(m);
-                            }}
-                        >
-                            <Icon size={20} />
-                        </IconButton>
-                    ))}
+                    <IconButton
+                        $size={36}
+                        $active={!!transformMode}
+                        aria-pressed={!!transformMode}
+                        title={transformMode ? "Hide the precise arrows" : "Precise arrows: move, turn or stretch along one axis"}
+                        onClick={() => {
+                            setTool("select");
+                            setTransformMode(transformMode ? null : "translate");
+                        }}
+                    >
+                        <CrosshairSimple size={20} />
+                    </IconButton>
+                    {transformMode &&
+                        TOOLS.map(({ mode: m, label, Icon }) => (
+                            <IconButton
+                                key={m}
+                                $size={36}
+                                $active={tool === "select" && transformMode === m}
+                                aria-pressed={transformMode === m}
+                                title={label}
+                                onClick={() => {
+                                    setTool("select");
+                                    setTransformMode(m);
+                                }}
+                            >
+                                <Icon size={20} />
+                            </IconButton>
+                        ))}
                     <IconButton
                         $size={36}
                         $active={snapOn}

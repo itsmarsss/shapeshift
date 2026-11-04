@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
-import { Html, type CameraControls } from "@react-three/drei";
+import { Html, Line, type CameraControls } from "@react-three/drei";
 import * as THREE from "three";
 import type { Command, SceneObject, Vec3 } from "@shapeshift/shared/scene/schema";
 import { boundsIn, objectMatrix } from "../scene/geometry";
@@ -13,19 +13,30 @@ import { useTools, workplaneMatrix } from "./tools";
 import { addHandles } from "./handHandles";
 
 type Dir = [number, number, number];
-type Handle = { id: string; dir: Dir };
+// Size boxes resize; the knob on the floor ring turns the selection about
+// its upright axis, and the arrow above it lifts it.
+type Handle = { id: string; dir: Dir; kind: "size" | "turn" | "lift" };
 
 const HANDLES: Handle[] = [
-    { id: "corner-nn", dir: [-1, 0, -1] },
-    { id: "corner-pn", dir: [1, 0, -1] },
-    { id: "corner-np", dir: [-1, 0, 1] },
-    { id: "corner-pp", dir: [1, 0, 1] },
-    { id: "side-x-", dir: [-1, 0, 0] },
-    { id: "side-x+", dir: [1, 0, 0] },
-    { id: "side-z-", dir: [0, 0, -1] },
-    { id: "side-z+", dir: [0, 0, 1] },
-    { id: "top", dir: [0, 1, 0] },
+    { id: "corner-nn", dir: [-1, 0, -1], kind: "size" },
+    { id: "corner-pn", dir: [1, 0, -1], kind: "size" },
+    { id: "corner-np", dir: [-1, 0, 1], kind: "size" },
+    { id: "corner-pp", dir: [1, 0, 1], kind: "size" },
+    { id: "side-x-", dir: [-1, 0, 0], kind: "size" },
+    { id: "side-x+", dir: [1, 0, 0], kind: "size" },
+    { id: "side-z-", dir: [0, 0, -1], kind: "size" },
+    { id: "side-z+", dir: [0, 0, 1], kind: "size" },
+    { id: "top", dir: [0, 1, 0], kind: "size" },
+    { id: "turn", dir: [1, 0, 1], kind: "turn" },
+    { id: "lift", dir: [0, 1, 0], kind: "lift" },
 ];
+
+const WORDS: Record<Handle["kind"], { verb: string; doing: string }> = {
+    size: { verb: "Pinch to resize", doing: "Resizing" },
+    turn: { verb: "Pinch to turn", doing: "Turning" },
+    lift: { verb: "Pinch to lift", doing: "Lifting" },
+};
+const kindOf = (key: string) => HANDLES.find((h) => h.id === key)?.kind ?? "size";
 
 type Drag = {
     handle: Handle;
@@ -34,12 +45,36 @@ type Drag = {
     box: THREE.Box3;
     plane: THREE.Plane;
     members: { id: string; matrix: THREE.Matrix4 }[];
+    // Where the drag first met its plane, in the selection's frame.
+    start: THREE.Vector3 | null;
 };
 
 function handlePoint(box: THREE.Box3, dir: Dir): THREE.Vector3 {
     const c = box.getCenter(new THREE.Vector3());
     const pick = (i: 0 | 1 | 2, d: number) => (d > 0 ? box.max.getComponent(i) : d < 0 ? box.min.getComponent(i) : c.getComponent(i));
     return new THREE.Vector3(pick(0, dir[0]), dir[1] > 0 ? box.max.y : box.min.y, pick(2, dir[2]));
+}
+
+// Clear of the shape, by an amount that suits its size.
+const clearance = (box: THREE.Box3) => {
+    const size = box.getSize(new THREE.Vector3());
+    return Math.max(0.2, Math.max(size.x, size.y, size.z) * 0.2);
+};
+const ringRadius = (box: THREE.Box3) => {
+    const size = box.getSize(new THREE.Vector3());
+    return Math.hypot(size.x, size.z) / 2 + clearance(box);
+};
+
+// Where a handle sits, in the selection's frame: size boxes on the bounds,
+// the lift arrow above the top, the turn knob out on the floor ring.
+function handleSpot(box: THREE.Box3, h: Handle): THREE.Vector3 {
+    const c = box.getCenter(new THREE.Vector3());
+    if (h.kind === "lift") return new THREE.Vector3(c.x, box.max.y + clearance(box), c.z);
+    if (h.kind === "turn") {
+        const r = ringRadius(box) / Math.SQRT2;
+        return new THREE.Vector3(c.x + r, box.min.y, c.z + r);
+    }
+    return handlePoint(box, h.dir);
 }
 
 const label: React.CSSProperties = {
@@ -67,6 +102,8 @@ export function SizeHandles({ objects, gizmoBusy }: { objects: SceneObject[]; gi
     const handleColor = useResolvedTheme() === "dark" ? "#e6e7ea" : "#3a3d44";
     const [hovered, setHovered] = useState<string | null>(null);
     const [dragging, setDragging] = useState<string | null>(null);
+    // How far a turn or lift has gone, shown beside its handle.
+    const [readout, setReadout] = useState<string | null>(null);
     const group = useRef<THREE.Group>(null);
     const busy = hovered !== null || dragging !== null;
     useEffect(() => {
@@ -92,15 +129,15 @@ export function SizeHandles({ objects, gizmoBusy }: { objects: SceneObject[]; gi
         let active: ReturnType<NonNullable<typeof latest.current>["begin"]> | null = null;
         const screen = new THREE.Vector3();
         return addHandles({
-            verb: "Pinch to resize",
-            doing: "Resizing",
+            verb: (key) => WORDS[kindOf(key)].verb,
+            doing: (key) => WORDS[kindOf(key)].doing,
             nearest: (x, y) => {
                 const l = latest.current;
                 if (!l || l.box.isEmpty()) return null;
                 const rect = gl.domElement.getBoundingClientRect();
                 let best: { key: string; x: number; y: number; gap: number } | null = null;
                 for (const h of HANDLES) {
-                    screen.copy(handlePoint(l.box, h.dir)).applyMatrix4(l.frame).project(camera);
+                    screen.copy(handleSpot(l.box, h)).applyMatrix4(l.frame).project(camera);
                     if (screen.z > 1) continue;
                     const px = rect.left + ((screen.x + 1) / 2) * rect.width;
                     const py = rect.top + ((1 - screen.y) / 2) * rect.height;
@@ -142,10 +179,12 @@ export function SizeHandles({ objects, gizmoBusy }: { objects: SceneObject[]; gi
     function begin(handle: Handle) {
         gizmoBusy.current = true;
         if (controls) controls.enabled = false;
-        const start = handlePoint(box, handle.dir).applyMatrix4(frame);
+        const start = handleSpot(box, handle).applyMatrix4(frame);
         const up = new THREE.Vector3(0, 1, 0).transformDirection(frame);
         let normal = up.clone();
-        if (handle.dir[1] !== 0) {
+        // Lifting and the top box move up and down, on a plane facing the camera;
+        // the rest move across the floor.
+        if (handle.dir[1] !== 0 && handle.kind !== "turn") {
             const view = camera.getWorldDirection(new THREE.Vector3());
             normal = view.sub(up.clone().multiplyScalar(view.dot(up))).normalize();
             if (normal.lengthSq() < 1e-6) normal = new THREE.Vector3(1, 0, 0).transformDirection(frame);
@@ -157,6 +196,7 @@ export function SizeHandles({ objects, gizmoBusy }: { objects: SceneObject[]; gi
             box: box.clone(),
             plane: new THREE.Plane().setFromNormalAndCoplanarPoint(normal, start),
             members: objects.map((o) => ({ id: o.id, matrix: objectMatrix(o) })),
+            start: null,
         };
         setDragging(handle.id);
         const raycaster = new THREE.Raycaster();
@@ -169,9 +209,14 @@ export function SizeHandles({ objects, gizmoBusy }: { objects: SceneObject[]; gi
                 pointer.set(((x - rect.left) / rect.width) * 2 - 1, -((y - rect.top) / rect.height) * 2 + 1);
                 raycaster.setFromCamera(pointer, camera);
                 if (!raycaster.ray.intersectPlane(drag.plane, hit)) return;
-                resize(drag, hit.clone().applyMatrix4(drag.inverse), uniform);
+                const p = hit.clone().applyMatrix4(drag.inverse);
+                drag.start ??= p.clone();
+                if (handle.kind === "turn") turn(drag, p);
+                else if (handle.kind === "lift") lift(drag, p);
+                else resize(drag, p, uniform);
             },
             stop: () => {
+                setReadout(null);
                 useScene.getState().endCoalesce();
                 if (controls) controls.enabled = true;
                 setDragging(null);
@@ -220,6 +265,35 @@ export function SizeHandles({ objects, gizmoBusy }: { objects: SceneObject[]; gi
             .makeTranslation(anchor.x, anchor.y, anchor.z)
             .multiply(new THREE.Matrix4().makeScale(factor.x, factor.y, factor.z))
             .multiply(new THREE.Matrix4().makeTranslation(-anchor.x, -anchor.y, -anchor.z));
+        apply(drag, local, "resize");
+    }
+
+    // About the upright axis through the middle, by how far the pointer has
+    // gone around the ring.
+    function turn(drag: Drag, p: THREE.Vector3) {
+        const c = drag.box.getCenter(new THREE.Vector3());
+        const angle = (v: THREE.Vector3) => Math.atan2(v.z - c.z, v.x - c.x);
+        let by = angle(drag.start!) - angle(p);
+        by = Math.atan2(Math.sin(by), Math.cos(by));
+        if (snap.enabled && snap.rotate) by = Math.round(by / snap.rotate) * snap.rotate;
+        const local = new THREE.Matrix4()
+            .makeTranslation(c.x, 0, c.z)
+            .multiply(new THREE.Matrix4().makeRotationY(by))
+            .multiply(new THREE.Matrix4().makeTranslation(-c.x, 0, -c.z));
+        setReadout(`${Math.round(THREE.MathUtils.radToDeg(by))}°`);
+        apply(drag, local, "turn");
+    }
+
+    // Straight up or down, by how far the pointer has risen.
+    function lift(drag: Drag, p: THREE.Vector3) {
+        let by = p.y - drag.start!.y;
+        if (snap.enabled) by = Math.round(by / snap.translate) * snap.translate;
+        setReadout(`${by >= 0 ? "Up" : "Down"} ${formatLength(Math.abs(by), units)}`);
+        apply(drag, new THREE.Matrix4().makeTranslation(0, by, 0), "lift");
+    }
+
+    // A change in the selection's frame, made to every member.
+    function apply(drag: Drag, local: THREE.Matrix4, coalesce: string) {
         const change = drag.frame.clone().multiply(local).multiply(drag.inverse);
         const position = new THREE.Vector3();
         const quaternion = new THREE.Quaternion();
@@ -229,11 +303,20 @@ export function SizeHandles({ objects, gizmoBusy }: { objects: SceneObject[]; gi
             const rotation = new THREE.Euler().setFromQuaternion(quaternion);
             return transformCommand(id, { position: position.toArray() as Vec3, rotation: [rotation.x, rotation.y, rotation.z], scale: scale.toArray() as Vec3 });
         });
-        useScene.getState().run(commands, { coalesce: "resize", select: false });
+        useScene.getState().run(commands, { coalesce, select: false });
     }
 
-    const showSizes = hovered !== null || dragging !== null;
+    const sizing = (id: string | null) => id !== null && kindOf(id) === "size";
+    const showSizes = sizing(hovered) || sizing(dragging);
     const c = box.getCenter(new THREE.Vector3());
+    const turning = hovered === "turn" || dragging === "turn";
+    const ring = turning
+        ? Array.from({ length: 65 }, (_, i) => {
+              const a = (i / 64) * Math.PI * 2;
+              return new THREE.Vector3(c.x + Math.cos(a) * ringRadius(box), box.min.y, c.z + Math.sin(a) * ringRadius(box));
+          })
+        : [];
+    const active = dragging ?? hovered;
 
     return (
         <group matrix={frame} matrixAutoUpdate={false}>
@@ -242,13 +325,13 @@ export function SizeHandles({ objects, gizmoBusy }: { objects: SceneObject[]; gi
             </primitive>
             <group ref={group}>
                 {HANDLES.map((h) => {
-                    const active = hovered === h.id || dragging === h.id;
+                    const lit = hovered === h.id || dragging === h.id;
                     return (
                         <mesh
                             key={h.id}
                             userData={{ handle: true }}
                             name={`size-${h.id}`}
-                            position={handlePoint(box, h.dir)}
+                            position={handleSpot(box, h)}
                             renderOrder={5}
                             onPointerDown={(e) => onDown(h, e)}
                             onPointerOver={(e) => {
@@ -262,12 +345,18 @@ export function SizeHandles({ objects, gizmoBusy }: { objects: SceneObject[]; gi
                             }}
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <boxGeometry args={[1, 1, 1]} />
-                            <meshBasicMaterial color={active ? palette.accent : handleColor} depthTest={false} />
+                            {h.kind === "lift" ? <coneGeometry args={[0.75, 1.9, 20]} /> : h.kind === "turn" ? <sphereGeometry args={[0.85, 20, 14]} /> : <boxGeometry args={[1, 1, 1]} />}
+                            <meshBasicMaterial color={lit || (h.kind !== "size" && !active) ? palette.accent : handleColor} depthTest={false} />
                         </mesh>
                     );
                 })}
             </group>
+            {turning && <Line points={ring} color={palette.accent} lineWidth={1.5} transparent opacity={0.6} depthTest={false} raycast={() => null} />}
+            {readout && active && (
+                <Html position={handleSpot(box, HANDLES.find((h) => h.id === active)!)} center zIndexRange={[14, 0]} pointerEvents="none" style={{ transform: "translateY(-26px)" }}>
+                    <div style={label}>{readout}</div>
+                </Html>
+            )}
             {showSizes && (
                 <>
                     <Html position={[c.x, box.min.y, box.max.z]} center zIndexRange={[14, 0]} pointerEvents="none">

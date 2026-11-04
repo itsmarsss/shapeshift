@@ -323,15 +323,16 @@ export function Viewport() {
 
             {mode === "edit" && selectedObject && <EditOverlay object={selectedObject} gizmoBusy={gizmoBusy} />}
 
-            {mode === "object" && selectedObjects.length > 1 && <MultiTransform objects={selectedObjects} gizmoBusy={gizmoBusy} />}
+            {mode === "object" && transformMode && selectedObjects.length > 1 && <MultiTransform objects={selectedObjects} gizmoBusy={gizmoBusy} />}
 
             {mode === "object" && tool === "select" && selectedObjects.length > 0 && <SizeHandles objects={selectedObjects} gizmoBusy={gizmoBusy} />}
 
-            {mode === "object" && selectedObjects.length <= 1 && selectedId && selectedMesh && (
+            {/* Lights have no size handles, so they always get the move arrows. */}
+            {mode === "object" && (transformMode || selectedLight) && selectedObjects.length <= 1 && selectedId && selectedMesh && (
                 <TransformControls
                     ref={gizmoRef}
                     object={selectedMesh}
-                    mode={selectedLight ? "translate" : transformMode}
+                    mode={selectedLight ? "translate" : (transformMode ?? "translate")}
                     translationSnap={snap.enabled && !workplane ? snap.translate : null}
                     rotationSnap={snap.enabled ? snap.rotate : null}
                     scaleSnap={snap.enabled ? snap.scale : null}
