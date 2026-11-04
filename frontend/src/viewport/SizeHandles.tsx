@@ -10,6 +10,7 @@ import { useSettings } from "../settings/store";
 import { usePalette, useResolvedTheme } from "../settings/theme";
 import { formatLength } from "../ui/units";
 import { useTools, workplaneMatrix } from "./tools";
+import { addHandles } from "./handHandles";
 
 type Dir = [number, number, number];
 type Handle = { id: string; dir: Dir };
@@ -84,6 +85,45 @@ export function SizeHandles({ objects, gizmoBusy }: { objects: SceneObject[]; gi
     const size = box.getSize(new THREE.Vector3());
     const outline = useMemo(() => new THREE.Box3Helper(box), [box]);
 
+    // Hands grab the handles too (see handHandles): where each is on screen,
+    // and the same resize a mouse drag does.
+    const latest = useRef<{ box: THREE.Box3; frame: THREE.Matrix4; begin: (h: Handle) => { move: (x: number, y: number, u: boolean) => void; stop: () => void } } | null>(null);
+    useEffect(() => {
+        let active: ReturnType<NonNullable<typeof latest.current>["begin"]> | null = null;
+        const screen = new THREE.Vector3();
+        return addHandles({
+            verb: "Pinch to resize",
+            doing: "Resizing",
+            nearest: (x, y) => {
+                const l = latest.current;
+                if (!l || l.box.isEmpty()) return null;
+                const rect = gl.domElement.getBoundingClientRect();
+                let best: { key: string; x: number; y: number; gap: number } | null = null;
+                for (const h of HANDLES) {
+                    screen.copy(handlePoint(l.box, h.dir)).applyMatrix4(l.frame).project(camera);
+                    if (screen.z > 1) continue;
+                    const px = rect.left + ((screen.x + 1) / 2) * rect.width;
+                    const py = rect.top + ((1 - screen.y) / 2) * rect.height;
+                    const gap = Math.hypot(px - x, py - y);
+                    if (!best || gap < best.gap) best = { key: h.id, x: px, y: py, gap };
+                }
+                return best;
+            },
+            hover: (key) => setHovered(key),
+            grab: (key) => {
+                const h = HANDLES.find((handle) => handle.id === key);
+                if (!h || !latest.current) return false;
+                active = latest.current.begin(h);
+                return true;
+            },
+            drag: (x, y) => active?.move(x, y, false),
+            release: () => {
+                active?.stop();
+                active = null;
+            },
+        });
+    }, [camera, gl]);
+
     useFrame(() => {
         const g = group.current;
         if (!g) return;
@@ -95,11 +135,11 @@ export function SizeHandles({ objects, gizmoBusy }: { objects: SceneObject[]; gi
         }
     });
 
+    latest.current = box.isEmpty() ? null : { box, frame, begin };
     if (box.isEmpty()) return null;
 
-    function onDown(handle: Handle, e: ThreeEvent<PointerEvent>) {
-        e.stopPropagation();
-        if (e.button !== 0) return;
+    // Starts resizing from a handle; the returned drag follows a window point.
+    function begin(handle: Handle) {
         gizmoBusy.current = true;
         if (controls) controls.enabled = false;
         const start = handlePoint(box, handle.dir).applyMatrix4(frame);
@@ -123,26 +163,39 @@ export function SizeHandles({ objects, gizmoBusy }: { objects: SceneObject[]; gi
         const pointer = new THREE.Vector2();
         const hit = new THREE.Vector3();
 
-        const move = (ev: PointerEvent) => {
-            const rect = gl.domElement.getBoundingClientRect();
-            pointer.set(((ev.clientX - rect.left) / rect.width) * 2 - 1, -((ev.clientY - rect.top) / rect.height) * 2 + 1);
-            raycaster.setFromCamera(pointer, camera);
-            if (!raycaster.ray.intersectPlane(drag.plane, hit)) return;
-            resize(drag, hit.clone().applyMatrix4(drag.inverse), ev.shiftKey);
+        return {
+            move: (x: number, y: number, uniform: boolean) => {
+                const rect = gl.domElement.getBoundingClientRect();
+                pointer.set(((x - rect.left) / rect.width) * 2 - 1, -((y - rect.top) / rect.height) * 2 + 1);
+                raycaster.setFromCamera(pointer, camera);
+                if (!raycaster.ray.intersectPlane(drag.plane, hit)) return;
+                resize(drag, hit.clone().applyMatrix4(drag.inverse), uniform);
+            },
+            stop: () => {
+                useScene.getState().endCoalesce();
+                if (controls) controls.enabled = true;
+                setDragging(null);
+                setTimeout(() => {
+                    gizmoBusy.current = false;
+                });
+            },
         };
+    }
+
+    function onDown(handle: Handle, e: ThreeEvent<PointerEvent>) {
+        e.stopPropagation();
+        if (e.button !== 0) return;
+        const d = begin(handle);
+        const move = (ev: PointerEvent) => d.move(ev.clientX, ev.clientY, ev.shiftKey);
         const stop = () => {
             window.removeEventListener("pointermove", move);
             window.removeEventListener("pointerup", stop);
-            useScene.getState().endCoalesce();
-            if (controls) controls.enabled = true;
-            setDragging(null);
-            setTimeout(() => {
-                gizmoBusy.current = false;
-            });
+            d.stop();
         };
         window.addEventListener("pointermove", move);
         window.addEventListener("pointerup", stop);
     }
+
 
     function resize(drag: Drag, p: THREE.Vector3, uniform: boolean) {
         const { box: b, handle } = drag;
@@ -217,13 +270,13 @@ export function SizeHandles({ objects, gizmoBusy }: { objects: SceneObject[]; gi
             </group>
             {showSizes && (
                 <>
-                    <Html position={[c.x, box.min.y, box.max.z]} center zIndexRange={[14, 0]}>
+                    <Html position={[c.x, box.min.y, box.max.z]} center zIndexRange={[14, 0]} pointerEvents="none">
                         <div style={label}>{formatLength(size.x, units)}</div>
                     </Html>
-                    <Html position={[box.max.x, box.min.y, c.z]} center zIndexRange={[14, 0]}>
+                    <Html position={[box.max.x, box.min.y, c.z]} center zIndexRange={[14, 0]} pointerEvents="none">
                         <div style={label}>{formatLength(size.z, units)}</div>
                     </Html>
-                    <Html position={[box.max.x, c.y, box.max.z]} center zIndexRange={[14, 0]}>
+                    <Html position={[box.max.x, c.y, box.max.z]} center zIndexRange={[14, 0]} pointerEvents="none">
                         <div style={label}>{formatLength(size.y, units)}</div>
                     </Html>
                 </>

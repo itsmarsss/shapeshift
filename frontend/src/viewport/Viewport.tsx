@@ -25,6 +25,7 @@ import { SnapshotBridge } from "./SnapshotBridge";
 import { CameraBridge } from "./CameraBridge";
 import { useObjectDrag } from "./useObjectDrag";
 import { useGizmoColors } from "./GizmoTheme";
+import { useGizmoHands } from "./gizmoHands";
 import { useHands } from "../hands/tracker";
 import { useHandHover } from "../hands/tracker";
 import { DPR, useSettings } from "../settings/store";
@@ -151,6 +152,14 @@ const noop = () => {};
 
 export function Viewport() {
     const gizmoColors = useGizmoColors();
+    const gizmoHands = useGizmoHands();
+    const gizmoRef = useCallback(
+        (controls: THREE.Object3D | null) => {
+            gizmoColors(controls);
+            return gizmoHands(controls);
+        },
+        [gizmoColors, gizmoHands],
+    );
     const baseObjects = useScene((s) => s.doc.objects);
     const baseLights = useScene((s) => s.doc.lights);
     const poses = useTimeline((s) => s.poses);
@@ -320,7 +329,7 @@ export function Viewport() {
 
             {mode === "object" && selectedObjects.length <= 1 && selectedId && selectedMesh && (
                 <TransformControls
-                    ref={gizmoColors}
+                    ref={gizmoRef}
                     object={selectedMesh}
                     mode={selectedLight ? "translate" : transformMode}
                     translationSnap={snap.enabled && !workplane ? snap.translate : null}
