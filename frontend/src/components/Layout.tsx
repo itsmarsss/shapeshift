@@ -58,8 +58,10 @@ const Root = styled.div`
 // overlays inside keep measuring from the top of the window.
 const Area = styled.div`
     position: absolute;
-    top: 0;
-    bottom: 0;
+    // Between the docked columns and rows. Its children still measure from
+    // the top bar, which the top row sits under, so it starts that much lower.
+    top: var(--dock-top, 0px);
+    bottom: var(--dock-bottom, 0px);
     left: var(--dock-left, 0px);
     right: var(--dock-right, 0px);
     overflow: hidden;
@@ -104,6 +106,8 @@ export function Layout() {
                 {
                     "--dock-left": `${dock.left}px`,
                     "--dock-right": `${dock.right}px`,
+                    "--dock-top": `${dock.top}px`,
+                    "--dock-bottom": `${dock.bottom}px`,
                     // What a floating room chat keeps clear of on the right.
                     "--chat-width": assistantFloats ? "372px" : `${dock.right}px`,
                     // How much of each side the panels cover, so things meant
