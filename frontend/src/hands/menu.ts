@@ -16,7 +16,7 @@ export type HandMenuState = {
 export const useHandMenu = create<HandMenuState>()(() => ({ open: null, hover: null, spent: null }));
 
 // What hand control is doing right now, so the cursors can say so.
-export type HandActivity = "object" | "vertex" | "stretch" | "orbit" | "camera" | "slider" | "scroll" | "press" | null;
+export type HandActivity = "object" | "vertex" | "stretch" | "orbit" | "camera" | "slider" | "scroll" | "press" | "handle" | null;
 // `reach` is how far a held shape is being pushed (positive: the hand reached
 // toward the screen) or pulled, in meters past the dead zone. 0 when nothing is held.
 export const useHandActivity = create<{ activity: HandActivity; reach: number }>()(() => ({ activity: null, reach: 0 }));

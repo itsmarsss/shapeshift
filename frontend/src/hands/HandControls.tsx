@@ -14,6 +14,7 @@ import type { Vec3 } from "@shapeshift/shared/scene/schema";
 import { MAX_FACTOR, MIN_FACTOR, stretched } from "./stretch";
 import { clearControls, hoverControl, hoveredControl, interfaceAt, isSlider, magnetAt, pressControl, pullToShape, scrollerFor, slideTo } from "./pointer";
 import { windowToView } from "../viewport/frame";
+import { handHandles, handleNear, type HandleSet } from "../viewport/handHandles";
 
 type Drag =
     | { kind: "object"; id: string; plane: THREE.Plane; offset: THREE.Vector3; reach: number }
@@ -24,6 +25,9 @@ type Drag =
     // quickly, without stretching, it's a tap rather than a stretch.
     | { kind: "stretch"; id: string; scale: Vec3; rotation: Vec3; factor: number; twist: number; tap: { at: number; x: number; y: number } | null }
     | { kind: "orbit" }
+    // A size handle or a gizmo handle, held as a mouse would; `dx, dy` is how
+    // far the handle sat from the hand when grabbed, in pixels.
+    | { kind: "handle"; set: HandleSet; dx: number; dy: number }
     // A pinch on the interface: dragging a slider, or scrolling a panel. A
     // pinch that doesn't move presses what it started on when it lets go.
     | { kind: "slider"; el: HTMLInputElement }
@@ -40,6 +44,8 @@ const VERTEX_RADIUS = 0.06;
 const TAP_MS = 400;
 // How close, in pixels, the hand must come to a shape for it to count as pointed at.
 const SHAPE_MAGNET = 36;
+// How close, in pixels, the hand must come to a handle (gizmo arrows, size boxes) to snap onto it.
+const HANDLE_MAGNET = 40;
 // How far, in pixels, a pinch on a button can drift and still press it.
 const PRESS_SLOP = 28;
 
@@ -126,12 +132,43 @@ export function HandControls() {
         }
         const h = live.hands.find((hand) => hand.handedness === objectHand() && !hand.pinching && !hoveredControl(hand.handedness));
         const idle = h && useScene.getState().mode !== "render" && !drag.current;
-        const vertex = idle ? vertexAt(h.x, h.y) : null;
-        const id = idle && !vertex ? shapeAt(h.x, h.y, useHandHover.getState().hoveredId, h.handedness) : null;
-        if (!id) for (const side of ["Left", "Right"] as const) pullToShape(side, null);
+        // Handles come first: they sit on top of the shape they change.
+        const near = idle ? handleAt(h) : null;
+        // A hand closing its fingers on a handle keeps it until the pinch starts a drag.
+        const closing = !drag.current && live.hands.some((x) => x.handedness === objectHand() && x.pinching);
+        if (drag.current?.kind !== "handle" && !closing) setNearHandle(near);
+        const vertex = idle && !near ? vertexAt(h.x, h.y) : null;
+        const id = idle && !vertex && !near ? shapeAt(h.x, h.y, useHandHover.getState().hoveredId, h.handedness) : null;
+        // The cursor stays snapped to a handle that's near or being dragged.
+        const held = drag.current?.kind === "handle" ? objectHand() : near?.hand;
+        if (!id) for (const side of ["Left", "Right"] as const) if (side !== held) pullToShape(side, null);
         if (useHandHover.getState().hoveredId !== id) useHandHover.setState({ hoveredId: id });
         const index = vertex?.index ?? null;
         if (useEditSelection.getState().hoverVertex !== index) useEditSelection.setState({ hoverVertex: index });
+    }
+
+    // The handle the hand is near, snapping the cursor onto it. One it's
+    // already on holds it a little further out.
+    function handleAt(h: { handedness: Handedness; x: number; y: number }) {
+        const px = h.x * window.innerWidth;
+        const py = h.y * window.innerHeight;
+        const strength = HANDLE_MAGNET * useSettings.getState().handMagnet;
+        const was = handHandles.near[h.handedness];
+        let near = handleNear(px, py, strength);
+        if (!near && was) {
+            const again = handleNear(px, py, strength * 1.6);
+            if (again?.set === was.set && again.point.key === was.point.key) near = again;
+        }
+        pullToShape(h.handedness, near ? [near.point.x, near.point.y] : null);
+        return near ? { ...near, hand: h.handedness } : null;
+    }
+
+    function setNearHandle(near: (ReturnType<typeof handleAt> & {}) | null) {
+        const hand = objectHand();
+        const was = handHandles.near[hand];
+        if (was && (was.set !== near?.set || was.point.key !== near.point.key)) was.set.hover(null);
+        if (near && (was?.set !== near.set || was.point.key !== near.point.key)) near.set.hover(near.point.key);
+        handHandles.near[hand] = near;
     }
 
     function start(handedness: Handedness, x: number, y: number) {
@@ -139,6 +176,13 @@ export function HandControls() {
         // The control the hand was on just before pinching counts, since
         // closing the fingers nudges the point.
         const control = hoveredControl(handedness);
+        // A handle the hand had snapped onto, ahead of anything but a button.
+        const near = !control && handedness === objectHand() ? handHandles.near[handedness] : null;
+        if (near && near.set.grab(near.point.key, near.point.x, near.point.y)) {
+            drag.current = { kind: "handle", set: near.set, dx: near.point.x - x * window.innerWidth, dy: near.point.y - y * window.innerHeight };
+            handHandles.active = near.set;
+            return;
+        }
         const ui = control ?? interfaceAt(x, y);
         if (ui) {
             if (control && isSlider(control)) {
@@ -188,6 +232,12 @@ export function HandControls() {
     function move(x: number, y: number, dx: number, dy: number, depth = 0) {
         const d = drag.current;
         if (d?.kind === "slider") return slideTo(d.el, x);
+        if (d?.kind === "handle") {
+            const px = x * window.innerWidth + d.dx;
+            const py = y * window.innerHeight + d.dy;
+            pullToShape(objectHand(), [px, py]);
+            return d.set.drag(px, py);
+        }
         if (d?.kind === "ui") {
             // Past a small wobble it's a scroll, and no longer a press.
             if (!d.moved && Math.hypot((x - d.x) * window.innerWidth, (y - d.y) * window.innerHeight) > PRESS_SLOP) d.moved = true;
@@ -303,12 +353,23 @@ export function HandControls() {
             drag.current = null;
             return;
         }
+        if (d?.kind === "handle") {
+            d.set.release();
+            handHandles.active = null;
+            pullToShape(objectHand(), null);
+        }
         const kind = d?.kind;
         if (kind === "object" || kind === "vertex" || kind === "stretch") useScene.getState().endCoalesce();
         drag.current = null;
     }
 
-    useEffect(() => clearControls, []);
+    useEffect(
+        () => () => {
+            clearControls();
+            setNearHandle(null);
+        },
+        [], // eslint-disable-line react-hooks/exhaustive-deps
+    );
 
     useFrame(() => {
         if (live.hands === lastHands.current) return;
