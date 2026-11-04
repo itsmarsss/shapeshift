@@ -55,7 +55,7 @@ describe("open palm", () => {
         for (let time = 0, x = 0; time <= HOLD_MS * 3; time += 33, x += 0.01) expect(t.update(at(x), time)).toBeNull();
 
         const p = new PalmTracker();
-        p.update([{ handedness: "Right", landmarks: pinch(openHand) }], 0);
+        for (const time of [-66, -33, 0]) p.update([{ handedness: "Right", landmarks: pinch(openHand) }], time);
         const fired: (string | null)[] = [];
         for (let time = 33; time <= 1000 + HOLD_MS + 100; time += 33) fired.push(p.update(at(0), time));
         // Only once the pinch is a second gone and the hold has run its full time.
