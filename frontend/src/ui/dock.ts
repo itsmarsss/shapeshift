@@ -19,6 +19,9 @@ export const PANEL_IDS: DockPanelId[] = ["inspector", "assistant", "chat", "hist
 export const DOCK_MIN = 240;
 export const DOCK_MAX = 560;
 export const ROW_MIN = 120;
+// The 3D view keeps at least this much height between the rows.
+export const VIEW_MIN = 160;
+const TOPBAR = 48;
 
 export type DropTarget = { kind: "tab"; side: DockSide; stack: number } | { kind: "split"; side: DockSide; index: number } | { kind: "float"; x: number; y: number };
 
@@ -123,6 +126,8 @@ export const useDock = create<DockState>()((set, get) => {
         },
         move: (id, to) => {
             const was = get().find(id);
+            // Dropped back on its own stack: nothing moves, it just comes to the front.
+            if (to.kind === "tab" && was && was.side === to.side && was.stack === to.stack) return get().setActive(was.side, was.stack, id);
             let next = without(current(), id);
             if (to.kind === "float") {
                 next = { ...next, floating: { ...next.floating, [id]: { x: to.x, y: to.y } } };
@@ -159,10 +164,14 @@ export const useDock = create<DockState>()((set, get) => {
             const at = get().find(id);
             if (at && get().columns[at.side][at.stack]!.active !== id) get().setActive(at.side, at.stack, id);
         },
-        setSize: (side, size) =>
-            isRow(side)
-                ? commit({ ...current(), height: { ...get().height, [side]: Math.round(Math.min(window.innerHeight * 0.6, Math.max(ROW_MIN, size))) } })
-                : commit({ ...current(), width: { ...get().width, [side]: Math.round(Math.min(DOCK_MAX, Math.max(DOCK_MIN, size))) } }),
+        setSize: (side, size) => {
+            if (!isRow(side)) return commit({ ...current(), width: { ...get().width, [side]: Math.round(Math.min(DOCK_MAX, Math.max(DOCK_MIN, size))) } });
+            // Room for both rows and the view between them.
+            const other = side === "top" ? "bottom" : "top";
+            const taken = get().columns[other].length ? get().height[other] : 0;
+            const most = Math.max(ROW_MIN, window.innerHeight - TOPBAR - VIEW_MIN - taken);
+            commit({ ...current(), height: { ...get().height, [side]: Math.round(Math.min(most, Math.max(ROW_MIN, size))) } });
+        },
         setWeights: (side, weights) => commit({ ...current(), columns: { ...get().columns, [side]: get().columns[side].map((s, i) => ({ ...s, weight: Math.max(0.15, weights[i] ?? s.weight) })) } }),
         reset: () => commit(DEFAULT),
     };

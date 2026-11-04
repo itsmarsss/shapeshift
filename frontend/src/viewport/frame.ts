@@ -32,6 +32,9 @@ export function attachControls(next: CameraControls | null, invalidate?: () => v
     }
 }
 
+// The camera's controls, once the canvas has them.
+export const cameraControls = () => controls;
+
 function withControls(move: (c: CameraControls) => void) {
     if (controls) move(controls);
     else pending = () => move(controls!);

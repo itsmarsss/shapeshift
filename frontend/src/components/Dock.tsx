@@ -63,7 +63,13 @@ const Tab = styled.button<{ $active: boolean }>`
 // Where a stack's tab strip goes: across its top, in a column or a row.
 function tabsPlace(stack: PlacedStack, layout: DockLayout) {
     if (stack.side === "top" || stack.side === "bottom")
-        return { top: rowTop(stack.side, stack.side === "top" ? layout.top : layout.bottom), left: across(stack.from), width: acrossSize(stack.size) };
+        return {
+            top: rowTop(stack.side, stack.side === "top" ? layout.top : layout.bottom),
+            left: across(stack.from),
+            width: acrossSize(stack.size),
+            // Along the bottom, the strip is the row's edge against the view.
+            ...(stack.side === "bottom" ? { borderTop: "1px solid var(--border)" } : {}),
+        };
     return { top: `calc(var(--topbar) + (100% - var(--topbar)) * ${stack.from})`, [stack.side]: 0, width: stack.side === "left" ? layout.left : layout.right };
 }
 

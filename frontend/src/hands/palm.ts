@@ -1,5 +1,5 @@
 import { Contact, handRatio } from "./contact";
-import { PINCH, type HandFrame, type Handedness } from "./gestures";
+import { PINCH, tuning, type HandFrame, type Handedness } from "./gestures";
 
 // An open hand, held still for a moment, opens the hand menu. All four
 // fingers have to be stretched out and the thumb clear of the index, so a
@@ -44,9 +44,11 @@ export class PalmTracker {
         for (const handedness of ["Left", "Right"] as const) {
             const frame = frames.find((f) => f.handedness === handedness);
             const l = frame?.landmarks;
-            if (l && this.pinch[handedness].update(handRatio(l, frame.world, THUMB_TIP, INDEX_TIP), time)) this.pinchedAt[handedness] = time;
+            // The same pinch, and the same sensitivity, as the pointer's.
+            const pinching = !!l && this.pinch[handedness].update(handRatio(l, frame.world, THUMB_TIP, INDEX_TIP), time, tuning.sensitivity);
+            if (pinching) this.pinchedAt[handedness] = time;
             if (!l) this.pinch[handedness].reset();
-            if (!l || !isOpenPalm(l, frame?.world)) {
+            if (!l || pinching || !isOpenPalm(l, frame?.world)) {
                 delete this.since[handedness];
                 this.fired[handedness] = false;
                 continue;

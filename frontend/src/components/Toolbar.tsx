@@ -49,6 +49,13 @@ const Rail = styled.div`
     scrollbar-width: none;
     padding: 12px;
     margin: -12px;
+    // The padding is only there for the shadows: presses on it reach the view.
+    && {
+        pointer-events: none;
+    }
+    > * {
+        pointer-events: auto;
+    }
 
     @media ${COMPACT} {
         max-height: none;

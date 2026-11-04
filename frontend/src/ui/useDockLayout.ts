@@ -1,8 +1,8 @@
-import { useCallback, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useRef, useSyncExternalStore, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { create } from "zustand";
 import { useCollab } from "../collab/session";
 import { useCompact } from "./compact";
-import { isRow, PANEL_IDS, SIDES, useDock, type DockPanelId, type DockSide, type DropTarget, type Stack } from "./dock";
+import { isRow, PANEL_IDS, SIDES, VIEW_MIN, useDock, type DockPanelId, type DockSide, type DropTarget, type Stack } from "./dock";
 import { useInspectorVisible } from "./inspector";
 import { useUI } from "./store";
 
@@ -40,6 +40,12 @@ export function placeColumn(stacks: Stack[], side: DockSide, open: Record<DockPa
     });
 }
 
+const onResize = (cb: () => void) => {
+    window.addEventListener("resize", cb);
+    return () => window.removeEventListener("resize", cb);
+};
+const useWindowHeight = () => useSyncExternalStore(onResize, () => window.innerHeight);
+
 export function useDockLayout() {
     const compact = useCompact();
     const columns = useDock((s) => s.columns);
@@ -52,8 +58,14 @@ export function useDockLayout() {
     // How much of the screen each side takes, nothing when it's empty.
     const left = stacks.left.length ? width.left : 0;
     const right = stacks.right.length ? width.right : 0;
-    const top = stacks.top.length ? height.top : 0;
-    const bottom = stacks.bottom.length ? height.bottom : 0;
+    // The rows share what the window has to spare, so the view never vanishes,
+    // even with a layout saved on a taller screen.
+    const room = Math.max(0, useWindowHeight() - TOPBAR - VIEW_MIN);
+    const wantTop = stacks.top.length ? height.top : 0;
+    const wantBottom = stacks.bottom.length ? height.bottom : 0;
+    const fit = wantTop + wantBottom > room ? room / (wantTop + wantBottom) : 1;
+    const top = Math.round(wantTop * fit);
+    const bottom = Math.round(wantBottom * fit);
     const where = (id: DockPanelId) => SIDES.flatMap((side) => stacks[side]).find((s) => s.open.includes(id));
     const docked = (id: DockPanelId) => !!where(id);
     return { compact, open, stacks, left, right, top, bottom, width, height, floating, where, docked };
@@ -122,7 +134,11 @@ export function dropZones(layout: DockLayout, w = window.innerWidth, h = window.
     const zones: { target: DropTarget; rect: DOMRect; preview: DOMRect }[] = [];
     const body = h - TOPBAR;
     const rect = (x: number, y: number, rw: number, rh: number) => new DOMRect(x, y, rw, rh);
+    // Rows first: where a row's end meets an empty column's band, the row wins,
+    // so a panel can still go at either end of it.
+    const columns: typeof zones = [];
     for (const side of ["left", "right"] as const) {
+        const zones = columns;
         const stacks = layout.stacks[side];
         const colWidth = side === "left" ? layout.left : layout.right;
         if (!stacks.length) {
@@ -178,7 +194,7 @@ export function dropZones(layout: DockLayout, w = window.innerWidth, h = window.
                 zones.push({ target: { kind: "split", side, index: s.index + 1 }, rect: rect(left + width - edge, y, edge, rowHeight), preview: rect(left + width / 2, y, width / 2, rowHeight) });
         });
     }
-    return zones;
+    return zones.concat(columns);
 }
 
 const inside = (r: DOMRect, x: number, y: number) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;

@@ -66,7 +66,7 @@ const STEPS = [
     {
         image: "shapes",
         title: "Or build it yourself",
-        text: "Add shapes from the toolbar or with keys 1 to 6. W, E and R switch between move, rotate and scale.",
+        text: "Add shapes from the toolbar or with keys 1 to 6. Drag a shape to move it, its boxes to resize, the ball to turn and the arrow to lift.",
     },
     {
         image: "hands",

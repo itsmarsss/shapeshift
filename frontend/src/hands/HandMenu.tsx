@@ -151,7 +151,7 @@ export function HandMenu() {
             if (live.frames === lastFrames) return;
             lastFrames = live.frames;
             const now = performance.now();
-            const rect = layer.current?.parentElement?.getBoundingClientRect();
+            const rect = layer.current?.getBoundingClientRect();
             if (!rect) return;
             const menu = useHandMenu.getState();
             const opened = palms.update(live.frames, now);
@@ -204,7 +204,9 @@ export function HandMenu() {
     }, [status]);
 
     return (
-        <div ref={layer} style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+        // Over the whole window, like the hand cursors: hand positions are
+        // shares of the window, not of the view between the docked panels.
+        <div ref={layer} style={{ position: "fixed", inset: 0, pointerEvents: "none" }}>
             {open && (
                 <Ring role="menu" aria-label="Hand menu" style={{ left: `${open.x * 100}%`, top: `${open.y * 100}%` }}>
                     <Hint>{open.forShape ? "Pinch to change it" : "Pinch to choose"}</Hint>

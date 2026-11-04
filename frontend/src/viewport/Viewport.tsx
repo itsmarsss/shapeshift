@@ -27,6 +27,7 @@ import { useObjectDrag } from "./useObjectDrag";
 import { useGizmoColors } from "./GizmoTheme";
 import { useGizmoHands } from "./gizmoHands";
 import { startEditPoints, stopEditPoints } from "../scene/editPoints";
+import { cameraControls } from "./frame";
 import { useHands } from "../hands/tracker";
 import { useHandHover } from "../hands/tracker";
 import { DPR, useSettings } from "../settings/store";
@@ -191,6 +192,18 @@ export function Viewport() {
     const hoveredId = useHandHover((s) => s.hoveredId);
     const [selectedMesh, setSelectedMesh] = useState<THREE.Mesh | null>(null);
     const gizmoBusy = useRef(false);
+    // A handle that goes away mid-drag (Preview, the precise arrows put away,
+    // the selection changing) never sees its drag end, so whatever it paused
+    // comes back here: clicks on empty space, and turning the camera.
+    useEffect(
+        () => () => {
+            gizmoBusy.current = false;
+            const camera = cameraControls();
+            if (camera) camera.enabled = true;
+            useTools.getState().setHandleBusy(false);
+        },
+        [mode, transformMode, selectedId],
+    );
 
     const tool = useTools((s) => s.tool);
     const workplane = useTools((s) => s.workplane);
@@ -224,6 +237,12 @@ export function Viewport() {
         if (useTools.getState().tool !== "select") return applyTool(e);
         e.stopPropagation();
         const event = e.nativeEvent;
+        // Editing points: a click on the shape is about its points, and one on
+        // another shape moves the editing to just that shape, group or not.
+        if (useScene.getState().mode === "edit") {
+            if (id !== useScene.getState().selectedId) select(id);
+            return;
+        }
         if (event.shiftKey) return select(id, { toggle: true });
         const group = objects.find((o) => o.id === id)?.group;
         if (group && !event.altKey) {

@@ -4,6 +4,7 @@ import * as m from "motion/react-m";
 import { Check, Copy, Eye, Polygon, SlidersHorizontal, Trash } from "@phosphor-icons/react";
 import { startEditPoints, stopEditPoints } from "../scene/editPoints";
 import { stopLook } from "../scene/look";
+import { useRecording } from "../scene/record";
 import { touchOnly } from "../ui/touch";
 import { useScene } from "../scene/store";
 import { COMPACT, useCompact } from "../ui/compact";
@@ -77,9 +78,10 @@ export function SelectionBar() {
     const endCoalesce = useScene((s) => s.endCoalesce);
     const show = !compact && !inspector && mode === "object" && !!selected;
     const editing = mode === "edit" && !!selected;
+    const recording = useRecording((s) => s.recording);
     return (
         <AnimatePresence mode="wait">
-            {mode === "render" && (
+            {mode === "render" && !recording && (
                 <Bar key="previewing" {...drop} role="toolbar" aria-label="Previewing">
                     <Eye size={16} weight="fill" style={{ marginLeft: 8, color: "var(--accent)" }} />
                     <span className="name">Previewing</span>

@@ -11,6 +11,11 @@ import { nudgeDirection, nudgeSelection, type Arrow } from "../scene/nudge";
 
 const TRANSFORM_KEYS = { w: "translate", e: "rotate", r: "scale" } as const;
 
+// A focused button or tab, which Enter and Space press themselves.
+function onControl(target: EventTarget | null) {
+    return !!(target as HTMLElement | null)?.closest?.("button, a, [role='button'], [role='tab'], summary");
+}
+
 function isTyping(target: EventTarget | null) {
     const el = target as HTMLElement | null;
     return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
@@ -82,11 +87,11 @@ export function useShortcuts() {
                 else if (s.mode === "render") stopLook();
                 else if (s.mode === "edit") stopEditPoints();
                 else s.select(null);
-            } else if (key === "enter" && !mod && s.mode === "object" && s.selectedIds.length === 1) {
+            } else if (key === "enter" && !mod && s.mode === "object" && s.selectedIds.length === 1 && !onControl(e.target)) {
                 startEditPoints();
             } else if (!mod && key === "p") {
                 toggleLook();
-            } else if (key === " " && !mod && !e.repeat && s.mode !== "render" && !(e.target as HTMLElement | null)?.closest?.("button, a, [role='button'], [role='tab']")) {
+            } else if (key === " " && !mod && !e.repeat && s.mode !== "render" && !onControl(e.target)) {
                 // Held, Space peeks at the preview until it's let go.
                 e.preventDefault();
                 peeking = true;
@@ -106,9 +111,17 @@ export function useShortcuts() {
                 stopLook();
             }
         };
+        // Space let go while the window was in the background never arrives.
+        const onBlur = () => {
+            if (!peeking) return;
+            peeking = false;
+            stopLook();
+        };
         window.addEventListener("keydown", onKeyDown);
         window.addEventListener("keyup", onKeyUp);
+        window.addEventListener("blur", onBlur);
         return () => {
+            window.removeEventListener("blur", onBlur);
             window.removeEventListener("keydown", onKeyDown);
             window.removeEventListener("keyup", onKeyUp);
         };
