@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { startEditPoints, stopEditPoints } from "../scene/editPoints";
 import { useScene } from "../scene/store";
 import { PRIMITIVES } from "@shapeshift/shared/scene/schema";
 import { addShape, dropSelection, duplicateSelection, groupSelection, removeSelection, selectAll, ungroupSelection } from "../scene/selection";
@@ -75,7 +76,10 @@ export function useShortcuts() {
                 dropSelection();
             } else if (key === "escape") {
                 if (useTools.getState().tool !== "select") useTools.getState().setTool("select");
+                else if (s.mode === "edit") stopEditPoints();
                 else s.select(null);
+            } else if (key === "enter" && !mod && s.mode === "object" && s.selectedIds.length === 1) {
+                startEditPoints();
             } else if (!mod && key === "f") {
                 frameSelection();
             } else if (!mod && key in TRANSFORM_KEYS) {

@@ -1,10 +1,11 @@
 import type { QuickCommand } from "./quickCommands";
+import { startEditPoints } from "../scene/editPoints";
 import { useScene } from "../scene/store";
 import { duplicateSelection, removeSelection } from "../scene/selection";
 import { frameSelection, resetView } from "../viewport/frame";
 import { useUI } from "../ui/store";
 
-const MODE_NAME = { object: "Arrange", edit: "Reshape", render: "Preview" } as const;
+const MODE_NAME = { object: "Arrange", edit: "Editing points", render: "Preview" } as const;
 
 // Does a quick command and says what happened, to show under the message field.
 export function runQuickCommand(command: QuickCommand): string {
@@ -43,6 +44,10 @@ export function runQuickCommand(command: QuickCommand): string {
             scene.select(null);
             return "Nothing selected";
         case "mode":
+            if (command.mode === "edit") {
+                startEditPoints();
+                return useScene.getState().mode === "edit" ? "Editing points" : "Select one shape first";
+            }
             scene.setMode(command.mode);
             return `${MODE_NAME[command.mode]} mode`;
         case "closeAssistant":

@@ -41,7 +41,7 @@ const SHAPES: Record<string, Primitive> = {
     star: "star",
 };
 
-const MODES: Record<string, EditorMode> = { arrange: "object", reshape: "edit", preview: "render" };
+const MODES: Record<string, EditorMode> = { arrange: "object", reshape: "edit", "edit points": "edit", preview: "render" };
 
 const it = "(?: (?:it|that|this|them|those|the selection))?";
 const PHRASES: [RegExp, (m: RegExpMatchArray) => QuickCommand | null][] = [
@@ -54,7 +54,7 @@ const PHRASES: [RegExp, (m: RegExpMatchArray) => QuickCommand | null][] = [
     [/^reset(?: the)? (?:view|camera)$/, () => ({ type: "resetView" })],
     [/^select (?:all|everything)$/, () => ({ type: "selectAll" })],
     [/^(?:deselect|select nothing|clear(?: the)? selection)(?: all)?$/, () => ({ type: "deselect" })],
-    [/^(?:switch to |go to )?(arrange|reshape|preview)(?: mode)?$/, (m) => ({ type: "mode", mode: MODES[m[1]] })],
+    [/^(?:switch to |go to )?(arrange|reshape|edit points|preview)(?: mode)?$/, (m) => ({ type: "mode", mode: MODES[m[1]] })],
     [/^(?:close|hide)(?: the)? assistant$/, () => ({ type: "closeAssistant" })],
 ];
 

@@ -26,6 +26,7 @@ import { CameraBridge } from "./CameraBridge";
 import { useObjectDrag } from "./useObjectDrag";
 import { useGizmoColors } from "./GizmoTheme";
 import { useGizmoHands } from "./gizmoHands";
+import { startEditPoints, stopEditPoints } from "../scene/editPoints";
 import { useHands } from "../hands/tracker";
 import { useHandHover } from "../hands/tracker";
 import { DPR, useSettings } from "../settings/store";
@@ -114,6 +115,12 @@ function SceneItems({ objects, lights, selectedIds, selectedId, hoveredId, peerC
     // In object mode a press selects (and may drag); clicks only select in the other modes.
     const click = mode === "object" ? noop : pick;
     const clickLight = mode === "object" ? noop : (id: string) => select(id);
+    // Double-clicking a shape edits its points; double-clicking another while
+    // editing moves on to that one.
+    const editPoints = useCallback((id: string, e: ThreeEvent<MouseEvent>) => {
+        e.stopPropagation();
+        if (useScene.getState().mode !== "render") startEditPoints(id);
+    }, []);
     return (
         <>
             {lights.map((l) => (
@@ -138,6 +145,7 @@ function SceneItems({ objects, lights, selectedIds, selectedId, hoveredId, peerC
                     showSelection={mode === "object"}
                     onSelect={click}
                     onPress={onPointerDown}
+                    onDoubleClick={editPoints}
                     onHover={onHover}
                     meshRef={o.id === selectedId ? setSelectedMesh : undefined}
                     cut={cuts.get(o.id)}
@@ -256,7 +264,10 @@ export function Viewport() {
             camera={{ position: [4, 3.5, 6], fov: settings.fov, near: 0.05, far: 500 }}
             raycaster={{ params: { Points: { threshold: 0.08 } } as THREE.RaycasterParameters }}
             onPointerMissed={() => {
-                if (!gizmoBusy.current && useTools.getState().tool === "select") select(null);
+                if (gizmoBusy.current || useTools.getState().tool !== "select") return;
+                // Clicking off the shape finishes editing its points, keeping it selected.
+                if (useScene.getState().mode === "edit") stopEditPoints();
+                else select(null);
             }}
             style={{ position: "absolute", inset: 0 }}
         >

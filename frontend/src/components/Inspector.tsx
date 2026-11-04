@@ -6,10 +6,12 @@ import { ArrangeSection, HoleToggle, ShapeSection } from "./ModelingSections";
 import styled from "styled-components";
 import { AnimatePresence } from "motion/react";
 import { slide } from "../ui/motion";
-import { CaretRight, Copy, Intersect, SelectionPlus, SelectionSlash, Subtract, Trash, Unite, X } from "@phosphor-icons/react";
+import { CaretRight, Copy, Intersect, Polygon, SelectionPlus, SelectionSlash, Subtract, Trash, Unite, X } from "@phosphor-icons/react";
 import { useShallow } from "zustand/react/shallow";
 import { COMPACT, useCompact } from "../ui/compact";
 import { useTimeline } from "../scene/timeline";
+import { touchOnly } from "../ui/touch";
+import { startEditPoints, stopEditPoints } from "../scene/editPoints";
 import { transformCommand } from "../scene/autokey";
 import { selectSelected, selectSelectedLight, selectSelectedObjects, useScene } from "../scene/store";
 import { duplicateSelection, groupSelection, removeSelection, selectionTargets, ungroupSelection } from "../scene/selection";
@@ -478,7 +480,6 @@ function looksLike(material: Material, preset: MaterialFields) {
 }
 
 // Keyboard tips only make sense with a keyboard and mouse.
-const touchOnly = () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
 
 const ENVIRONMENT_LABELS: Record<Environment, string> = {
     none: "None (plain lights)",
@@ -547,6 +548,9 @@ export function Inspector() {
                         </Select>
                         {selected && !multi && (
                             <>
+                                <IconButton title={mode === "edit" ? "Done editing points" : "Edit points"} $active={mode === "edit"} aria-pressed={mode === "edit"} onClick={() => (mode === "edit" ? stopEditPoints() : startEditPoints(selected.id))}>
+                                    <Polygon size={16} />
+                                </IconButton>
                                 <IconButton title="Duplicate" onClick={() => run({ type: "duplicate", target: selected.id })}>
                                     <Copy size={16} />
                                 </IconButton>

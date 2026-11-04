@@ -1,11 +1,12 @@
 import { useEffect, useRef, type ComponentType } from "react";
 import styled, { keyframes } from "styled-components";
-import { ArrowUUpLeft, ArrowUUpRight, Copy, CornersOut, Cube, Cylinder, Globe, Microphone, Selection, Trash, type Icon } from "@phosphor-icons/react";
+import { ArrowUUpLeft, ArrowUUpRight, Copy, CornersOut, Cube, Cylinder, Globe, Microphone, Polygon, Selection, Trash, type Icon } from "@phosphor-icons/react";
 import type { Primitive } from "@shapeshift/shared/scene/schema";
 import { ConeIcon, TorusIcon } from "../components/icons";
 import { useScene } from "../scene/store";
 import { restingAt } from "../scene/commands";
 import { duplicateSelection, removeSelection } from "../scene/selection";
+import { startEditPoints, stopEditPoints } from "../scene/editPoints";
 import { floorPointAt, frameSelection, windowToView } from "../viewport/frame";
 import { toggleVoice } from "../ui/voice";
 import { PalmTracker } from "./palm";
@@ -29,6 +30,7 @@ const ITEMS: Item[] = [
     { label: "Ring", Icon: TorusIcon, act: addShape("torus") },
     { label: "Duplicate", Icon: Copy, act: duplicateSelection, needsSelection: true },
     { label: "Delete", Icon: Trash, act: removeSelection, needsSelection: true },
+    { label: "Edit points", Icon: Polygon, act: () => (useScene.getState().mode === "edit" ? stopEditPoints() : startEditPoints()), needsSelection: true },
     { label: "Undo", Icon: ArrowUUpLeft, act: () => useScene.getState().undo() },
     { label: "Redo", Icon: ArrowUUpRight, act: () => useScene.getState().redo() },
     { label: "Fit view", Icon: CornersOut, act: frameSelection },

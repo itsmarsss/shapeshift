@@ -577,3 +577,21 @@ test('keeps the precise arrows behind one button', async ({ page }) => {
   await page.keyboard.press('e')
   await expect(page.getByTitle('Turn around one axis (E)')).toHaveCount(0)
 })
+
+test('edits a shape’s points on the shape itself, then finishes', async ({ page }) => {
+  await openEditor(page)
+  await expect(page.getByText('Reshape', { exact: true })).toHaveCount(0)
+  await page.getByTitle('Add box').click()
+  await page.getByRole('button', { name: 'Edit points', exact: true }).click()
+  const banner = page.getByRole('toolbar', { name: 'Editing points' })
+  await expect(banner).toContainText('Editing points of Box')
+  await banner.getByRole('button', { name: 'Done' }).click()
+  await expect(banner).toHaveCount(0)
+  // Esc finishes too, and the shape stays selected.
+  await page.getByRole('button', { name: 'Edit points', exact: true }).click()
+  await expect(banner).toBeVisible()
+  await page.locator('canvas').first().hover()
+  await page.keyboard.press('Escape')
+  await expect(banner).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Edit points', exact: true })).toBeVisible()
+})

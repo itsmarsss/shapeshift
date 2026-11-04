@@ -250,7 +250,6 @@ const PrintDialog = lazy(() => import("./PrintDialog"));
 // Named for what you do in each, not after 3D-software terms.
 const MODES: { mode: EditorMode; label: string; hint: string }[] = [
     { mode: "object", label: "Arrange", hint: "Add, move and style shapes" },
-    { mode: "edit", label: "Reshape", hint: "Drag the points of a shape to change its form" },
     { mode: "render", label: "Preview", hint: "See it lit and shaded, without the editing helpers" },
 ];
 
