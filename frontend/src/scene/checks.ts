@@ -11,7 +11,7 @@
 import type { SceneDoc, SceneObject, Vec3 } from "@shapeshift/shared/scene/schema";
 import { worldBounds } from "../assistant/assistant";
 
-export type IssueKind = "floating" | "gap" | "sunken" | "overlap";
+export type IssueKind = "floating" | "gap" | "sunken" | "overlap" | "missing";
 export type Issue = { kind: IssueKind; ids: string[]; message: string };
 
 // Parts this close to meeting count as meeting another part (or the ground):
@@ -170,18 +170,34 @@ export function checkScene(doc: SceneDoc, options: { only?: Iterable<string> } =
     return issues;
 }
 
+// Things the assistant said it would build (its plan) that aren't in the
+// scene. Matched loosely, so naming slips don't count as missing: "Legs" is
+// built by "Leg 1", and "Lamp" by "Desk Lamp" or a "Lamp" group.
+export function missingFromPlan(doc: SceneDoc, plan: string[]): Issue[] {
+    const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+    const names = doc.objects.flatMap((o) => [norm(o.name), ...(o.group ? [norm(o.group)] : [])]);
+    const built = (want: string) => {
+        const stems = [norm(want)];
+        if (stems[0].length > 3 && stems[0].endsWith("s")) stems.push(stems[0].slice(0, -1));
+        return names.some((n) => stems.some((p) => n === p || n.startsWith(p) || n.includes(` ${p}`)));
+    };
+    const missing = [...new Set(plan.map((p) => p.trim()).filter(Boolean))].filter((p) => !built(p));
+    return missing.length ? [{ kind: "missing", ids: [], message: `Planned but not built yet: ${missing.join(", ")}.` }] : [];
+}
+
 // "2 floating, 1 colliding", or "none", for the Model lab.
-export function summarizeCounts(counts: Record<IssueKind, number>): string {
-    const words: Record<IssueKind, string> = { floating: "floating", gap: "short of meeting", sunken: "sunken", overlap: "colliding or hidden" };
+export function summarizeCounts(counts: Partial<Record<IssueKind, number>>): string {
+    const words: Record<IssueKind, string> = { floating: "floating", gap: "short of meeting", sunken: "sunken", overlap: "colliding or hidden", missing: "planned but missing" };
     const parts = (Object.keys(words) as IssueKind[]).filter((k) => counts[k]).map((k) => `${counts[k]} ${words[k]}`);
     return parts.length ? parts.join(", ") : "none";
 }
 
-export const issueTotal = (counts: Record<IssueKind, number>) => counts.floating + counts.gap + counts.sunken + counts.overlap;
+export const issueTotal = (counts: Partial<Record<IssueKind, number>>) => (counts.floating ?? 0) + (counts.gap ?? 0) + (counts.sunken ?? 0) + (counts.overlap ?? 0) + (counts.missing ?? 0);
 
 // Counts by kind, for scoring a Model lab run.
 export function issueCounts(issues: Issue[]): Record<IssueKind, number> {
-    const counts: Record<IssueKind, number> = { floating: 0, gap: 0, sunken: 0, overlap: 0 };
-    for (const i of issues) counts[i.kind]++;
+    const counts: Record<IssueKind, number> = { floating: 0, gap: 0, sunken: 0, overlap: 0, missing: 0 };
+    // A missing issue lists every missing item; count the items.
+    for (const i of issues) counts[i.kind] += i.kind === "missing" ? i.message.split(":")[1]!.split(",").length : 1;
     return counts;
 }

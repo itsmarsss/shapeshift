@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Command } from "@shapeshift/shared/scene/schema";
-import { checkScene, issueCounts } from "./checks";
+import { checkScene, issueCounts, missingFromPlan } from "./checks";
 import { insertLibraryItem, LIBRARY } from "./library";
 import { emptyDoc, useScene } from "./store";
 
@@ -79,9 +79,17 @@ describe("scene checks", () => {
         expect(checkScene(s().doc, { only: [id("New")] }).map((i) => i.ids)).toEqual([[id("New")]]);
     });
 
+    it("lists what was planned but isn't built, matching names loosely", () => {
+        build(box("Table Top", [0, 0.75, 0], [1, 0.05, 1], "Table"), box("Leg 1", [0, 0.35, 0], [0.05, 0.7, 0.05], "Table"), box("Desk Lamp", [0, 0.9, 0], [0.1, 0.2, 0.1]));
+        expect(missingFromPlan(s().doc, ["Table", "Legs", "Lamp"])).toEqual([]);
+        const missing = missingFromPlan(s().doc, ["Table", "Mug", "Vase", "Mug"]);
+        expect(missing).toEqual([{ kind: "missing", ids: [], message: "Planned but not built yet: Mug, Vase." }]);
+        expect(issueCounts(missing).missing).toBe(2);
+    });
+
     it("counts by kind", () => {
         build(box("A", [0, 3, 0]), box("B", [3, 0, 0]));
-        expect(issueCounts(checkScene(s().doc))).toEqual({ floating: 1, gap: 0, sunken: 1, overlap: 0 });
+        expect(issueCounts(checkScene(s().doc))).toEqual({ floating: 1, gap: 0, sunken: 1, overlap: 0, missing: 0 });
     });
 
     it.each(LIBRARY.map((item) => [item.name, item] as const))("finds nothing wrong with the ready-made %s", (_, item) => {

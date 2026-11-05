@@ -26,6 +26,15 @@ const AGENT_TOOLS = {
             targets: z.array(z.string().min(1)).max(50).optional().describe("Object ids or exact names to frame"),
         }),
     },
+    plan: {
+        description:
+            "Before building anything with several parts, list the things you will make, by the names you will give them (\"Table\", \"Mug\", \"Lamp\"). Changes nothing. Afterwards, every planned name that isn't built yet is reported back to you.",
+        args: z.object({
+            parts: z
+                .preprocess((v) => (typeof v === "string" ? v.split(/[,\n]/) : v), z.array(z.string().trim().min(1).max(60)).min(1).max(40))
+                .describe("Names of the things to build. Name each object or group with one of these, or start its name with one (\"Table Leg\" counts for \"Table\")"),
+        }),
+    },
     undo: {
         description: "Undo the user's most recent changes. Only use when the user asks to undo or go back.",
         args: z.object({ steps: z.number().int().min(1).max(20).optional().describe("How many changes to undo. Defaults to 1") }),
@@ -54,6 +63,7 @@ export type ToolRequest =
     | { kind: "inspect"; targets: string[] }
     | { kind: "select"; target: string | null }
     | { kind: "look"; view: View; targets?: string[] }
+    | { kind: "plan"; parts: string[] }
     | { kind: "undo"; steps: number };
 
 export type ParsedTool = { ok: true; request: ToolRequest } | { ok: false; error: string };
@@ -127,6 +137,10 @@ export function parseToolCall(name: string, rawArgs: string): ParsedTool {
             return parsed.success
                 ? { ok: true, request: { kind: "look", view: parsed.data.view ?? "iso", targets: parsed.data.targets } }
                 : { ok: false, error: issues(parsed.error) };
+        }
+        case "plan": {
+            const parsed = AGENT_TOOLS.plan.args.safeParse(args);
+            return parsed.success ? { ok: true, request: { kind: "plan", parts: parsed.data.parts } } : { ok: false, error: issues(parsed.error) };
         }
         case "undo": {
             const parsed = AGENT_TOOLS.undo.args.safeParse(args);

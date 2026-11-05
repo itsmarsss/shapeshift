@@ -3,7 +3,7 @@ import { describeScene } from "./assistant";
 import { executeToolCalls, type Activity, type TurnContext } from "./executor";
 import { LIMITS, type StopReason, type WireMessage } from "@shapeshift/shared/assistant/protocol";
 import { AgentError, type Transport } from "./transport";
-import { checkScene, type Issue } from "../scene/checks";
+import { checkScene, missingFromPlan, type Issue } from "../scene/checks";
 
 export type TurnHandlers = {
     onText?: (text: string) => void;
@@ -20,9 +20,11 @@ const REQUEST_BUDGET = Math.floor(LIMITS.requestBytes * 0.8);
 // The most check results given to the model at once.
 const MAX_ISSUES = 8;
 
-// Problems in what this turn built or changed (see scene/checks.ts).
+// Problems in what this turn built or changed (see scene/checks.ts), and
+// anything it planned but hasn't built.
 function turnIssues(ctx: TurnContext): Issue[] {
-    return ctx.touched.size ? checkScene(useScene.getState().doc, { only: ctx.touched }) : [];
+    const doc = useScene.getState().doc;
+    return [...(ctx.touched.size ? checkScene(doc, { only: ctx.touched }) : []), ...missingFromPlan(doc, ctx.plan)];
 }
 
 function listIssues(issues: Issue[]) {
