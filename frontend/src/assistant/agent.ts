@@ -3,6 +3,7 @@ import { describeScene } from "./assistant";
 import { executeToolCalls, type Activity, type TurnContext } from "./executor";
 import { LIMITS, type StopReason, type WireMessage } from "@shapeshift/shared/assistant/protocol";
 import { AgentError, type Transport } from "./transport";
+import { checkScene, type Issue } from "../scene/checks";
 
 export type TurnHandlers = {
     onText?: (text: string) => void;
@@ -15,6 +16,20 @@ export type TurnHandlers = {
 export type TurnOutcome = { stop: StopReason | "max_steps" };
 
 const REQUEST_BUDGET = Math.floor(LIMITS.requestBytes * 0.8);
+
+// The most check results given to the model at once.
+const MAX_ISSUES = 8;
+
+// Problems in what this turn built or changed (see scene/checks.ts).
+function turnIssues(ctx: TurnContext): Issue[] {
+    return ctx.touched.size ? checkScene(useScene.getState().doc, { only: ctx.touched }) : [];
+}
+
+function listIssues(issues: Issue[]) {
+    const shown = issues.slice(0, MAX_ISSUES).map((i) => `- ${i.message}`);
+    if (issues.length > MAX_ISSUES) shown.push(`- and ${issues.length - MAX_ISSUES} more like these`);
+    return shown.join("\n");
+}
 
 const size = (m: WireMessage) => JSON.stringify(m).length;
 
@@ -86,11 +101,32 @@ export async function runTurn(opts: {
         conversation.push(result.message);
 
         const calls = result.message.tool_calls ?? [];
-        if (!calls.length) return { stop: result.stop };
+        if (!calls.length) {
+            // Done, but with problems in what it built: one more look, once a
+            // turn, before the turn ends. The chat shows turns rather than raw
+            // messages, so this note isn't shown as if the user typed it.
+            const issues = result.stop === "end" && !ctx.reviewed && step < maxSteps - 1 ? turnIssues(ctx) : [];
+            if (!issues.length) return { stop: result.stop };
+            ctx.reviewed = true;
+            conversation.push({
+                role: "user",
+                content: `Automatic check, not from the user. These problems remain in what you built:\n${listIssues(issues)}\nFix them, or if they're intended, say so in one short sentence.`,
+            });
+            handlers.onActivities?.([{ id: `check-${step}`, label: `Checked the build: ${issues.length === 1 ? "1 thing" : `${issues.length} things`} to fix`, ok: true }]);
+            continue;
+        }
 
         // Tool calls run synchronously right after the reply arrives, so a
         // stop can never leave a call in the history without its result.
         const { messages, activities } = executeToolCalls(calls, ctx);
+        // What the checks find in the build so far rides along with the
+        // results, so even a model that never asks gets told.
+        if (activities.some((a) => a.changed) && messages.length) {
+            const issues = turnIssues(ctx);
+            const last = messages[messages.length - 1];
+            const note = `\n\nChecks of what you've built so far: ${issues.length ? `\n${listIssues(issues)}` : "no problems found."}`;
+            last.content = last.content.slice(0, LIMITS.toolResultChars - note.length) + note;
+        }
         conversation.push(...messages);
         handlers.onActivities?.(activities);
     }

@@ -3,6 +3,7 @@ import styled from "styled-components";
 import { ArrowCounterClockwise, Play, Plus, X } from "@phosphor-icons/react";
 import { Button, Input, TextArea } from "../../components/ui";
 import type { LabResult } from "../../lab/LabRun";
+import { issueTotal, summarizeCounts, type IssueKind } from "../../scene/checks";
 import { ago, run as act, useKept, useLoad, when } from "../nav";
 import { Badge, Confirm, Header, Note, Panel, TableBox } from "../ui";
 
@@ -118,7 +119,7 @@ const Lanes = styled.div<{ $cols: number }>`
 
 const secs = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 
-type Kept = { model: string; ms: number; steps: number; changes: number; failed: number; error?: string; picture: boolean };
+type Kept = { model: string; ms: number; steps: number; changes: number; failed: number; issues?: Record<IssueKind, number>; error?: string; picture: boolean };
 type KeptRun = { run: string; prompt: string; at: number; results: Kept[] };
 
 const Past = styled.div`
@@ -303,6 +304,7 @@ export function ModelLab() {
                                     <th>Steps</th>
                                     <th>Changes</th>
                                     <th>Failed steps</th>
+                                    <th title="What the build checks find in the result: floating, short of meeting, sunken, colliding or hidden parts">Problems</th>
                                     <th />
                                 </tr>
                             </thead>
@@ -316,6 +318,7 @@ export function ModelLab() {
                                             <td>{r?.steps ?? "…"}</td>
                                             <td>{r?.changes ?? "…"}</td>
                                             <td>{r ? r.failed : "…"}</td>
+                                            <td title={r?.issues ? summarizeCounts(r.issues) : undefined}>{r?.issues ? issueTotal(r.issues) : "…"}</td>
                                             <td>
                                                 {!r ? <Badge>Working</Badge> : r.error ? <Badge $tone="red" title={r.error} style={{ whiteSpace: "normal" }}>{r.error}</Badge> : m === fastest ? <Badge $tone="green">Fastest</Badge> : <Badge $tone="accent">Done</Badge>}
                                             </td>
@@ -382,6 +385,7 @@ export function ModelLab() {
                                         ) : (
                                             <span>
                                                 {secs(x.ms)} · {x.changes} changes{x.failed ? ` · ${x.failed} failed` : ""}
+                                                {x.issues ? ` · ${issueTotal(x.issues) ? `${issueTotal(x.issues)} problems` : "no problems"}` : ""}
                                             </span>
                                         )}
                                     </div>
