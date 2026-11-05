@@ -23,6 +23,8 @@ const DESCRIPTIONS: Record<(typeof AI_COMMANDS)[number], string> = {
     align: "Line up objects or groups along one axis by their world bounds: min, center or max of all of them together.",
     mirror: "Flip objects or groups across one axis, around their shared center.",
     drop: "Move objects or groups straight down until their lowest point rests on the ground, or on the surface given by origin and normal.",
+    place: "Put an object or group on, under, beside, in front of or behind another, touching (or with a gap), from their actual bounds. Prefer this to working out positions yourself: a mug on a table, a door on a wall's front, a chair beside a desk. The result says where it went.",
+    array: "Copy an object or group into a row, a grid, or a circle around something: fence posts, a row of windows, chairs around a table. Copies are named and grouped like duplicates.",
     boolean: "Combine two objects into one mesh for good. union merges them, subtract cuts `tool` out of `target`, intersect keeps the overlap. `tool` is removed.",
 };
 

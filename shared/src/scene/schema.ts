@@ -151,6 +151,9 @@ export type SceneDoc = z.infer<typeof SceneDoc>;
 const Target = z.string().describe("Object id or exact name");
 const Targets = z.array(z.string()).min(1).describe("Object ids, exact names or group names");
 
+export const PLACE_RELATIONS = ["on", "under", "left_of", "right_of", "in_front_of", "behind"] as const;
+export const PLACE_SPOTS = ["center", "front", "back", "left", "right", "front-left", "front-right", "back-left", "back-right"] as const;
+
 export const AXES = ["x", "y", "z"] as const;
 export const Axis = z.enum(AXES);
 export type Axis = z.infer<typeof Axis>;
@@ -268,9 +271,31 @@ export const Command = z.discriminatedUnion("type", [
         origin: Vec3.optional().describe("A point on the surface to drop onto. Defaults to the ground"),
         normal: Vec3.optional().describe("Up direction of that surface. Defaults to [0, 1, 0]"),
     }),
+    // Relation tools: say how things sit together and the editor works out the
+    // numbers (dev/text-to-cad-design.md). Front is +Z, right is +X, up is +Y.
+    z.object({
+        type: z.literal("place"),
+        target: Target.describe("Object or group to move. A group moves as one piece"),
+        relation: z.enum(PLACE_RELATIONS).describe("Where it goes relative to `of`. on and under stack it; the others put it beside, touching, with bottoms level"),
+        of: Target.describe("Object or group to place it against"),
+        spot: z.enum(PLACE_SPOTS).optional().describe("With on: where on the top. Edges keep it fully on the top. Defaults to center"),
+        gap: z.number().min(0).max(100).optional().describe("Meters between them. Defaults to 0, touching"),
+        offset: Vec3.optional().describe("Meters added afterwards, such as [0, 1.2, 0] for a window 1.2 m up a wall"),
+    }),
+    z.object({
+        type: z.literal("array"),
+        target: Target.describe("Object or group to copy. A group's copies are new groups"),
+        count: z.number().int().min(2).max(50).describe("How many in all, the original included"),
+        layout: z.enum(["row", "grid", "circle"]),
+        axis: z.enum(["x", "z"]).optional().describe("row: the direction to repeat in. Defaults to x"),
+        step: z.number().positive().max(100).optional().describe("row and grid: meters from one center to the next. Defaults to its size plus 0.2"),
+        columns: z.number().int().min(1).max(50).optional().describe("grid: how many across X. Defaults to about the square root of count"),
+        around: Target.optional().describe("circle: what to go around. The radius is how far the target is from its center now, so place one first, then array it"),
+        radius: z.number().positive().max(100).optional().describe("circle without around: the circle's radius, centered where the target is now"),
+    }),
     z.object({ type: z.literal("insert"), objects: z.array(SceneObject) }),
     z.object({ type: z.literal("clear") }),
 ]);
 
-export const AI_COMMANDS = ["add", "remove", "duplicate", "transform", "material", "rename", "hole", "align", "mirror", "drop", "boolean", "addLight", "updateLight", "group", "ungroup", "environment", "animate", "keyframe", "removeKeyframe", "clearAnimation", "timeline"] as const;
+export const AI_COMMANDS = ["add", "remove", "duplicate", "transform", "material", "rename", "hole", "align", "mirror", "drop", "place", "array", "boolean", "addLight", "updateLight", "group", "ungroup", "environment", "animate", "keyframe", "removeKeyframe", "clearAnimation", "timeline"] as const;
 export type Command = z.infer<typeof Command>;
