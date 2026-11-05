@@ -7,6 +7,7 @@ import { makeHttpTransport, type Transport } from "../assistant/transport";
 import { GlobalStyle } from "../components/ui";
 import { useScene } from "../scene/store";
 import { SceneView } from "../viewer/SceneView";
+import { captureScene } from "../viewer/capture";
 import type { SceneDoc } from "@shapeshift/shared/scene/schema";
 import { checkScene, issueCounts, type IssueKind } from "../scene/checks";
 
@@ -119,9 +120,10 @@ const secs = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 // development; reloading the frame starts again.
 let begun = false;
 
-// A picture of the finished scene, small enough to keep with the run.
+// A picture of the finished scene, small enough to keep with the run. Drawn
+// fresh, since the lab may have been in a background tab the whole run.
 function picture(): string | undefined {
-    const canvas = document.querySelector("canvas");
+    const canvas = captureScene();
     if (!canvas) return undefined;
     const small = document.createElement("canvas");
     small.width = 480;
@@ -274,7 +276,7 @@ function View({
                 </span>
             </Head>
             <Stage>
-                <SceneView doc={doc} capture={capture} />
+                <SceneView doc={doc} capture={capture} look="editor" />
             </Stage>
             <Log>
                 {log.map((e, i) =>
