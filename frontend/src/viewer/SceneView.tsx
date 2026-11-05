@@ -10,8 +10,28 @@ import { cutGeometries } from "../scene/holes";
 import { SceneEnvironment } from "../viewport/SceneEnvironment";
 import { SceneLight } from "../viewport/SceneLight";
 import { SceneMesh } from "../viewport/SceneMesh";
+import { SCENE_COLORS } from "../settings/theme";
+import { setCapture } from "./capture";
 
 // A scene to look at but not edit: the share page, and the Model lab's live views.
+//
+// The share page is dark; the Model lab looks like the editor (its light
+// background and ground), so a run is judged as the person would see it.
+export type SceneLook = "share" | "editor";
+
+function Capture() {
+    const gl = useThree((s) => s.gl);
+    const scene = useThree((s) => s.scene);
+    const camera = useThree((s) => s.camera);
+    useEffect(() => {
+        setCapture(() => {
+            gl.render(scene, camera);
+            return gl.domElement;
+        });
+        return () => setCapture(null);
+    }, [gl, scene, camera]);
+    return null;
+}
 
 // Points the camera at everything in the scene once it loads.
 function Frame({ doc }: { doc: SceneDoc }) {
@@ -28,7 +48,7 @@ function Frame({ doc }: { doc: SceneDoc }) {
     return null;
 }
 
-function Scene({ doc }: { doc: SceneDoc }) {
+function Scene({ doc, look }: { doc: SceneDoc; look: SceneLook }) {
     const [time, setTime] = useState(0);
     const animated = doc.animation.tracks.length > 0;
     const clock = useRef(0);
@@ -51,8 +71,8 @@ function Scene({ doc }: { doc: SceneDoc }) {
     });
     return (
         <>
-            <color attach="background" args={["#0d0e10"]} />
-            <hemisphereLight args={["#ffffff", "#30333a", lights.length ? 0.35 : 0.7]} />
+            <color attach="background" args={[look === "editor" ? SCENE_COLORS.light.background : "#0d0e10"]} />
+            <hemisphereLight args={["#ffffff", look === "editor" ? SCENE_COLORS.light.ground : "#30333a", lights.length ? 0.35 : 0.7]} />
             {!lights.length && <directionalLight position={[-5, 10, 3]} intensity={1.8} castShadow shadow-mapSize={[2048, 2048]} />}
             {lights.map((l) => (
                 <SceneLight key={l.id} light={l} selected={false} showMarker={false} onSelect={() => {}} />
@@ -71,11 +91,13 @@ function Scene({ doc }: { doc: SceneDoc }) {
     );
 }
 
-// `capture` keeps the last frame readable, so a picture can be taken of it.
-export function SceneView({ doc, capture = false }: { doc: SceneDoc; capture?: boolean }) {
+// `capture` keeps the last frame readable, so a picture can be taken of it
+// (see capture.ts).
+export function SceneView({ doc, capture = false, look = "share" }: { doc: SceneDoc; capture?: boolean; look?: SceneLook }) {
     return (
         <Canvas gl={capture ? { preserveDrawingBuffer: true } : undefined} shadows dpr={[1, 2]} camera={{ position: [4, 3.5, 6], fov: 45, near: 0.05, far: 500 }} style={{ position: "absolute", inset: 0 }}>
-            <Scene doc={doc} />
+            {capture && <Capture />}
+            <Scene doc={doc} look={look} />
         </Canvas>
     );
 }
