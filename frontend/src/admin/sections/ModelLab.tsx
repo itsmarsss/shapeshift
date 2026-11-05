@@ -14,6 +14,7 @@ import { Badge, Confirm, Header, Note, Panel, TableBox } from "../ui";
 
 const PRESET_MODELS: { id: string; note: string }[] = [
     { id: "@cf/zai-org/glm-4.7-flash", note: "free model now" },
+    { id: "@cf/zai-org/glm-4.7-flash#nothink", note: "same, without thinking" },
     { id: "@cf/openai/gpt-oss-120b#low", note: "thinks briefly" },
     { id: "@cf/openai/gpt-oss-120b#medium", note: "" },
     { id: "@cf/openai/gpt-oss-120b", note: "best layouts so far" },
@@ -284,7 +285,7 @@ export function ModelLab() {
                             setDraft("");
                         }}
                     >
-                        <Input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="@cf/author/model, or #low / #high on a reasoning one" aria-label="Another model" />
+                        <Input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="@cf/author/model, or #low / #high / #nothink" aria-label="Another model" />
                         <Button type="submit" $variant="outline">
                             <Plus size={14} /> Add
                         </Button>
