@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type Anthropic from "@anthropic-ai/sdk";
 import type { AgentEvent, WireMessage } from "@shapeshift/shared/assistant/protocol";
 import { agentStep } from "./agent";
+import { workersAiProvider } from "./workersAi";
 import { toParams, toWire } from "./anthropic";
 import { handleUsage } from "./usage";
 import { testDatabase } from "./test/d1";
@@ -25,6 +26,8 @@ function sse(...chunks: object[]) {
     return new Response(body).body!;
 }
 const delta = (d: object, finish_reason: string | null = null) => ({ choices: [{ delta: d, finish_reason }] });
+// One step on a given Workers AI model, as the Model lab asks for it.
+const workersAiStep = (e: Env, model: string) => agentStep(post({ messages: [{ role: "user", content: "hi" }] }), e, workersAiProvider(e, model));
 
 async function events(res: Response): Promise<AgentEvent[]> {
     return (await res.text())
@@ -34,7 +37,7 @@ async function events(res: Response): Promise<AgentEvent[]> {
 }
 
 describe("/api/agent", () => {
-    it("streams the model's step back", async () => {
+    it("streams the model's step back, a few events a second rather than a token at a time", async () => {
         // Thinking, then words, then a tool call whose arguments come in pieces.
         const e = env(async () =>
             sse(
@@ -48,13 +51,12 @@ describe("/api/agent", () => {
         const res = await agentStep(post({ messages: [{ role: "user", content: "add a box", scene: "The scene is empty." }] }), e);
         expect(res.headers.get("content-type")).toContain("ndjson");
         const out = await events(res);
-        expect(out.slice(0, 4)).toEqual([
-            { type: "thinking", text: "A box" },
-            { type: "thinking", text: " at the origin." },
+        expect(out.slice(0, 3)).toEqual([
+            { type: "thinking", text: "A box at the origin." },
             { type: "text", text: "On it." },
             { type: "tool_start", name: "add" },
         ]);
-        expect(out[4]).toMatchObject({
+        expect(out[3]).toMatchObject({
             type: "message",
             stop: "tool_use",
             message: { content: "On it.", tool_calls: [{ id: "t1", name: "add", arguments: '{"primitive":"box"}' }] },
@@ -64,9 +66,20 @@ describe("/api/agent", () => {
         expect(sent.messages[1].content).toContain("<scene>\nThe scene is empty.\n</scene>");
     });
 
+    it("turns a model's thinking off with #nothink", async () => {
+        const e = env(async () => sse(delta({ content: "Hi." }, "stop")));
+        await events(await workersAiStep(e, "@cf/zai-org/glm-4.7-flash#nothink"));
+        await events(await workersAiStep(e, "@cf/zai-org/glm-4.7-flash"));
+        const calls = (e.AI.run as ReturnType<typeof vi.fn>).mock.calls as [string, { chat_template_kwargs: { enable_thinking: boolean } }][];
+        expect(calls.map(([model, args]) => [model, args.chat_template_kwargs.enable_thinking])).toEqual([
+            ["@cf/zai-org/glm-4.7-flash", false],
+            ["@cf/zai-org/glm-4.7-flash", true],
+        ]);
+    });
+
     it("reads the older streamed shape too, and stops on a cut-off reply", async () => {
         const old = await events(await agentStep(post({ messages: [{ role: "user", content: "hi" }] }), env(async () => sse({ response: "Hel" }, { response: "lo" }))));
-        expect(old.filter((o) => o.type === "text").map((o) => (o as { text: string }).text)).toEqual(["Hel", "lo"]);
+        expect(old.filter((o) => o.type === "text").map((o) => (o as { text: string }).text)).toEqual(["Hello"]);
         expect(old.at(-1)).toMatchObject({ type: "message", stop: "end", message: { content: "Hello" } });
 
         const cut = await events(await agentStep(post({ messages: [{ role: "user", content: "hi" }] }), env(async () => sse(delta({ content: "Partial" }, "length")))));

@@ -42,7 +42,7 @@ export async function agentInfo(request: Request, env: Env) {
 // A model for the Model lab: a Workers AI id ("@cf/...", optionally with
 // "#low" and the like), or a Claude model when the key is set.
 export function labProvider(env: Env, model: string): Provider | null {
-    if (/^@cf\/[\w.\-/]+(#(low|medium|high))?$/.test(model) && env.AI) return workersAiProvider(env, model);
+    if (/^@cf\/[\w.\-/]+(#(low|medium|high|nothink))?$/.test(model) && env.AI) return workersAiProvider(env, model);
     if (/^claude-[\w.-]+$/.test(model) && env.ANTHROPIC_API_KEY) return anthropicProvider({ ...env, ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY }, model);
     return null;
 }
@@ -84,21 +84,43 @@ export async function agentStep(request: Request, env: Env, lab?: Provider): Pro
     const writer = writable.getWriter();
     const encoder = new TextEncoder();
     const emit = (event: AgentEvent) => writer.write(encoder.encode(`${JSON.stringify(event)}\n`)).catch(() => {});
+    // Text and thinking go out a few times a second rather than a token at a
+    // time: a long reply is thousands of tokens, and writing each one costs
+    // CPU the free Workers plan doesn't have (about 10 ms a request).
+    let pending: { type: "text" | "thinking"; text: string } | null = null;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const flush = () => {
+        if (timer !== undefined) clearTimeout(timer);
+        timer = undefined;
+        if (pending) void emit(pending);
+        pending = null;
+    };
+    const queue = (type: "text" | "thinking", text: string) => {
+        if (pending && pending.type !== type) flush();
+        pending = { type, text: (pending?.text ?? "") + text };
+        if (pending.text.length >= 2000) flush();
+        else timer ??= setTimeout(flush, 120);
+    };
 
     const run = async () => {
         try {
             const out = await provider.step(messages, {
-                onText: (t) => void emit({ type: "text", text: t }),
-                onToolStart: (name) => void emit({ type: "tool_start", name }),
-                onThinking: (t) => void emit({ type: "thinking", text: t }),
+                onText: (t) => queue("text", t),
+                onToolStart: (name) => {
+                    flush();
+                    void emit({ type: "tool_start", name });
+                },
+                onThinking: (t) => queue("thinking", t),
                 signal: request.signal,
             });
+            flush();
             await emit({ type: "message", ...out });
         } catch (err) {
             const e = err instanceof ProviderError ? err : new ProviderError("internal", "Something went wrong.");
             if (!(err instanceof ProviderError)) console.error("Agent step failed", err);
             // A failure on our side or the model's doesn't use up the allowance.
             if (!request.signal.aborted) await refund(env, subject, fresh).catch(() => {});
+            flush();
             await emit({ type: "error", code: e.code, error: e.message, ...(e.retryAfter ? { retryAfter: e.retryAfter } : {}) });
         } finally {
             await writer.close().catch(() => {});

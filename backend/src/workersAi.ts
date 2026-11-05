@@ -69,8 +69,13 @@ type Chunk = { response?: string; tool_calls?: LooseCall[]; choices?: { delta?: 
 // Reads Workers AI's server-sent events as they come, passing text and
 // thinking on and noting each tool as it starts. Handles both shapes the
 // service uses: OpenAI-style deltas, and the older { response, tool_calls }.
+//
+// Kept cheap: the free Workers plan allows about 10 ms of CPU a request, and
+// a long reply is thousands of tiny events. Each network read's events are
+// parsed in one go rather than one at a time.
 export async function readAiStream(stream: ReadableStream<Uint8Array>, callbacks: StepCallbacks) {
-    const reader = stream.pipeThrough(new TextDecoderStream()).getReader();
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
     let buffer = "";
     let content = "";
     let finish: string | null = null;
@@ -113,24 +118,42 @@ export async function readAiStream(stream: ReadableStream<Uint8Array>, callbacks
         }
     };
 
+    const take = (block: string) => {
+        const data: string[] = [];
+        for (const raw of block.split("\n")) {
+            const line = raw.trim();
+            if (!line.startsWith("data:")) continue;
+            const d = line.slice(5).trim();
+            if (d && d !== "[DONE]") data.push(d);
+        }
+        if (!data.length) return;
+        let chunks: Chunk[];
+        try {
+            chunks = JSON.parse(`[${data.join(",")}]`) as Chunk[];
+        } catch {
+            // One bad line: parse them one by one and skip it, rather than
+            // failing the whole reply.
+            chunks = data.flatMap((d) => {
+                try {
+                    return [JSON.parse(d) as Chunk];
+                } catch {
+                    return [];
+                }
+            });
+        }
+        for (const chunk of chunks) handle(chunk);
+    };
+
     for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
-        buffer += value;
-        let nl: number;
-        while ((nl = buffer.indexOf("\n")) >= 0) {
-            const line = buffer.slice(0, nl).trim();
-            buffer = buffer.slice(nl + 1);
-            if (!line.startsWith("data:")) continue;
-            const data = line.slice(5).trim();
-            if (!data || data === "[DONE]") continue;
-            try {
-                handle(JSON.parse(data) as Chunk);
-            } catch {
-                // A line that isn't JSON is skipped rather than failing the whole reply.
-            }
-        }
+        buffer += decoder.decode(value, { stream: true });
+        const end = buffer.lastIndexOf("\n");
+        if (end < 0) continue;
+        take(buffer.slice(0, end));
+        buffer = buffer.slice(end + 1);
     }
+    take(buffer + decoder.decode());
     const tool_calls = normalizeCalls(
         [...calls.entries()].sort(([a], [b]) => a - b).map(([, c]) => ({ id: c.id, name: c.name, arguments: c.arguments || c.whole || {} })),
     );
@@ -138,11 +161,14 @@ export async function readAiStream(stream: ReadableStream<Uint8Array>, callbacks
 }
 
 // `model` may end in "#low", "#medium" or "#high" to say how long a model
-// that reasons (like gpt-oss) should think, for trying it in the Model lab.
+// that reasons (like gpt-oss) should think, or "#nothink" to turn thinking
+// off (like GLM's), for trying it in the Model lab. Thinking is most of a
+// long reply, and so most of its time and CPU.
 export function workersAiProvider(env: Env, model?: string): Provider {
     // Set in wrangler.jsonc, so a better free model is a config change.
     const [MODEL, effort] = (model || env.FREE_MODEL || DEFAULT_MODEL).split("#") as [string, string | undefined];
     const reasoning = effort && ["low", "medium", "high"].includes(effort) ? { reasoning: { effort } } : {};
+    const thinking = effort !== "nothink";
     return {
         info: { provider: "workers-ai", model: MODEL },
         async step(messages, callbacks) {
@@ -156,7 +182,7 @@ export function workersAiProvider(env: Env, model?: string): Provider {
                     temperature: 0.2,
                     max_tokens: 8192,
                     stream: true,
-                    chat_template_kwargs: { enable_thinking: true },
+                    chat_template_kwargs: { enable_thinking: thinking },
                     ...reasoning,
                 } as never)) as unknown as ReadableStream<Uint8Array>;
             } catch (err) {
