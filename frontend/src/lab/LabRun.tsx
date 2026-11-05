@@ -8,6 +8,7 @@ import { GlobalStyle } from "../components/ui";
 import { useScene } from "../scene/store";
 import { SceneView } from "../viewer/SceneView";
 import type { SceneDoc } from "@shapeshift/shared/scene/schema";
+import { checkScene, issueCounts, type IssueKind } from "../scene/checks";
 
 // One model in the Model lab, run in its own frame so several can work at
 // once without sharing a scene. It builds from an empty scene, shows the
@@ -23,7 +24,8 @@ type Entry =
     | { kind: "step"; at: number; ms: number }
     | { kind: "error"; text: string };
 
-export type LabResult = { type: "lab-done"; run: string; model: string; ms: number; steps: number; changes: number; failed: number; error?: string };
+// `issues` counts what the build checks find in the finished scene (scene/checks.ts).
+export type LabResult = { type: "lab-done"; run: string; model: string; ms: number; steps: number; changes: number; failed: number; issues: Record<IssueKind, number>; error?: string };
 
 const Root = styled.div`
     position: fixed;
@@ -202,10 +204,11 @@ function Live() {
             const ms = Date.now() - started.current;
             setNow(Date.now());
             setStatus(error ? "error" : "done");
-            const message: LabResult = { type: "lab-done", run, model, ms, ...counts.current, ...(error ? { error } : {}) };
+            const issues = issueCounts(checkScene(useScene.getState().doc));
+            const message: LabResult = { type: "lab-done", run, model, ms, ...counts.current, issues, ...(error ? { error } : {}) };
             // Kept for later, then the lab is told, so its list of past runs includes this one.
             setTimeout(() => {
-                const record = { run: run.split(":")[0], model, prompt, ms, ...counts.current, ...(error ? { error: error.slice(0, 400) } : {}), doc: useScene.getState().doc, log: logRef.current, picture: picture() };
+                const record = { run: run.split(":")[0], model, prompt, ms, ...counts.current, issues, ...(error ? { error: error.slice(0, 400) } : {}), doc: useScene.getState().doc, log: logRef.current, picture: picture() };
                 void fetch("/api/admin/lab/runs", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(record) })
                     .catch(() => {})
                     .finally(() => window.parent.postMessage(message, location.origin));

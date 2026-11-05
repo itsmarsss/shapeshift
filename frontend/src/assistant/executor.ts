@@ -32,11 +32,15 @@ export type TurnContext = {
     // still reach it as "Leg" for the rest of the turn.
     aliases: Map<string, string>;
     created: string[];
+    // Every object this turn added or changed, which the build checks look at.
+    touched: Set<string>;
     changed: boolean;
+    // Whether the turn has already been asked to fix what the checks found.
+    reviewed: boolean;
 };
 
 export function newTurnContext(coalesce: string): TurnContext {
-    return { coalesce, aliases: new Map(), created: [], changed: false };
+    return { coalesce, aliases: new Map(), created: [], touched: new Set(), changed: false, reviewed: false };
 }
 
 function clip(text: string) {
@@ -96,6 +100,10 @@ function runCommand(original: Command, ctx: TurnContext): Outcome {
         return l ? [describeLight(l, selectedId)] : [];
     });
     if (cmd.type === "add" && cmd.name && result.created[0]) ctx.aliases.set(cmd.name.toLowerCase(), result.created[0]);
+    // Whatever the command changed, groups and several targets included: the
+    // scene is updated immutably, so a changed object is a new one.
+    const before = new Set(state.doc.objects);
+    for (const o of doc.objects) if (!before.has(o)) ctx.touched.add(o.id);
     // Shown one at a time: new shapes grow in, changed ones glow.
     if (result.created.length) reveal(result.created);
     else if (touched.length) flash(touched);

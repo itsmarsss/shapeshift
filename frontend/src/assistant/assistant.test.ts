@@ -218,6 +218,54 @@ describe("agent loop", () => {
         expect(s().past).toHaveLength(1);
     });
 
+    it("tells the model what the checks find, and asks once more before it stops", async () => {
+        const floating = call("add", { primitive: "box", name: "Lid", position: [0, 2, 0] }, "c1");
+        const transport = scripted([
+            () => ({ message: { role: "assistant", content: null, tool_calls: [floating] }, stop: "tool_use", model: "m" }),
+            (msgs) => {
+                expect((msgs[msgs.length - 1] as { content: string }).content).toContain("Lid floats 1.5 m above the ground");
+                return { message: { role: "assistant", content: "Added a lid." }, stop: "end", model: "m" };
+            },
+            (msgs) => {
+                const note = msgs[msgs.length - 1];
+                expect(note).toMatchObject({ role: "user" });
+                expect((note as { content: string }).content).toMatch(/^Automatic check, not from the user/);
+                return { message: { role: "assistant", content: null, tool_calls: [call("drop", { targets: ["Lid"] }, "c2")] }, stop: "tool_use", model: "m" };
+            },
+            (msgs) => {
+                expect((msgs[msgs.length - 1] as { content: string }).content).toContain("no problems found");
+                return { message: { role: "assistant", content: "Put the lid on the ground." }, stop: "end", model: "m" };
+            },
+        ]);
+        const activities: string[] = [];
+        const conversation: WireMessage[] = [];
+        await runTurn({
+            conversation,
+            prompt: "add a lid",
+            transport,
+            signal: new AbortController().signal,
+            ctx: newTurnContext("checks"),
+            handlers: { onActivities: (a) => activities.push(...a.map((x) => x.label)) },
+        });
+        expect(conversation.map((m) => m.role)).toEqual(["user", "assistant", "tool", "assistant", "user", "assistant", "tool", "assistant"]);
+        expect(activities).toContain("Checked the build: 1 thing to fix");
+    });
+
+    it("asks only once, and leaves alone what it didn't build", async () => {
+        s().run({ type: "add", primitive: "box", name: "Old", position: [5, 3, 0] });
+        const transport = scripted([
+            () => ({ message: { role: "assistant", content: null, tool_calls: [call("add", { primitive: "box", name: "Cloud", position: [0, 3, 0] })] }, stop: "tool_use", model: "m" }),
+            () => ({ message: { role: "assistant", content: "Added a cloud." }, stop: "end", model: "m" }),
+            () => ({ message: { role: "assistant", content: "It's a cloud, so it floats." }, stop: "end", model: "m" }),
+        ]);
+        const conversation: WireMessage[] = [];
+        await runTurn({ conversation, prompt: "a cloud", transport, signal: new AbortController().signal, ctx: newTurnContext("once") });
+        const note = conversation.find((m) => m.role === "user" && m.content.startsWith("Automatic check")) as { content: string };
+        expect(note.content).toContain("Cloud floats");
+        expect(note.content).not.toContain("Old");
+        expect(conversation[conversation.length - 1]).toMatchObject({ role: "assistant", content: "It's a cloud, so it floats." });
+    });
+
     it("sends attached pictures with the prompt", async () => {
         const transport = scripted([() => ({ message: { role: "assistant", content: "A cat." }, stop: "end", model: "m" })]);
         const conversation: WireMessage[] = [];
