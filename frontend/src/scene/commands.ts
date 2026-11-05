@@ -374,8 +374,131 @@ function applyArrange(doc: SceneDoc, cmd: Extract<Command, { type: "align" | "mi
     return { ok: true, created: [] };
 }
 
+// Where `spot` puts something on top of another: -1, 0 or 1 across X and Z.
+const SPOT: Record<string, [number, number]> = {
+    center: [0, 0],
+    front: [0, 1],
+    back: [0, -1],
+    left: [-1, 0],
+    right: [1, 0],
+    "front-left": [-1, 1],
+    "front-right": [1, 1],
+    "back-left": [-1, -1],
+    "back-right": [1, -1],
+};
+
+// The most objects a scene holds (also checked before the assistant adds any).
+export const MAX_OBJECTS = 1000;
+
+// One thing relative to another, by their world bounds. Front is +Z, right +X.
+function applyPlace(doc: SceneDoc, cmd: Extract<Command, { type: "place" }>): CommandResult {
+    const target = resolveUnits(doc, [cmd.target]);
+    if (typeof target === "string") return { ok: false, error: target };
+    const other = resolveUnits(doc, [cmd.of]);
+    if (typeof other === "string") return { ok: false, error: other };
+    const unit = target[0]!;
+    const ids = new Set(unit.map((o) => o.id));
+    if (other[0]!.some((o) => ids.has(o.id))) return { ok: false, error: `"${cmd.of}" is part of what's being placed. Pick something else to place it against` };
+    const a = boundsIn(unit);
+    const b = boundsIn(other[0]!);
+    const as = a.getSize(new THREE.Vector3());
+    const bs = b.getSize(new THREE.Vector3());
+    const ac = a.getCenter(new THREE.Vector3());
+    const bc = b.getCenter(new THREE.Vector3());
+    const gap = cmd.gap ?? 0;
+    // Centered on `of`, bottoms level, unless the relation says otherwise.
+    const d = new THREE.Vector3(bc.x - ac.x, b.min.y - a.min.y, bc.z - ac.z);
+    switch (cmd.relation) {
+        case "on": {
+            const [sx, sz] = SPOT[cmd.spot ?? "center"]!;
+            d.x += sx * Math.max(0, (bs.x - as.x) / 2);
+            d.z += sz * Math.max(0, (bs.z - as.z) / 2);
+            d.y = b.max.y + gap - a.min.y;
+            break;
+        }
+        case "under":
+            d.y = b.min.y - gap - a.max.y;
+            break;
+        case "right_of":
+            d.x = b.max.x + gap - a.min.x;
+            break;
+        case "left_of":
+            d.x = b.min.x - gap - a.max.x;
+            break;
+        case "in_front_of":
+            d.z = b.max.z + gap - a.min.z;
+            break;
+        case "behind":
+            d.z = b.min.z - gap - a.max.z;
+            break;
+    }
+    if (cmd.offset) d.add(new THREE.Vector3(...cmd.offset));
+    translate(unit, d);
+    return { ok: true, created: [] };
+}
+
+// Copies in a row, a grid or a circle. Copies of a group are new groups;
+// copies of one object stay in its group (legs of a table).
+function applyArray(doc: SceneDoc, cmd: Extract<Command, { type: "array" }>, newId: () => string): CommandResult {
+    const target = resolveUnits(doc, [cmd.target]);
+    if (typeof target === "string") return { ok: false, error: target };
+    const unit = target[0]!;
+    if (doc.objects.length + unit.length * (cmd.count - 1) > MAX_OBJECTS) return { ok: false, error: `That would go over ${MAX_OBJECTS} objects, the most a scene holds` };
+    const group = findObject(doc, cmd.target) ? null : unit[0]!.group ?? null;
+    const box = boundsIn(unit);
+    const size = box.getSize(new THREE.Vector3());
+
+    // Each copy's change from the original.
+    const moves: THREE.Matrix4[] = [];
+    if (cmd.layout === "circle") {
+        let center: THREE.Vector3;
+        if (cmd.around) {
+            const around = resolveUnits(doc, [cmd.around]);
+            if (typeof around === "string") return { ok: false, error: around };
+            center = boundsIn(around[0]!).getCenter(new THREE.Vector3());
+        } else if (cmd.radius) {
+            // Centered where it is now: the original moves out onto the circle, in front.
+            center = box.getCenter(new THREE.Vector3());
+            translate(unit, new THREE.Vector3(0, 0, cmd.radius));
+        } else return { ok: false, error: "A circle needs around (something to go around) or a radius" };
+        const at = boundsIn(unit).getCenter(new THREE.Vector3());
+        if (Math.hypot(at.x - center.x, at.z - center.z) < 1e-3) return { ok: false, error: "It's at the circle's center. Move it out to where the first one goes, then array it" };
+        for (let k = 1; k < cmd.count; k++)
+            moves.push(
+                new THREE.Matrix4()
+                    .makeTranslation(center.x, 0, center.z)
+                    .multiply(new THREE.Matrix4().makeRotationY((k * Math.PI * 2) / cmd.count))
+                    .multiply(new THREE.Matrix4().makeTranslation(-center.x, 0, -center.z)),
+            );
+    } else {
+        const along = cmd.layout === "row" && cmd.axis === "z" ? "z" : "x";
+        const columns = cmd.layout === "grid" ? (cmd.columns ?? Math.ceil(Math.sqrt(cmd.count))) : cmd.count;
+        const stepX = cmd.step ?? size.x + 0.2;
+        const stepZ = cmd.step ?? size.z + 0.2;
+        for (let k = 1; k < cmd.count; k++) {
+            const [col, row] = cmd.layout === "grid" ? [k % columns, Math.floor(k / columns)] : along === "x" ? [k, 0] : [0, k];
+            moves.push(new THREE.Matrix4().makeTranslation(col * stepX, 0, row * stepZ));
+        }
+    }
+
+    const created: string[] = [];
+    for (const move of moves) {
+        const name = group ? uniqueGroupName(doc, group) : null;
+        for (const o of unit) {
+            const id = newId();
+            const made: SceneObject = { ...copy(o), id, name: uniqueName(doc, o.name), ...(name ? { group: name } : {}) };
+            setMatrix(made, move.clone().multiply(objectMatrix(o)));
+            doc.objects.push(made);
+            created.push(id);
+        }
+    }
+    return { ok: true, created };
+}
+
 export function applyCommand(doc: SceneDoc, cmd: Command, newId: () => string): CommandResult {
     if (cmd.type === "align" || cmd.type === "mirror" || cmd.type === "drop") return applyArrange(doc, cmd);
+    if (cmd.type === "place") return applyPlace(doc, cmd);
+    if (cmd.type === "array") return applyArray(doc, cmd, newId);
     if (cmd.type === "hole") {
         const obj = findObject(doc, cmd.target);
         const members = obj ? [obj] : groupMembers(doc, cmd.target);

@@ -232,6 +232,10 @@ export function describeCommand(cmd: Command, doc: SceneDoc): string {
             return `Mirrored ${cmd.targets.length === 1 ? (findObject(doc, cmd.targets[0])?.name ?? cmd.targets[0]) : `${cmd.targets.length} items`} on ${cmd.axis.toUpperCase()}`;
         case "drop":
             return `Dropped ${cmd.targets.length === 1 ? (findObject(doc, cmd.targets[0])?.name ?? cmd.targets[0]) : `${cmd.targets.length} items`}`;
+        case "place":
+            return `Put ${name} ${cmd.relation.replace(/_/g, " ")} ${findObject(doc, cmd.of)?.name ?? cmd.of}`;
+        case "array":
+            return `Made ${cmd.count} of ${name} in a ${cmd.layout}`;
         case "insert":
             return `Inserted ${cmd.objects.length} objects`;
         case "clear":

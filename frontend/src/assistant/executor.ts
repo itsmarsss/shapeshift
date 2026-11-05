@@ -1,4 +1,4 @@
-import { findLight, findObject } from "../scene/commands";
+import { findLight, findObject, MAX_OBJECTS } from "../scene/commands";
 import { flash, reveal } from "../scene/spawn";
 import type { Command } from "@shapeshift/shared/scene/schema";
 import { useScene } from "../scene/store";
@@ -7,7 +7,7 @@ import { describeCommand, describeLight, describeObject, describeScene, inspectO
 import { LIMITS, type WireMessage, type WireToolCall } from "@shapeshift/shared/assistant/protocol";
 import { parseToolCall } from "@shapeshift/shared/assistant/tools";
 
-export const MAX_OBJECTS = 1000;
+export { MAX_OBJECTS };
 
 export type Activity = {
     id: string;
@@ -59,6 +59,8 @@ function resolveAlias(ctx: TurnContext, target: string): string {
 
 function withAliases(cmd: Command, ctx: TurnContext): Command {
     if (cmd.type === "boolean") return { ...cmd, target: resolveAlias(ctx, cmd.target), tool: resolveAlias(ctx, cmd.tool) };
+    if (cmd.type === "place") return { ...cmd, target: resolveAlias(ctx, cmd.target), of: resolveAlias(ctx, cmd.of) };
+    if (cmd.type === "array") return { ...cmd, target: resolveAlias(ctx, cmd.target), ...(cmd.around ? { around: resolveAlias(ctx, cmd.around) } : {}) };
     if ("target" in cmd) return { ...cmd, target: resolveAlias(ctx, cmd.target) };
     return cmd;
 }
