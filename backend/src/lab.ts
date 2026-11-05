@@ -18,7 +18,15 @@ const Record = z.object({
     changes: z.number().int().nonnegative(),
     failed: z.number().int().nonnegative(),
     // What the build checks found in the finished scene, by kind.
-    issues: z.object({ floating: z.number().int().nonnegative(), gap: z.number().int().nonnegative(), sunken: z.number().int().nonnegative(), overlap: z.number().int().nonnegative() }).optional(),
+    issues: z
+        .object({
+            floating: z.number().int().nonnegative(),
+            gap: z.number().int().nonnegative(),
+            sunken: z.number().int().nonnegative(),
+            overlap: z.number().int().nonnegative(),
+            missing: z.number().int().nonnegative().optional(),
+        })
+        .optional(),
     error: z.string().max(400).optional(),
     doc: z.unknown(),
     log: z.array(z.unknown()).max(5000),
@@ -29,16 +37,16 @@ const Record = z.object({
 const slug = (model: string) => model.replace(/[^\w.-]+/g, "_");
 const key = (run: string, model: string, ext: "json" | "jpg") => `lab/${run}/${slug(model)}.${ext}`;
 
-type Issues = { floating: number; gap: number; sunken: number; overlap: number };
+type Issues = { floating: number; gap: number; sunken: number; overlap: number; missing?: number };
 export type LabSummary = { model: string; ms: number; steps: number; changes: number; failed: number; issues?: Issues; error?: string; at: number; picture: boolean };
 
-// Stored as "floating,gap,sunken,overlap" in the metadata; runs kept before
-// there were checks have none.
-const ISSUE_KINDS = ["floating", "gap", "sunken", "overlap"] as const;
+// Stored as "floating,gap,sunken,overlap,missing" in the metadata. Runs kept
+// before there were checks have none, and before plans, no missing count.
+const ISSUE_KINDS = ["floating", "gap", "sunken", "overlap", "missing"] as const;
 function readIssues(meta?: string): Issues | undefined {
     const n = meta?.split(",").map(Number);
-    if (!n || n.length !== 4 || n.some((x) => !Number.isFinite(x))) return undefined;
-    return Object.fromEntries(ISSUE_KINDS.map((k, i) => [k, n[i]])) as Issues;
+    if (!n || n.length < 4 || n.length > 5 || n.some((x) => !Number.isFinite(x))) return undefined;
+    return Object.fromEntries(ISSUE_KINDS.slice(0, n.length).map((k, i) => [k, n[i]])) as Issues;
 }
 export type LabRunSummary = { run: string; prompt: string; at: number; results: LabSummary[] };
 
@@ -66,7 +74,7 @@ export async function handleLab(request: Request, env: Env, path: string): Promi
             steps: String(record.steps),
             changes: String(record.changes),
             failed: String(record.failed),
-            ...(record.issues ? { issues: ISSUE_KINDS.map((k) => record.issues![k]).join(",") } : {}),
+            ...(record.issues ? { issues: ISSUE_KINDS.map((k) => record.issues![k] ?? 0).join(",") } : {}),
             at: String(at),
             picture: picture ? "1" : "0",
             ...(record.error ? { error: record.error.slice(0, 200) } : {}),

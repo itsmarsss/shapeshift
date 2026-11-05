@@ -37,10 +37,12 @@ export type TurnContext = {
     changed: boolean;
     // Whether the turn has already been asked to fix what the checks found.
     reviewed: boolean;
+    // What the model said it would build (the plan tool), checked for completeness.
+    plan: string[];
 };
 
 export function newTurnContext(coalesce: string): TurnContext {
-    return { coalesce, aliases: new Map(), created: [], touched: new Set(), changed: false, reviewed: false };
+    return { coalesce, aliases: new Map(), created: [], touched: new Set(), changed: false, reviewed: false, plan: [] };
 }
 
 function clip(text: string) {
@@ -173,6 +175,15 @@ function runLook(view: View, targets: string[] | undefined, ctx: TurnContext): O
     };
 }
 
+function runPlan(parts: string[], ctx: TurnContext): Outcome {
+    ctx.plan = parts;
+    return {
+        activity: { label: `Planned ${parts.length === 1 ? parts[0] : `${parts.length} things: ${parts.slice(0, 4).join(", ")}${parts.length > 4 ? "…" : ""}`}`, ok: true },
+        result: { ok: true, plan: parts, note: "Build every item. Each is checked off when an object or group with its name exists." },
+        isError: false,
+    };
+}
+
 function runUndo(steps: number, ctx: TurnContext): Outcome {
     const state = useScene.getState();
     // Undo pops whole history entries, so stop merging this turn's edits into
@@ -214,7 +225,9 @@ export function executeToolCalls(calls: WireToolCall[], ctx: TurnContext): { mes
                             ? runSelect(req.target, ctx)
                             : req.kind === "look"
                               ? runLook(req.view, req.targets, ctx)
-                              : runUndo(req.steps, ctx);
+                              : req.kind === "plan"
+                                ? runPlan(req.parts, ctx)
+                                : runUndo(req.steps, ctx);
             } catch (err) {
                 const error = err instanceof Error ? err.message : "The change failed";
                 outcome = { activity: { label: `Couldn't run ${call.name}`, ok: false, error }, result: { ok: false, error }, isError: true };

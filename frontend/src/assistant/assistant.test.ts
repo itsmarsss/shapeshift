@@ -21,7 +21,7 @@ beforeEach(() => s().load(emptyDoc()));
 describe("tools", () => {
     it("declares every command and agent tool with an object schema", () => {
         const names = TOOLS.map((t) => t.name);
-        expect(names).toEqual(["add", "remove", "duplicate", "transform", "material", "rename", "hole", "align", "mirror", "drop", "boolean", "addLight", "updateLight", "group", "ungroup", "environment", "animate", "keyframe", "removeKeyframe", "clearAnimation", "timeline", "inspect", "select", "look", "undo"]);
+        expect(names).toEqual(["add", "remove", "duplicate", "transform", "material", "rename", "hole", "align", "mirror", "drop", "boolean", "addLight", "updateLight", "group", "ungroup", "environment", "animate", "keyframe", "removeKeyframe", "clearAnimation", "timeline", "inspect", "select", "look", "plan", "undo"]);
         for (const t of TOOLS) expect(t.parameters.type).toBe("object");
         const add = TOOLS.find((t) => t.name === "add")!.parameters as { properties: Record<string, unknown> };
         expect(add.properties.geometry).toBeDefined();
@@ -249,6 +249,31 @@ describe("agent loop", () => {
         });
         expect(conversation.map((m) => m.role)).toEqual(["user", "assistant", "tool", "assistant", "user", "assistant", "tool", "assistant"]);
         expect(activities).toContain("Checked the build: 1 thing to fix");
+    });
+
+    it("holds the model to its plan", async () => {
+        const transport = scripted([
+            () => ({ message: { role: "assistant", content: null, tool_calls: [call("plan", { parts: "Table, Mug, Lamp" }, "p1")] }, stop: "tool_use", model: "m" }),
+            () => ({ message: { role: "assistant", content: null, tool_calls: [call("add", { primitive: "box", name: "Table Top" }, "c1")] }, stop: "tool_use", model: "m" }),
+            (msgs) => {
+                expect((msgs[msgs.length - 1] as { content: string }).content).toContain("Planned but not built yet: Mug, Lamp.");
+                return { message: { role: "assistant", content: "Made a table." }, stop: "end", model: "m" };
+            },
+            (msgs) => {
+                expect((msgs[msgs.length - 1] as { content: string }).content).toContain("Planned but not built yet: Mug, Lamp.");
+                return { message: { role: "assistant", content: "Ran out of ideas." }, stop: "end", model: "m" };
+            },
+        ]);
+        const activities: string[] = [];
+        await runTurn({
+            conversation: [],
+            prompt: "a table with a mug and a lamp",
+            transport,
+            signal: new AbortController().signal,
+            ctx: newTurnContext("plan"),
+            handlers: { onActivities: (a) => activities.push(...a.map((x) => x.label)) },
+        });
+        expect(activities[0]).toBe("Planned 3 things: Table, Mug, Lamp");
     });
 
     it("asks only once, and leaves alone what it didn't build", async () => {

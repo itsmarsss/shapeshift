@@ -9,7 +9,7 @@ import { useScene } from "../scene/store";
 import { SceneView } from "../viewer/SceneView";
 import { captureScene } from "../viewer/capture";
 import type { SceneDoc } from "@shapeshift/shared/scene/schema";
-import { checkScene, issueCounts, type IssueKind } from "../scene/checks";
+import { checkScene, issueCounts, missingFromPlan, type IssueKind } from "../scene/checks";
 
 // One model in the Model lab, run in its own frame so several can work at
 // once without sharing a scene. It builds from an empty scene, shows the
@@ -202,11 +202,13 @@ function Live() {
         const controller = new AbortController();
         window.addEventListener("pagehide", () => controller.abort());
         const conversation: WireMessage[] = [];
+        const ctx = newTurnContext(`lab:${run}`);
         const finish = (error?: string) => {
             const ms = Date.now() - started.current;
             setNow(Date.now());
             setStatus(error ? "error" : "done");
-            const issues = issueCounts(checkScene(useScene.getState().doc));
+            const doc = useScene.getState().doc;
+            const issues = issueCounts([...checkScene(doc), ...missingFromPlan(doc, ctx.plan)]);
             const message: LabResult = { type: "lab-done", run, model, ms, ...counts.current, issues, ...(error ? { error } : {}) };
             // Kept for later, then the lab is told, so its list of past runs includes this one.
             setTimeout(() => {
@@ -221,7 +223,7 @@ function Live() {
             prompt,
             transport,
             signal: controller.signal,
-            ctx: newTurnContext(`lab:${run}`),
+            ctx,
             handlers: {
                 onThinking: stream("thinking"),
                 onText: stream("text"),

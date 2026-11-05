@@ -120,7 +120,7 @@ const Lanes = styled.div<{ $cols: number }>`
 
 const secs = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 
-type Kept = { model: string; ms: number; steps: number; changes: number; failed: number; issues?: Record<IssueKind, number>; error?: string; picture: boolean };
+type Kept = { model: string; ms: number; steps: number; changes: number; failed: number; issues?: Partial<Record<IssueKind, number>>; error?: string; picture: boolean };
 type KeptRun = { run: string; prompt: string; at: number; results: Kept[] };
 
 const Past = styled.div`
@@ -305,7 +305,7 @@ export function ModelLab() {
                                     <th>Steps</th>
                                     <th>Changes</th>
                                     <th>Failed steps</th>
-                                    <th title="What the build checks find in the result: floating, short of meeting, sunken, colliding or hidden parts">Problems</th>
+                                    <th title="What the build checks find in the result: floating, short of meeting, sunken, colliding or hidden parts, and planned things never built">Problems</th>
                                     <th />
                                 </tr>
                             </thead>
