@@ -34,8 +34,8 @@
     "AGENT_MODEL": "claude-sonnet-5-5",
     "AGENT_MODEL_PRO": "claude-opus-5-5",
     "AGENT_EFFORT": "medium",
-    // The free Workers AI model, used when ANTHROPIC_API_KEY isn't set.
-    "FREE_MODEL": "@cf/zai-org/glm-4.7-flash"
+    // The "Fast" Workers AI model: the default when ANTHROPIC_API_KEY isn't set.
+    "FREE_MODEL": "@cf/zai-org/glm-4.7-flash#nothink"
   },
   "observability": { "enabled": true },
   // The daily error digest for superusers (src/digest.ts), at 14:00 UTC.

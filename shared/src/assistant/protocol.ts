@@ -3,6 +3,7 @@
 // conversation, the Worker asks the model for the next step and streams it
 // back, the browser runs the tool calls and sends the results on the next step.
 import { z } from "zod";
+import { MODEL_IDS, type ModelChoice, type ModelId } from "./models";
 
 export const LIMITS = {
     requestBytes: 3_000_000,
@@ -55,6 +56,8 @@ export type WireAssistantMessage = Extract<WireMessage, { role: "assistant" }>;
 
 export const AgentRequest = z.object({
     messages: z.array(WireMessage).min(1).max(LIMITS.messages),
+    // The model picked for this conversation (see models.ts); the server's default without one.
+    model: z.enum(MODEL_IDS).optional(),
 });
 export type AgentRequest = z.infer<typeof AgentRequest>;
 
@@ -72,4 +75,5 @@ export type AgentEvent =
     | { type: "message"; message: WireAssistantMessage; stop: StopReason; model: string }
     | { type: "error"; code: AgentErrorCode; error: string; retryAfter?: number };
 
-export type AgentInfo = { provider: "anthropic" | "workers-ai"; model: string };
+// The default model, and what people can pick from on this server.
+export type AgentInfo = { provider: "anthropic" | "workers-ai"; model: string; choices?: ModelChoice[]; default?: ModelId };

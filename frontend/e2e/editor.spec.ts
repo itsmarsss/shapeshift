@@ -617,3 +617,20 @@ test('previews from the eye by the view cube and comes back', async ({ page }) =
   await page.keyboard.up(' ')
   await expect(bar).toHaveCount(0)
 })
+
+test('lets people pick the assistant model, and sends it with each message', async ({ page }) => {
+  await openEditor(page)
+  const picker = page.getByRole('combobox', { name: 'Assistant model' })
+  await expect(picker).toHaveValue('fast')
+  await picker.selectOption('careful')
+  await expect(page.getByText(/2 a message/)).toBeVisible()
+  let sent: string | undefined
+  await page.route('**/api/agent', async (route) => {
+    if (route.request().method() !== 'POST') return route.continue()
+    sent = JSON.parse(route.request().postData() ?? '{}').model
+    await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ code: 'overloaded', error: 'Busy.' }) })
+  })
+  await page.getByRole('textbox', { name: 'Message the assistant' }).fill('a box')
+  await page.keyboard.press('Enter')
+  await expect.poll(() => sent).toBe('careful')
+})

@@ -4,6 +4,7 @@ import { ProviderError, type Provider } from "./provider";
 import { workersAiProvider } from "./workersAi";
 import { quotaMessage, refund, spend, subjectFor } from "./usage";
 import type { PlanId } from "@shapeshift/shared/billing/plans";
+import { MODELS, choiceOf, type ModelId } from "@shapeshift/shared/assistant/models";
 
 // Pro gets the most capable model; everyone else a strong, cheaper one, which
 // keeps free use affordable. Both are set in wrangler.jsonc.
@@ -11,11 +12,28 @@ export function modelFor(env: Env, plan: PlanId): string {
     return (plan === "pro" && env.AGENT_MODEL_PRO) || env.AGENT_MODEL || "claude-sonnet-5-5";
 }
 
-export function pickProvider(env: Env, plan: PlanId = "free"): Provider | null {
-    if (env.ANTHROPIC_API_KEY) return anthropicProvider({ ...env, ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY }, modelFor(env, plan));
-    if (env.AI) return workersAiProvider(env);
-    return null;
+// The models this server can run, the default first: Claude when its key is
+// set (as before), otherwise the fast free model.
+export function availableModels(env: Env): ModelId[] {
+    const free: ModelId[] = env.AI ? ["fast", "careful", "gpt-oss"] : [];
+    return env.ANTHROPIC_API_KEY ? ["claude", ...free] : free;
 }
+
+// The provider for a picked model, falling back to the default for one this
+// server can't run; and how many prompts a message on it uses.
+export function pickModel(env: Env, plan: PlanId = "free", wanted?: ModelId): { provider: Provider; id: ModelId; cost: number } | null {
+    const available = availableModels(env);
+    const id = wanted && available.includes(wanted) ? wanted : available[0];
+    if (!id) return null;
+    const def = MODELS[id];
+    const provider =
+        def.provider === "anthropic"
+            ? anthropicProvider({ ...env, ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY! }, modelFor(env, plan))
+            : // The fast model can be changed in config (FREE_MODEL).
+              workersAiProvider(env, id === "fast" ? env.FREE_MODEL || def.model : def.model);
+    return { provider, id, cost: def.cost };
+}
+
 
 const STATUS: Record<AgentErrorCode, number> = {
     bad_request: 400,
@@ -35,8 +53,9 @@ function fail(code: AgentErrorCode, error: string, retryAfter?: number) {
 }
 
 export async function agentInfo(request: Request, env: Env) {
-    const provider = pickProvider(env, (await subjectFor(env, request)).plan);
-    return provider ? Response.json(provider.info) : fail("not_configured", "No model is configured.");
+    const picked = pickModel(env, (await subjectFor(env, request)).plan);
+    if (!picked) return fail("not_configured", "No model is configured.");
+    return Response.json({ ...picked.provider.info, choices: availableModels(env).map((id) => choiceOf(MODELS[id])), default: picked.id });
 }
 
 // A model for the Model lab: a Workers AI id ("@cf/...", optionally with
@@ -72,13 +91,14 @@ export async function agentStep(request: Request, env: Env, lab?: Provider): Pro
     if (messages[messages.length - 1].role === "assistant") return fail("bad_request", "The conversation must end with a user message or tool results.");
 
     const subject = await subjectFor(env, request);
-    const provider = lab ?? pickProvider(env, subject.plan);
-    if (!provider) return fail("not_configured", "No model is configured.");
+    const picked = lab ? { provider: lab, cost: 1 } : pickModel(env, subject.plan, parsed.data.model);
+    if (!picked) return fail("not_configured", "No model is configured.");
+    const { provider, cost } = picked;
 
     // Only a new message from the person counts as a prompt; the steps that
     // follow it carry tool results.
     const fresh = !lab && messages[messages.length - 1].role === "user";
-    if (!lab && !(await spend(env, subject, fresh))) return fail("quota", quotaMessage(subject.plan));
+    if (!lab && !(await spend(env, subject, fresh, cost))) return fail("quota", quotaMessage(subject.plan));
 
     // Workers AI: its stream goes straight to the browser, which reads it
     // (shared/assistant/aiStream.ts). Reading it here took more CPU than the
@@ -93,7 +113,7 @@ export async function agentStep(request: Request, env: Env, lab?: Provider): Pro
         } catch (err) {
             const e = err instanceof ProviderError ? err : new ProviderError("internal", "Something went wrong.");
             if (!(err instanceof ProviderError)) console.error("Agent step failed", err);
-            await refund(env, subject, fresh).catch(() => {});
+            await refund(env, subject, fresh, cost).catch(() => {});
             return fail(e.code, e.message, e.retryAfter);
         }
     }
@@ -137,7 +157,7 @@ export async function agentStep(request: Request, env: Env, lab?: Provider): Pro
             const e = err instanceof ProviderError ? err : new ProviderError("internal", "Something went wrong.");
             if (!(err instanceof ProviderError)) console.error("Agent step failed", err);
             // A failure on our side or the model's doesn't use up the allowance.
-            if (!request.signal.aborted) await refund(env, subject, fresh).catch(() => {});
+            if (!request.signal.aborted) await refund(env, subject, fresh, cost).catch(() => {});
             flush();
             await emit({ type: "error", code: e.code, error: e.message, ...(e.retryAfter ? { retryAfter: e.retryAfter } : {}) });
         } finally {

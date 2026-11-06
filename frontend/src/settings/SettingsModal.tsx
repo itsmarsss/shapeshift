@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import styled from "styled-components";
 import { Modal } from "../components/Modal";
-import { Cube, Database, Hand, HandPointing, Keyboard, Monitor, PencilSimple, X } from "@phosphor-icons/react";
+import { Cube, Database, Hand, HandPointing, Keyboard, Monitor, PencilSimple, Sparkle, X } from "@phosphor-icons/react";
+import { ModelPicker } from "../components/assistant/ModelPicker";
+import { useModelChoice } from "../assistant/modelChoice";
 import { useUI } from "../ui/store";
 import { useHands } from "../hands/tracker";
 import { useSettings, type Settings } from "./store";
@@ -373,6 +375,7 @@ const SECTIONS = [
     { id: "appearance", label: "Appearance", Icon: Monitor },
     { id: "viewport", label: "Viewport", Icon: Cube },
     { id: "editing", label: "Editing", Icon: PencilSimple },
+    { id: "assistant", label: "Assistant", Icon: Sparkle },
     { id: "hands", label: "Hand control", Icon: Hand },
     { id: "gestures", label: "Gesture guide", Icon: HandPointing },
     { id: "shortcuts", label: "Shortcuts", Icon: Keyboard },
@@ -380,6 +383,18 @@ const SECTIONS = [
 ] as const;
 
 type SectionId = (typeof SECTIONS)[number]["id"];
+
+// The assistant's model, with what each one is like.
+function AssistantSection() {
+    const choice = useModelChoice();
+    return (
+        <Group>
+            <Row label="Model" hint={choice ? `${choice.current.detail}${choice.current.cost > 1 ? ` Each message uses ${choice.current.cost} of your prompts.` : ""}` : "Only one model is available on this server."}>
+                <ModelPicker full />
+            </Row>
+        </Group>
+    );
+}
 
 function Section({ id }: { id: SectionId }) {
     const reset = useSettings((s) => s.reset);
@@ -478,6 +493,8 @@ function Section({ id }: { id: SectionId }) {
                     </Group>
                 </>
             );
+        case "assistant":
+            return <AssistantSection />;
         case "hands":
             return (
                 <>

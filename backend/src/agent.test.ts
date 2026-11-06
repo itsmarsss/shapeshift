@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type Anthropic from "@anthropic-ai/sdk";
 import type { AgentEvent, WireMessage } from "@shapeshift/shared/assistant/protocol";
-import { agentStep } from "./agent";
+import { agentInfo, agentStep } from "./agent";
 import { aiStepResult } from "@shapeshift/shared/assistant/aiStream";
 import { workersAiProvider } from "./workersAi";
 import { toParams, toWire } from "./anthropic";
@@ -81,6 +81,33 @@ describe("/api/agent", () => {
 
         const cut = await agentStep(post({ messages: [{ role: "user", content: "hi" }] }), env(async () => sse(delta({ content: "Partial" }, "length"))));
         expect(await read(cut.body!)).toMatchObject({ stop: "max_tokens" });
+    });
+
+    it("runs the model picked, Fast by default, and counts costlier ones as more prompts", async () => {
+        const e = env(async () => sse(delta({ content: "Done." }, "stop")));
+        const ask = async (model?: string) => (await agentStep(post({ messages: [{ role: "user", content: "a box" }], ...(model ? { model } : {}) }), e)).text();
+        await ask();
+        await ask("careful");
+        await ask("gpt-oss");
+        const runs = (e.AI.run as ReturnType<typeof vi.fn>).mock.calls as [string, { chat_template_kwargs: { enable_thinking: boolean } }][];
+        expect(runs.map(([model, args]) => [model, args.chat_template_kwargs.enable_thinking])).toEqual([
+            ["@cf/zai-org/glm-4.7-flash", false],
+            ["@cf/zai-org/glm-4.7-flash", true],
+            ["@cf/openai/gpt-oss-120b", true],
+        ]);
+        // 1 + 2 + 3.
+        const usage = await (await handleUsage(new Request("https://x/api/usage"), e))!.json();
+        expect(usage).toMatchObject({ prompts: { used: 6 } });
+        // Claude isn't on offer without its key; asking for it gets the default.
+        await ask("claude");
+        expect(runs.at(-1)![0]).toBe("@cf/zai-org/glm-4.7-flash");
+        expect((await agentStep(post({ messages: [{ role: "user", content: "x" }], model: "gpt-9" }), e)).status).toBe(400);
+    });
+
+    it("says which models can be picked", async () => {
+        const info = (await (await agentInfo(new Request("https://x/api/agent"), env(async () => ({})))).json()) as { choices: { id: string; cost: number }[] };
+        expect(info).toMatchObject({ provider: "workers-ai", default: "fast" });
+        expect(info.choices.map((c) => `${c.id}:${c.cost}`)).toEqual(["fast:1", "careful:2", "gpt-oss:3"]);
     });
 
     it("rejects bad requests before calling the model", async () => {

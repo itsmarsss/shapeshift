@@ -39,6 +39,8 @@ export type Settings = {
     handsUsed: boolean;
     // Anonymous usage numbers and crash reports; see telemetry.ts.
     shareUsage: boolean;
+    // The assistant's model (an id from shared/assistant/models.ts), or "" for the server's default.
+    assistantModel: string;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -68,6 +70,7 @@ export const DEFAULT_SETTINGS: Settings = {
     handMagnet: 1,
     handsUsed: false,
     shareUsage: true,
+    assistantModel: "",
 };
 
 const safeStorage: StateStorage = {
