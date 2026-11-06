@@ -12,6 +12,9 @@ export type StepOutput = { message: WireAssistantMessage; stop: StopReason; mode
 export type Provider = {
     info: AgentInfo;
     step: (messages: WireMessage[], callbacks: StepCallbacks) => Promise<StepOutput>;
+    // A provider whose raw stream the browser can read itself (Workers AI):
+    // passed through untouched, it costs the Worker next to no CPU.
+    stream?: (messages: WireMessage[]) => Promise<{ body: ReadableStream<Uint8Array>; model: string }>;
 };
 
 export class ProviderError extends Error {
