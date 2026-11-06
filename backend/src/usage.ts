@@ -27,9 +27,11 @@ export async function subjectFor(env: Env, request: Request): Promise<Subject> {
 // Counts one model call. A fresh prompt also counts toward the prompt limit;
 // the steps after it only toward a looser cap on model calls. Returns false,
 // without counting anything, when the allowance is used up.
-export async function spend(env: Env, subject: Subject, fresh: boolean): Promise<boolean> {
+// A new prompt uses `cost` prompts (a costlier model uses more); the steps
+// that follow it in the same turn use none.
+export async function spend(env: Env, subject: Subject, fresh: boolean, cost = 1): Promise<boolean> {
     const plan = PLANS[subject.plan];
-    const add = fresh ? 1 : 0;
+    const add = fresh ? cost : 0;
     const row = await env.DB.prepare(
         `INSERT INTO usage (subject, period, prompts, steps) VALUES (?1, ?2, ?3, 1)
          ON CONFLICT (subject, period) DO UPDATE SET prompts = prompts + ?3, steps = steps + 1
@@ -42,9 +44,9 @@ export async function spend(env: Env, subject: Subject, fresh: boolean): Promise
 }
 
 // Gives back a call that failed on our side, so outages don't eat allowances.
-export async function refund(env: Env, subject: Subject, fresh: boolean) {
+export async function refund(env: Env, subject: Subject, fresh: boolean, cost = 1) {
     await env.DB.prepare("UPDATE usage SET prompts = MAX(0, prompts - ?3), steps = MAX(0, steps - 1) WHERE subject = ?1 AND period = ?2")
-        .bind(subject.key, period(), fresh ? 1 : 0)
+        .bind(subject.key, period(), fresh ? cost : 0)
         .run();
 }
 

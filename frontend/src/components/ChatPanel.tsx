@@ -1,4 +1,6 @@
 import { useEffect, useRef } from "react";
+import { ModelPicker } from "./assistant/ModelPicker";
+import { useModelChoice } from "../assistant/modelChoice";
 import { DockToggle } from "./Dock";
 import { useDockPanel } from "../ui/useDockLayout";
 import styled from "styled-components";
@@ -142,12 +144,14 @@ const Hint = styled.div`
 // How many assistant prompts are left this month, so running out is never a surprise.
 function PromptsLeft() {
     const usage = useAccount((s) => s.usage);
+    const choice = useModelChoice();
     if (!usage) return null;
     const left = Math.max(0, usage.prompts.limit - usage.prompts.used);
     const low = left <= Math.max(3, usage.prompts.limit * 0.2);
+    const cost = choice?.current.cost ?? 1;
     return (
         <span style={{ color: low ? "var(--warning)" : undefined }}>
-            {left === 1 ? "1 prompt" : `${left} prompts`} left this month ·{" "}
+            {left === 1 ? "1 prompt" : `${left} prompts`} left this month{cost > 1 ? `, ${cost} a message` : ""} ·{" "}
         </span>
     );
 }
@@ -158,6 +162,7 @@ const MODEL_NAMES: Record<string, string> = {
     "claude-fable-5-1": "Claude Fable 5.1",
     "claude-haiku-4-5": "Claude Haiku 4.5",
     "@cf/zai-org/glm-4.7-flash": "GLM 4.7 Flash",
+    "@cf/openai/gpt-oss-120b": "GPT-OSS 120B",
 };
 
 const modelName = (info: AgentInfo) => MODEL_NAMES[info.model] ?? info.model;
@@ -213,6 +218,7 @@ export function ChatPanel() {
     const turns = useAssistant((s) => s.turns);
     const running = useAssistant((s) => s.running);
     const info = useAssistant((s) => s.info);
+    const choice = useModelChoice();
     const send = useAssistant((s) => s.send);
     const reset = useAssistant((s) => s.reset);
     const loadInfo = useAssistant((s) => s.loadInfo);
@@ -244,7 +250,7 @@ export function ChatPanel() {
                         </Mark>
                         <Titles>
                             <Title>Assistant</Title>
-                            <Subtitle title={info ? `Model: ${modelName(info)}` : undefined}>Builds and changes things for you</Subtitle>
+                            <Subtitle title={info ? `Model: ${choice?.current.label ?? modelName(info)}` : undefined}>Builds and changes things for you</Subtitle>
                         </Titles>
                         <IconButton title="New chat" onClick={reset} disabled={turns.length === 0}>
                             <NotePencil size={16} />
@@ -277,6 +283,7 @@ export function ChatPanel() {
                         <Composer ref={composer} />
                     </div>
                     <Hint>
+                        <ModelPicker />
                         <PromptsLeft />
                         {!window.matchMedia("(pointer: coarse)").matches && "Enter to send · Shift+Enter for a new line · / to focus"}
                     </Hint>

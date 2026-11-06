@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { MODEL_IDS, type ModelId } from "@shapeshift/shared/assistant/models";
+import { useSettings } from "../settings/store";
 import { nanoid } from "nanoid";
 import { useScene, type SceneState } from "../scene/store";
 import { useAccount } from "../account/store";
@@ -62,7 +64,12 @@ let controller: AbortController | null = null;
 const lastSaved = saved?.turns[saved.turns.length - 1];
 // Lets Retry pick up a turn that failed before the page was reloaded.
 let context: TurnContext | null = lastSaved?.status === "error" ? newTurnContext(`assistant:${lastSaved.id}`) : null;
-let transport: Transport = httpTransport;
+// Sends the model picked in Settings with each step; the server checks it.
+const pickedModel: Transport = (request, handlers, signal) => {
+    const model = useSettings.getState().assistantModel;
+    return httpTransport({ ...request, ...((MODEL_IDS as readonly string[]).includes(model) ? { model: model as ModelId } : {}) }, handlers, signal);
+};
+let transport: Transport = pickedModel;
 
 export function setTransportForTests(t: Transport) {
     transport = t;
