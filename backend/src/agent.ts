@@ -80,6 +80,24 @@ export async function agentStep(request: Request, env: Env, lab?: Provider): Pro
     const fresh = !lab && messages[messages.length - 1].role === "user";
     if (!lab && !(await spend(env, subject, fresh))) return fail("quota", quotaMessage(subject.plan));
 
+    // Workers AI: its stream goes straight to the browser, which reads it
+    // (shared/assistant/aiStream.ts). Reading it here took more CPU than the
+    // free Workers plan allows a request, and going over resets the Worker,
+    // cutting off every reply it was serving at the time.
+    if (provider.stream) {
+        try {
+            const { body, model } = await provider.stream(messages);
+            return new Response(body, {
+                headers: { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff", "x-agent-stream": "workers-ai", "x-agent-model": model },
+            });
+        } catch (err) {
+            const e = err instanceof ProviderError ? err : new ProviderError("internal", "Something went wrong.");
+            if (!(err instanceof ProviderError)) console.error("Agent step failed", err);
+            await refund(env, subject, fresh).catch(() => {});
+            return fail(e.code, e.message, e.retryAfter);
+        }
+    }
+
     const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
     const writer = writable.getWriter();
     const encoder = new TextEncoder();

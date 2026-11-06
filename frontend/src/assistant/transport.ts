@@ -1,4 +1,5 @@
 import type { AgentErrorCode, AgentEvent, AgentInfo, AgentRequest, StopReason, WireAssistantMessage } from "@shapeshift/shared/assistant/protocol";
+import { aiStepResult } from "@shapeshift/shared/assistant/aiStream";
 
 export type StepResult = { message: WireAssistantMessage; stop: StopReason; model: string };
 
@@ -53,7 +54,34 @@ function sleep(ms: number, signal: AbortSignal) {
     });
 }
 
+// A Workers AI step: the model's own stream, passed through by the Worker,
+// read here (see backend/src/agent.ts).
+async function readAiStep(response: Response, handlers: StepHandlers, signal: AbortSignal, idle: () => void): Promise<StepResult> {
+    const body = response.body;
+    if (!body) throw new AgentError("upstream", MESSAGES.upstream);
+    // Any bytes at all keep the connection from counting as gone quiet.
+    const watched = body.pipeThrough(
+        new TransformStream<Uint8Array, Uint8Array>({
+            transform(chunk, out) {
+                idle();
+                out.enqueue(chunk);
+            },
+        }),
+    );
+    let result: StepResult;
+    try {
+        result = await aiStepResult(watched, { onText: (t) => handlers.onText?.(t), onToolStart: (n) => handlers.onToolStart?.(n), onThinking: (t) => handlers.onThinking?.(t) }, response.headers.get("x-agent-model") ?? "");
+    } catch {
+        if (signal.aborted) throw new AgentError("aborted", MESSAGES.aborted);
+        throw new AgentError("network", MESSAGES.network);
+    }
+    // Nothing at all came back: the model stopped before saying anything.
+    if (!result.message.content && !result.message.tool_calls?.length && result.stop === "end") throw new AgentError("upstream", "The connection closed before the model finished.");
+    return result;
+}
+
 async function readStep(response: Response, handlers: StepHandlers, signal: AbortSignal, idle: () => void): Promise<StepResult> {
+    if (response.headers.get("x-agent-stream") === "workers-ai") return readAiStep(response, handlers, signal, idle);
     const reader = response.body?.getReader();
     if (!reader) throw new AgentError("upstream", MESSAGES.upstream);
     const decoder = new TextDecoder();

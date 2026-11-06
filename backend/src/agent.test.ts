@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type Anthropic from "@anthropic-ai/sdk";
 import type { AgentEvent, WireMessage } from "@shapeshift/shared/assistant/protocol";
 import { agentStep } from "./agent";
+import { aiStepResult } from "@shapeshift/shared/assistant/aiStream";
 import { workersAiProvider } from "./workersAi";
 import { toParams, toWire } from "./anthropic";
 import { handleUsage } from "./usage";
@@ -37,7 +38,7 @@ async function events(res: Response): Promise<AgentEvent[]> {
 }
 
 describe("/api/agent", () => {
-    it("streams the model's step back, a few events a second rather than a token at a time", async () => {
+    it("passes Workers AI's stream straight through, for the browser to read", async () => {
         // Thinking, then words, then a tool call whose arguments come in pieces.
         const e = env(async () =>
             sse(
@@ -49,18 +50,14 @@ describe("/api/agent", () => {
             ),
         );
         const res = await agentStep(post({ messages: [{ role: "user", content: "add a box", scene: "The scene is empty." }] }), e);
-        expect(res.headers.get("content-type")).toContain("ndjson");
-        const out = await events(res);
-        expect(out.slice(0, 3)).toEqual([
-            { type: "thinking", text: "A box at the origin." },
-            { type: "text", text: "On it." },
-            { type: "tool_start", name: "add" },
-        ]);
-        expect(out[3]).toMatchObject({
-            type: "message",
-            stop: "tool_use",
-            message: { content: "On it.", tool_calls: [{ id: "t1", name: "add", arguments: '{"primitive":"box"}' }] },
-        });
+        expect(res.headers.get("content-type")).toContain("text/event-stream");
+        expect(res.headers.get("x-agent-stream")).toBe("workers-ai");
+        expect(res.headers.get("x-agent-model")).toBe("@cf/zai-org/glm-4.7-flash");
+        // Read the way the browser reads it.
+        const seen: string[] = [];
+        const step = await aiStepResult(res.body!, { onThinking: (t) => seen.push(`thinking:${t}`), onText: (t) => seen.push(`text:${t}`), onToolStart: (n) => seen.push(`tool:${n}`) }, "m");
+        expect(seen).toEqual(["thinking:A box", "thinking: at the origin.", "text:On it.", "tool:add"]);
+        expect(step).toMatchObject({ stop: "tool_use", message: { content: "On it.", tool_calls: [{ id: "t1", name: "add", arguments: '{"primitive":"box"}' }] } });
         const sent = (e.AI.run as ReturnType<typeof vi.fn>).mock.calls[0][1] as { messages: { role: string; content: string }[] };
         expect(sent.messages[0].role).toBe("system");
         expect(sent.messages[1].content).toContain("<scene>\nThe scene is empty.\n</scene>");
@@ -68,8 +65,8 @@ describe("/api/agent", () => {
 
     it("turns a model's thinking off with #nothink", async () => {
         const e = env(async () => sse(delta({ content: "Hi." }, "stop")));
-        await events(await workersAiStep(e, "@cf/zai-org/glm-4.7-flash#nothink"));
-        await events(await workersAiStep(e, "@cf/zai-org/glm-4.7-flash"));
+        await (await workersAiStep(e, "@cf/zai-org/glm-4.7-flash#nothink")).text();
+        await (await workersAiStep(e, "@cf/zai-org/glm-4.7-flash")).text();
         const calls = (e.AI.run as ReturnType<typeof vi.fn>).mock.calls as [string, { chat_template_kwargs: { enable_thinking: boolean } }][];
         expect(calls.map(([model, args]) => [model, args.chat_template_kwargs.enable_thinking])).toEqual([
             ["@cf/zai-org/glm-4.7-flash", false],
@@ -78,12 +75,12 @@ describe("/api/agent", () => {
     });
 
     it("reads the older streamed shape too, and stops on a cut-off reply", async () => {
-        const old = await events(await agentStep(post({ messages: [{ role: "user", content: "hi" }] }), env(async () => sse({ response: "Hel" }, { response: "lo" }))));
-        expect(old.filter((o) => o.type === "text").map((o) => (o as { text: string }).text)).toEqual(["Hello"]);
-        expect(old.at(-1)).toMatchObject({ type: "message", stop: "end", message: { content: "Hello" } });
+        const read = async (body: ReadableStream<Uint8Array>) => aiStepResult(body, { onText: () => {}, onToolStart: () => {} }, "m");
+        const old = await agentStep(post({ messages: [{ role: "user", content: "hi" }] }), env(async () => sse({ response: "Hel" }, { response: "lo" })));
+        expect(await read(old.body!)).toMatchObject({ stop: "end", message: { content: "Hello" } });
 
-        const cut = await events(await agentStep(post({ messages: [{ role: "user", content: "hi" }] }), env(async () => sse(delta({ content: "Partial" }, "length")))));
-        expect(cut.at(-1)).toMatchObject({ type: "message", stop: "max_tokens" });
+        const cut = await agentStep(post({ messages: [{ role: "user", content: "hi" }] }), env(async () => sse(delta({ content: "Partial" }, "length"))));
+        expect(await read(cut.body!)).toMatchObject({ stop: "max_tokens" });
     });
 
     it("rejects bad requests before calling the model", async () => {
@@ -104,7 +101,7 @@ describe("/api/agent", () => {
     it("counts prompts and stops visitors at their monthly limit", async () => {
         const e = env(async () => sse(delta({ content: "Done." }, "stop")));
         const prompt = { messages: [{ role: "user", content: "add a box" }] };
-        for (let i = 0; i < 10; i++) await events(await agentStep(post(prompt), e));
+        for (let i = 0; i < 10; i++) await (await agentStep(post(prompt), e)).text();
         const over = await agentStep(post(prompt), e);
         expect(over.status).toBe(402);
         expect(await over.json()).toMatchObject({ code: "quota", error: expect.stringContaining("Sign in") });
@@ -129,10 +126,11 @@ describe("/api/agent", () => {
         expect(usage).toMatchObject({ prompts: { used: 0 } });
     });
 
-    it("reports model failures as an error event", async () => {
+    it("reports a model that can't start as an error response", async () => {
         const res = await agentStep(post({ messages: [{ role: "user", content: "hi" }] }), env(async () => Promise.reject(new Error("down"))));
-        const out = await events(res);
-        expect(out).toEqual([{ type: "error", code: "overloaded", error: expect.any(String) }]);
+        expect(res.status).toBe(503);
+        const out = [await res.json()];
+        expect(out).toEqual([{ code: "overloaded", error: expect.any(String) }]);
     });
 });
 
