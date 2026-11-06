@@ -105,9 +105,9 @@ describe("/api/agent", () => {
     });
 
     it("says which models can be picked", async () => {
-        const info = await (await agentInfo(new Request("https://x/api/agent"), env(async () => ({})))).json();
+        const info = (await (await agentInfo(new Request("https://x/api/agent"), env(async () => ({})))).json()) as { choices: { id: string; cost: number }[] };
         expect(info).toMatchObject({ provider: "workers-ai", default: "fast" });
-        expect(info.choices.map((c: { id: string; cost: number }) => `${c.id}:${c.cost}`)).toEqual(["fast:1", "careful:2", "gpt-oss:3"]);
+        expect(info.choices.map((c) => `${c.id}:${c.cost}`)).toEqual(["fast:1", "careful:2", "gpt-oss:3"]);
     });
 
     it("rejects bad requests before calling the model", async () => {
